@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+package appointment;
+
+service AppointmentService {
+    rpc CreateAppointment(CreateAppointmentRequest) returns (AppointmentResponse);
+    rpc UpdateAppointment(UpdateAppointmentRequest) returns (AppointmentResponse);
+    rpc GetAppointment(GetAppointmentRequest) returns (AppointmentResponse);
+    rpc ListAppointments(ListAppointmentsRequest) returns (ListAppointmentsResponse);
+}
+
+message CreateAppointmentRequest {
+    string patient_id = 1;
+    string doctor_id = 2;
+    string psychologist_id = 3;
+    string appointment_time = 4;
+    string notes = 5;
+}
+
+message UpdateAppointmentRequest {
+    string appointment_id = 1;
+    string appointment_time = 2;
+    string notes = 3;
+}
+
+message GetAppointmentRequest {
+    string appointment_id = 1;
+}
+
+message ListAppointmentsRequest {
+    string patient_id = 1;
+}
+
+message AppointmentResponse {
+    string appointment_id = 1;
+    string patient_id = 2;
+    string doctor_id = 3;
+    string psychologist_id = 4;
+    string appointment_time = 5;
+    string notes = 6;
+}
+
+message ListAppointmentsResponse {
+    repeated AppointmentResponse appointments = 1;
+}

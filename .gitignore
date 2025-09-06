@@ -1,0 +1,8 @@
+tmp
+.devcontainer
+.fleet
+.vscode
+*.log
+.DS_Store
+
+.env
