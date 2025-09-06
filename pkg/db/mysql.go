@@ -1,33 +1,37 @@
 package db
 
 import (
+	"context"
 	"database/sql"
-	"fmt"
+	"time"
 
 	"github.com/go-sql-driver/mysql"
+	"github.com/salahfarzin/meet/configs"
 )
 
-var DB *sql.DB
-
-func ConnectWithConfig(cfg *mysql.Config) error {
-	dsn := cfg.FormatDSN()
-	db, err := sql.Open("mysql", dsn)
+func NewMySQLStorage(cfg *configs.Configs) (*sql.DB, error) {
+	mysqlCfg := mysql.Config{
+		User:                 cfg.DB.User,
+		Passwd:               cfg.DB.Password,
+		Addr:                 cfg.DB.Address,
+		DBName:               cfg.DB.Name,
+		Net:                  "tcp",
+		AllowNativePasswords: true,
+		ParseTime:            true,
+	}
+	db, err := sql.Open("mysql", mysqlCfg.FormatDSN())
 	if err != nil {
-		return fmt.Errorf("failed to open mysql: %w", err)
+		return nil, err
 	}
+	db.SetMaxOpenConns(cfg.DB.MaxOpenConns)
+	db.SetMaxIdleConns(cfg.DB.MaxIdleConns)
+	db.SetConnMaxLifetime(time.Duration(cfg.DB.ConnMaxLifetime) * time.Minute)
 
-	if err := db.Ping(); err != nil {
-		return fmt.Errorf("failed to ping mysql: %w", err)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := db.PingContext(ctx); err != nil {
+		db.Close()
+		return nil, err
 	}
-
-	DB = db
-	return nil
-}
-
-// Close closes the MySQL connection
-func Close() error {
-	if DB != nil {
-		return DB.Close()
-	}
-	return nil
+	return db, nil
 }

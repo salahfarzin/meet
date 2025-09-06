@@ -1,0 +1,89 @@
+syntax = "proto3";
+
+package meets;
+
+import "google/api/annotations.proto";
+import "proto/common.proto";
+
+option go_package = "proto/meets;meets";
+
+// Meet message
+message Meet {
+  string uuid = 1;
+  string organizer_id = 2;
+  repeated string participants = 3;
+  string title = 4;
+  string description = 5;
+  string color = 6;
+  string start = 7;
+  string end = 8;
+}
+
+// Request & Response
+message GetOneRequest {
+  string uuid = 1;
+}
+message GetOneResponse {
+  Meet meet = 1;
+}
+// Request & Response
+message DeleteRequest {
+  string uuid = 1;
+}
+message DeleteResponse {
+}
+// Request & Response
+message GetAllRequest {
+  string organizer_id = 1;
+}
+message GetAllResponse {
+  repeated Meet meets = 1;
+}
+// Request & Response
+message CreateRequest {
+  Meet meet = 1;
+}
+message CreateResponse {
+  common.ResponseStatus status = 1;
+  Meet meet = 2;
+}
+
+// Request & Response
+message UpdateRequest {
+  string uuid = 1;
+  Meet meet = 2;
+}
+message UpdateResponse {
+  Meet meet = 1;
+}
+
+// Service definition
+service MeetService {
+  rpc GetAll (GetAllRequest) returns (GetAllResponse) {
+    option (google.api.http) = {
+      get: "/meets"
+    };
+  }
+  rpc GetOne (GetOneRequest) returns (GetOneResponse) {
+    option (google.api.http) = {
+      get: "/meets/{uuid}"
+    };
+  }
+  rpc Create (CreateRequest) returns (CreateResponse) {
+    option (google.api.http) = {
+      post: "/meets"
+      body: "meet"
+    };
+  }
+  rpc Update (UpdateRequest) returns (UpdateResponse) {
+    option (google.api.http) = {
+      put: "/meets/{uuid}"
+      body: "meet"
+    };
+  }
+  rpc Delete (DeleteRequest) returns (DeleteResponse) {
+    option (google.api.http) = {
+      delete: "/meets/{uuid}"
+    };
+  }
+}

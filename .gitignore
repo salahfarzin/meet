@@ -1,8 +1,16 @@
 tmp
+cmd/bin
+storage/tmp
+storage/keys
+
 .devcontainer
 .fleet
 .vscode
 *.log
+.env
+.env.local
 .DS_Store
 
 .env
+
+__debug_*

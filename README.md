@@ -1,67 +1,40 @@
-# Appointment System Backend
+# Meet System Backend
 
-This project is a backend system designed for managing appointments for psychologists and doctors using gRPC and RabbitMQ.
+This project is a backend system designed for managing meets for psychologists and doctors using gRPC and RabbitMQ.
 
 ## Features
 
-- gRPC-based API for handling appointment requests.
+- gRPC-based API for handling meet requests.
 - Separate services for managing doctors and psychologists.
 - Integration with RabbitMQ for message queuing.
 
-## Project Structure
-
+## REST API
 ```
-appointment-system-backend
-├── cmd
-│   └── server
-│       └── main.go          # Entry point of the application
-├── internal
-│   ├── appointments          # Appointment management
-│   │   ├── handler.go       # gRPC handler for appointments
-│   │   ├── repository.go     # Data storage and retrieval for appointments
-│   │   └── service.go       # Business logic for appointments
-│   ├── doctors               # Doctor management
-│   │   ├── handler.go       # gRPC handler for doctors
-│   │   ├── repository.go     # Data storage and retrieval for doctors
-│   │   └── service.go       # Business logic for doctors
-│   ├── psychologists         # Psychologist management
-│   │   ├── handler.go       # gRPC handler for psychologists
-│   │   ├── repository.go     # Data storage and retrieval for psychologists
-│   │   └── service.go       # Business logic for psychologists
-│   ├── grpc                 # gRPC server setup
-│   │   └── server.go        # gRPC server registration
-│   └── rabbitmq             # RabbitMQ client
-│       └── client.go        # RabbitMQ connection and communication
-├── proto                     # Protocol buffer definitions
-│   └── appointment.proto     # gRPC service and message types
-├── go.mod                   # Module definition
-├── go.sum                   # Module dependency checksums
-└── README.md                # Project documentation
+curl http://localhost:8080/meets
+```
+## GRPC API
+```
+grpcurl -plaintext -d '{"meet": {"title":"Test","start":"2025-09-10 10:25"}}' localhost:50051 meets.MeetService/CreateMeet
 ```
 
-## Setup Instructions
+## Build proto for meet (with support RESTful API)
+```
+protoc -I. -I./googleapis --go_out=proto --go-grpc_out=proto --grpc-gateway_out=proto proto/meets/meets.proto 
+```
 
-1. Clone the repository:
-   ```
-   git clone <repository-url>
-   cd appointment-system-backend
-   ```
+## Database migrations
+the most popular tool for generating and running database migrations is golang-migrate/migrate.
 
-2. Install dependencies:
-   ```
-   go mod tidy
-   ```
-
-3. Run the application:
-   ```
-   go run cmd/server/main.go
-   ```
-
-## Usage
-
-- The gRPC server will be available at the specified address and port.
-- Use a gRPC client to interact with the appointment, doctor, and psychologist services.
-
-## Contributing
-
-Contributions are welcome! Please open an issue or submit a pull request for any improvements or bug fixes.
+Migration path: ```database/migrations```
+### Install migrate CLI (if you haven’t already):
+```
+brew install golang-migrate
+```
+### Create migrations
+```
+migrate create -ext sql -dir database/migrations -seq create_meets_table
+```
+### Run migration
+```
+migrate -path database/migrations -database \"mysql://user:password@tcp(localhost:3306)/dbname\" up
+```

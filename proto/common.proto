@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package common;
+
+option go_package = "github.com/salahfarzin/meet/proto/common;common";
+
+message ResponseStatus {
+  int32 code = 1;
+  string message = 2;
+}
