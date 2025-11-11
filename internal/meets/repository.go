@@ -27,6 +27,15 @@ type Repository interface {
 	GetAllByOrganizerId(organizerId string) ([]*Meet, error)
 	HasConflict(organizerId string, start, end time.Time, excludeUUID ...string) (bool, error)
 }
+type repository struct {
+	db *sql.DB
+}
+
+func NewRepository(db *sql.DB) Repository {
+	return &repository{
+		db: db,
+	}
+}
 
 // HasConflict checks if there is an overlapping appointment for the organizer and period
 func (repo *repository) HasConflict(organizerId string, start, end time.Time, excludeUUID ...string) (bool, error) {
@@ -42,16 +51,6 @@ func (repo *repository) HasConflict(organizerId string, start, end time.Time, ex
 		return false, err
 	}
 	return count > 0, nil
-}
-
-type repository struct {
-	db *sql.DB
-}
-
-func NewRepository(db *sql.DB) Repository {
-	return &repository{
-		db: db,
-	}
 }
 
 func (repo *repository) Create(meet *Meet) error {
