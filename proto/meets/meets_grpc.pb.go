@@ -19,11 +19,12 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	MeetService_GetAll_FullMethodName = "/meets.MeetService/GetAll"
-	MeetService_GetOne_FullMethodName = "/meets.MeetService/GetOne"
-	MeetService_Create_FullMethodName = "/meets.MeetService/Create"
-	MeetService_Update_FullMethodName = "/meets.MeetService/Update"
-	MeetService_Delete_FullMethodName = "/meets.MeetService/Delete"
+	MeetService_GetAll_FullMethodName          = "/meets.MeetService/GetAll"
+	MeetService_GetOne_FullMethodName          = "/meets.MeetService/GetOne"
+	MeetService_Create_FullMethodName          = "/meets.MeetService/Create"
+	MeetService_Update_FullMethodName          = "/meets.MeetService/Update"
+	MeetService_Delete_FullMethodName          = "/meets.MeetService/Delete"
+	MeetService_GetAvailability_FullMethodName = "/meets.MeetService/GetAvailability"
 )
 
 // MeetServiceClient is the client API for MeetService service.
@@ -37,6 +38,8 @@ type MeetServiceClient interface {
 	Create(ctx context.Context, in *CreateRequest, opts ...grpc.CallOption) (*CreateResponse, error)
 	Update(ctx context.Context, in *UpdateRequest, opts ...grpc.CallOption) (*UpdateResponse, error)
 	Delete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*DeleteResponse, error)
+	// Get user availability for next 7 days
+	GetAvailability(ctx context.Context, in *GetAvailabilityRequest, opts ...grpc.CallOption) (*GetAvailabilityResponse, error)
 }
 
 type meetServiceClient struct {
@@ -97,6 +100,16 @@ func (c *meetServiceClient) Delete(ctx context.Context, in *DeleteRequest, opts 
 	return out, nil
 }
 
+func (c *meetServiceClient) GetAvailability(ctx context.Context, in *GetAvailabilityRequest, opts ...grpc.CallOption) (*GetAvailabilityResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetAvailabilityResponse)
+	err := c.cc.Invoke(ctx, MeetService_GetAvailability_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MeetServiceServer is the server API for MeetService service.
 // All implementations must embed UnimplementedMeetServiceServer
 // for forward compatibility.
@@ -108,6 +121,8 @@ type MeetServiceServer interface {
 	Create(context.Context, *CreateRequest) (*CreateResponse, error)
 	Update(context.Context, *UpdateRequest) (*UpdateResponse, error)
 	Delete(context.Context, *DeleteRequest) (*DeleteResponse, error)
+	// Get user availability for next 7 days
+	GetAvailability(context.Context, *GetAvailabilityRequest) (*GetAvailabilityResponse, error)
 	mustEmbedUnimplementedMeetServiceServer()
 }
 
@@ -132,6 +147,9 @@ func (UnimplementedMeetServiceServer) Update(context.Context, *UpdateRequest) (*
 }
 func (UnimplementedMeetServiceServer) Delete(context.Context, *DeleteRequest) (*DeleteResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Delete not implemented")
+}
+func (UnimplementedMeetServiceServer) GetAvailability(context.Context, *GetAvailabilityRequest) (*GetAvailabilityResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAvailability not implemented")
 }
 func (UnimplementedMeetServiceServer) mustEmbedUnimplementedMeetServiceServer() {}
 func (UnimplementedMeetServiceServer) testEmbeddedByValue()                     {}
@@ -244,6 +262,24 @@ func _MeetService_Delete_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MeetService_GetAvailability_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAvailabilityRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MeetServiceServer).GetAvailability(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MeetService_GetAvailability_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MeetServiceServer).GetAvailability(ctx, req.(*GetAvailabilityRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // MeetService_ServiceDesc is the grpc.ServiceDesc for MeetService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -270,6 +306,10 @@ var MeetService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Delete",
 			Handler:    _MeetService_Delete_Handler,
+		},
+		{
+			MethodName: "GetAvailability",
+			Handler:    _MeetService_GetAvailability_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

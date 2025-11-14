@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"slices"
+	"sort"
+	"time"
 
 	"github.com/salahfarzin/meet/pkg/logger"
 	"github.com/salahfarzin/meet/pkg/middlewares"
@@ -31,13 +34,6 @@ func NewHandler(service Service) *handler {
 
 // Create implements proto.MeetServiceServer.
 func (h *handler) Create(ctx context.Context, req *pb.CreateRequest) (*pb.CreateResponse, error) {
-	user, ok := middlewares.GetUser(ctx)
-	var userID string
-	if ok && user != nil {
-		userID = user.ID
-		// Use userID as needed
-	}
-
 	if err := validateCreateRequest(req); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Message)
 	}
@@ -49,7 +45,7 @@ func (h *handler) Create(ctx context.Context, req *pb.CreateRequest) (*pb.Create
 
 	meet, err := h.service.Create(ctx, &Meet{
 		Title:        req.Meet.Title,
-		OrganizerID:  userID,
+		OrganizerID:  retrieveOrganizerID(ctx, req.Meet.OrganizerId),
 		Participants: req.Meet.Participants,
 		Start:        startTime,
 		End:          endTime,
@@ -81,13 +77,6 @@ func (h *handler) Create(ctx context.Context, req *pb.CreateRequest) (*pb.Create
 
 // Update implements proto.MeetServiceServer.
 func (h *handler) Update(ctx context.Context, req *pb.UpdateRequest) (*pb.UpdateResponse, error) {
-	user, ok := middlewares.GetUser(ctx)
-	var userID string
-	if ok && user != nil {
-		userID = user.ID
-		// Use userID as needed
-	}
-
 	if err := validateUpdateRequest(req); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Message)
 	}
@@ -99,7 +88,7 @@ func (h *handler) Update(ctx context.Context, req *pb.UpdateRequest) (*pb.Update
 
 	meet, err := h.service.Update(ctx, &Meet{
 		UUID:         req.Uuid,
-		OrganizerID:  userID,
+		OrganizerID:  retrieveOrganizerID(ctx, req.Meet.OrganizerId),
 		Participants: req.Meet.Participants,
 		Title:        req.Meet.Title,
 		Start:        startTime,
@@ -129,18 +118,15 @@ func (h *handler) Update(ctx context.Context, req *pb.UpdateRequest) (*pb.Update
 }
 
 func (h *handler) GetAll(ctx context.Context, req *pb.GetAllRequest) (*pb.GetAllResponse, error) {
-	meets, err := h.service.GetAllByOrganizerId(ctx, req.OrganizerId)
+	opts := &MeetQueryOptions{OrganizerID: retrieveOrganizerID(ctx, req.OrganizerId)}
+	meetsList, err := h.service.QueryMeets(ctx, opts)
 	if err != nil {
-		// log the error for internal debugging
 		logger.FromContext(ctx).Error("DB error", zap.Error(err))
-		// return a generic error to the client
 		return nil, status.Error(codes.Internal, "Internal server error")
 	}
-
-	pbMeets := make([]*pb.Meet, 0, len(meets))
-	for _, a := range meets {
+	pbMeets := make([]*pb.Meet, 0, len(meetsList))
+	for _, a := range meetsList {
 		var id int32
-		// Convert string ID to int32, ignore error for now or handle as needed
 		fmt.Sscanf(a.ID, "%d", &id)
 		pbMeets = append(pbMeets, &pb.Meet{
 			Uuid:        a.UUID,
@@ -151,8 +137,63 @@ func (h *handler) GetAll(ctx context.Context, req *pb.GetAllRequest) (*pb.GetAll
 			Color:       a.Color,
 		})
 	}
-
 	return &pb.GetAllResponse{Meets: pbMeets}, nil
+}
+
+// GetAvailability returns next 7 days of availability for a organizer user
+func (h *handler) GetAvailability(ctx context.Context, req *pb.GetAvailabilityRequest) (*pb.GetAvailabilityResponse, error) {
+	if req == nil || req.Uuid == "" {
+		return nil, status.Error(codes.InvalidArgument, "uuid is required")
+	}
+
+	organizerID := retrieveOrganizerID(ctx, req.Uuid)
+
+	var from, to time.Time
+	now := time.Now().UTC()
+	if req.From == "" {
+		from = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	} else {
+		from, _ = time.Parse("2006-01-02", req.From)
+	}
+	if req.To == "" {
+		to = from.AddDate(0, 0, 6)
+	} else {
+		to, _ = time.Parse("2006-01-02", req.To)
+	}
+
+	datesMap, err := h.service.GetAvailability(ctx, organizerID, from, to)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to fetch availability")
+	}
+	// Collect and sort date keys
+	dateKeys := make([]string, 0, len(datesMap))
+	for date := range datesMap {
+		dateKeys = append(dateKeys, date)
+	}
+	sort.Strings(dateKeys)
+
+	dates := make([]*pb.DateSlot, 0, len(dateKeys))
+	for _, date := range dateKeys {
+		ds := datesMap[date]
+		slots := make([]*pb.TimeSlot, 0)
+		for _, slot := range ds.Times {
+			slots = append(slots, &pb.TimeSlot{
+				Start:    slot.Start,
+				End:      slot.End,
+				Duration: slot.Duration,
+			})
+		}
+		t, _ := time.Parse("2006-01-02", date)
+		dayName := t.Format("Mon")
+		label := fmt.Sprintf("%s %s", dayName, t.Format("Jan 02, 2006"))
+		dates = append(dates, &pb.DateSlot{
+			Label: label,
+			Value: date,
+			Title: ds.Title,
+			Times: slots,
+		})
+	}
+	return &pb.GetAvailabilityResponse{Dates: dates}, nil
 }
 
 // validateCreateRequest checks required fields and returns a gRPC error if invalid
@@ -189,4 +230,18 @@ func validateUpdateRequest(req *pb.UpdateRequest) *common.ResponseStatus {
 		return &common.ResponseStatus{Code: http.StatusBadRequest, Message: "end time is required"}
 	}
 	return nil
+}
+
+func retrieveOrganizerID(ctx context.Context, organizerID string) string {
+	user := middlewares.GetUserFromContext(ctx)
+
+	if slices.Contains(user.Roles, "Programmer") {
+		organizerID = organizerID
+	}
+
+	if organizerID == "" {
+		organizerID = user.Uuid
+	}
+
+	return organizerID
 }

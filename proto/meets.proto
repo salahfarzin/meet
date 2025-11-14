@@ -57,6 +57,29 @@ message UpdateResponse {
   Meet meet = 1;
 }
 
+// Request & Response for availability
+message GetAvailabilityRequest {
+  string uuid = 1;
+  string from = 2; // ISO8601 date string
+  string to = 3;   // ISO8601 date string
+}
+message DateSlot {
+  string title = 1;
+  string label = 2;
+  string value = 3;
+  repeated TimeSlot times = 4;
+}
+
+message TimeSlot {
+  string start = 1;
+  string end = 2;
+  string duration = 3;
+}
+
+message GetAvailabilityResponse {
+  repeated DateSlot dates = 1;
+}
+
 // Service definition
 service MeetService {
   rpc GetAll (GetAllRequest) returns (GetAllResponse) {
@@ -84,6 +107,12 @@ service MeetService {
   rpc Delete (DeleteRequest) returns (DeleteResponse) {
     option (google.api.http) = {
       delete: "/meets/{uuid}"
+    };
+  }
+  // Get user availability for next 7 days
+  rpc GetAvailability (GetAvailabilityRequest) returns (GetAvailabilityResponse) {
+    option (google.api.http) = {
+      get: "/meets/{uuid}/availability"
     };
   }
 }

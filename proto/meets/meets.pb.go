@@ -577,6 +577,239 @@ func (x *UpdateResponse) GetMeet() *Meet {
 	return nil
 }
 
+// Request & Response for availability
+type GetAvailabilityRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Uuid          string                 `protobuf:"bytes,1,opt,name=uuid,proto3" json:"uuid,omitempty"`
+	From          string                 `protobuf:"bytes,2,opt,name=from,proto3" json:"from,omitempty"` // ISO8601 date string
+	To            string                 `protobuf:"bytes,3,opt,name=to,proto3" json:"to,omitempty"`     // ISO8601 date string
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetAvailabilityRequest) Reset() {
+	*x = GetAvailabilityRequest{}
+	mi := &file_proto_meets_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetAvailabilityRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetAvailabilityRequest) ProtoMessage() {}
+
+func (x *GetAvailabilityRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_meets_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetAvailabilityRequest.ProtoReflect.Descriptor instead.
+func (*GetAvailabilityRequest) Descriptor() ([]byte, []int) {
+	return file_proto_meets_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *GetAvailabilityRequest) GetUuid() string {
+	if x != nil {
+		return x.Uuid
+	}
+	return ""
+}
+
+func (x *GetAvailabilityRequest) GetFrom() string {
+	if x != nil {
+		return x.From
+	}
+	return ""
+}
+
+func (x *GetAvailabilityRequest) GetTo() string {
+	if x != nil {
+		return x.To
+	}
+	return ""
+}
+
+type DateSlot struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Title         string                 `protobuf:"bytes,1,opt,name=title,proto3" json:"title,omitempty"`
+	Label         string                 `protobuf:"bytes,2,opt,name=label,proto3" json:"label,omitempty"`
+	Value         string                 `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
+	Times         []*TimeSlot            `protobuf:"bytes,4,rep,name=times,proto3" json:"times,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DateSlot) Reset() {
+	*x = DateSlot{}
+	mi := &file_proto_meets_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DateSlot) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DateSlot) ProtoMessage() {}
+
+func (x *DateSlot) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_meets_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DateSlot.ProtoReflect.Descriptor instead.
+func (*DateSlot) Descriptor() ([]byte, []int) {
+	return file_proto_meets_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *DateSlot) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *DateSlot) GetLabel() string {
+	if x != nil {
+		return x.Label
+	}
+	return ""
+}
+
+func (x *DateSlot) GetValue() string {
+	if x != nil {
+		return x.Value
+	}
+	return ""
+}
+
+func (x *DateSlot) GetTimes() []*TimeSlot {
+	if x != nil {
+		return x.Times
+	}
+	return nil
+}
+
+type TimeSlot struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Start         string                 `protobuf:"bytes,1,opt,name=start,proto3" json:"start,omitempty"`
+	End           string                 `protobuf:"bytes,2,opt,name=end,proto3" json:"end,omitempty"`
+	Duration      string                 `protobuf:"bytes,3,opt,name=duration,proto3" json:"duration,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TimeSlot) Reset() {
+	*x = TimeSlot{}
+	mi := &file_proto_meets_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TimeSlot) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TimeSlot) ProtoMessage() {}
+
+func (x *TimeSlot) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_meets_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TimeSlot.ProtoReflect.Descriptor instead.
+func (*TimeSlot) Descriptor() ([]byte, []int) {
+	return file_proto_meets_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *TimeSlot) GetStart() string {
+	if x != nil {
+		return x.Start
+	}
+	return ""
+}
+
+func (x *TimeSlot) GetEnd() string {
+	if x != nil {
+		return x.End
+	}
+	return ""
+}
+
+func (x *TimeSlot) GetDuration() string {
+	if x != nil {
+		return x.Duration
+	}
+	return ""
+}
+
+type GetAvailabilityResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Dates         []*DateSlot            `protobuf:"bytes,1,rep,name=dates,proto3" json:"dates,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetAvailabilityResponse) Reset() {
+	*x = GetAvailabilityResponse{}
+	mi := &file_proto_meets_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetAvailabilityResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetAvailabilityResponse) ProtoMessage() {}
+
+func (x *GetAvailabilityResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_meets_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetAvailabilityResponse.ProtoReflect.Descriptor instead.
+func (*GetAvailabilityResponse) Descriptor() ([]byte, []int) {
+	return file_proto_meets_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *GetAvailabilityResponse) GetDates() []*DateSlot {
+	if x != nil {
+		return x.Dates
+	}
+	return nil
+}
+
 var File_proto_meets_proto protoreflect.FileDescriptor
 
 const file_proto_meets_proto_rawDesc = "" +
@@ -611,13 +844,29 @@ const file_proto_meets_proto_rawDesc = "" +
 	"\x04uuid\x18\x01 \x01(\tR\x04uuid\x12\x1f\n" +
 	"\x04meet\x18\x02 \x01(\v2\v.meets.MeetR\x04meet\"1\n" +
 	"\x0eUpdateResponse\x12\x1f\n" +
-	"\x04meet\x18\x01 \x01(\v2\v.meets.MeetR\x04meet2\x91\x03\n" +
+	"\x04meet\x18\x01 \x01(\v2\v.meets.MeetR\x04meet\"P\n" +
+	"\x16GetAvailabilityRequest\x12\x12\n" +
+	"\x04uuid\x18\x01 \x01(\tR\x04uuid\x12\x12\n" +
+	"\x04from\x18\x02 \x01(\tR\x04from\x12\x0e\n" +
+	"\x02to\x18\x03 \x01(\tR\x02to\"s\n" +
+	"\bDateSlot\x12\x14\n" +
+	"\x05title\x18\x01 \x01(\tR\x05title\x12\x14\n" +
+	"\x05label\x18\x02 \x01(\tR\x05label\x12\x14\n" +
+	"\x05value\x18\x03 \x01(\tR\x05value\x12%\n" +
+	"\x05times\x18\x04 \x03(\v2\x0f.meets.TimeSlotR\x05times\"N\n" +
+	"\bTimeSlot\x12\x14\n" +
+	"\x05start\x18\x01 \x01(\tR\x05start\x12\x10\n" +
+	"\x03end\x18\x02 \x01(\tR\x03end\x12\x1a\n" +
+	"\bduration\x18\x03 \x01(\tR\bduration\"@\n" +
+	"\x17GetAvailabilityResponse\x12%\n" +
+	"\x05dates\x18\x01 \x03(\v2\x0f.meets.DateSlotR\x05dates2\x87\x04\n" +
 	"\vMeetService\x12E\n" +
 	"\x06GetAll\x12\x14.meets.GetAllRequest\x1a\x15.meets.GetAllResponse\"\x0e\x82\xd3\xe4\x93\x02\b\x12\x06/meets\x12L\n" +
 	"\x06GetOne\x12\x14.meets.GetOneRequest\x1a\x15.meets.GetOneResponse\"\x15\x82\xd3\xe4\x93\x02\x0f\x12\r/meets/{uuid}\x12K\n" +
 	"\x06Create\x12\x14.meets.CreateRequest\x1a\x15.meets.CreateResponse\"\x14\x82\xd3\xe4\x93\x02\x0e:\x04meet\"\x06/meets\x12R\n" +
 	"\x06Update\x12\x14.meets.UpdateRequest\x1a\x15.meets.UpdateResponse\"\x1b\x82\xd3\xe4\x93\x02\x15:\x04meet\x1a\r/meets/{uuid}\x12L\n" +
-	"\x06Delete\x12\x14.meets.DeleteRequest\x1a\x15.meets.DeleteResponse\"\x15\x82\xd3\xe4\x93\x02\x0f*\r/meets/{uuid}B\x13Z\x11proto/meets;meetsb\x06proto3"
+	"\x06Delete\x12\x14.meets.DeleteRequest\x1a\x15.meets.DeleteResponse\"\x15\x82\xd3\xe4\x93\x02\x0f*\r/meets/{uuid}\x12t\n" +
+	"\x0fGetAvailability\x12\x1d.meets.GetAvailabilityRequest\x1a\x1e.meets.GetAvailabilityResponse\"\"\x82\xd3\xe4\x93\x02\x1c\x12\x1a/meets/{uuid}/availabilityB\x13Z\x11proto/meets;meetsb\x06proto3"
 
 var (
 	file_proto_meets_proto_rawDescOnce sync.Once
@@ -631,44 +880,52 @@ func file_proto_meets_proto_rawDescGZIP() []byte {
 	return file_proto_meets_proto_rawDescData
 }
 
-var file_proto_meets_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_proto_meets_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
 var file_proto_meets_proto_goTypes = []any{
-	(*Meet)(nil),                  // 0: meets.Meet
-	(*GetOneRequest)(nil),         // 1: meets.GetOneRequest
-	(*GetOneResponse)(nil),        // 2: meets.GetOneResponse
-	(*DeleteRequest)(nil),         // 3: meets.DeleteRequest
-	(*DeleteResponse)(nil),        // 4: meets.DeleteResponse
-	(*GetAllRequest)(nil),         // 5: meets.GetAllRequest
-	(*GetAllResponse)(nil),        // 6: meets.GetAllResponse
-	(*CreateRequest)(nil),         // 7: meets.CreateRequest
-	(*CreateResponse)(nil),        // 8: meets.CreateResponse
-	(*UpdateRequest)(nil),         // 9: meets.UpdateRequest
-	(*UpdateResponse)(nil),        // 10: meets.UpdateResponse
-	(*common.ResponseStatus)(nil), // 11: common.ResponseStatus
+	(*Meet)(nil),                    // 0: meets.Meet
+	(*GetOneRequest)(nil),           // 1: meets.GetOneRequest
+	(*GetOneResponse)(nil),          // 2: meets.GetOneResponse
+	(*DeleteRequest)(nil),           // 3: meets.DeleteRequest
+	(*DeleteResponse)(nil),          // 4: meets.DeleteResponse
+	(*GetAllRequest)(nil),           // 5: meets.GetAllRequest
+	(*GetAllResponse)(nil),          // 6: meets.GetAllResponse
+	(*CreateRequest)(nil),           // 7: meets.CreateRequest
+	(*CreateResponse)(nil),          // 8: meets.CreateResponse
+	(*UpdateRequest)(nil),           // 9: meets.UpdateRequest
+	(*UpdateResponse)(nil),          // 10: meets.UpdateResponse
+	(*GetAvailabilityRequest)(nil),  // 11: meets.GetAvailabilityRequest
+	(*DateSlot)(nil),                // 12: meets.DateSlot
+	(*TimeSlot)(nil),                // 13: meets.TimeSlot
+	(*GetAvailabilityResponse)(nil), // 14: meets.GetAvailabilityResponse
+	(*common.ResponseStatus)(nil),   // 15: common.ResponseStatus
 }
 var file_proto_meets_proto_depIdxs = []int32{
 	0,  // 0: meets.GetOneResponse.meet:type_name -> meets.Meet
 	0,  // 1: meets.GetAllResponse.meets:type_name -> meets.Meet
 	0,  // 2: meets.CreateRequest.meet:type_name -> meets.Meet
-	11, // 3: meets.CreateResponse.status:type_name -> common.ResponseStatus
+	15, // 3: meets.CreateResponse.status:type_name -> common.ResponseStatus
 	0,  // 4: meets.CreateResponse.meet:type_name -> meets.Meet
 	0,  // 5: meets.UpdateRequest.meet:type_name -> meets.Meet
 	0,  // 6: meets.UpdateResponse.meet:type_name -> meets.Meet
-	5,  // 7: meets.MeetService.GetAll:input_type -> meets.GetAllRequest
-	1,  // 8: meets.MeetService.GetOne:input_type -> meets.GetOneRequest
-	7,  // 9: meets.MeetService.Create:input_type -> meets.CreateRequest
-	9,  // 10: meets.MeetService.Update:input_type -> meets.UpdateRequest
-	3,  // 11: meets.MeetService.Delete:input_type -> meets.DeleteRequest
-	6,  // 12: meets.MeetService.GetAll:output_type -> meets.GetAllResponse
-	2,  // 13: meets.MeetService.GetOne:output_type -> meets.GetOneResponse
-	8,  // 14: meets.MeetService.Create:output_type -> meets.CreateResponse
-	10, // 15: meets.MeetService.Update:output_type -> meets.UpdateResponse
-	4,  // 16: meets.MeetService.Delete:output_type -> meets.DeleteResponse
-	12, // [12:17] is the sub-list for method output_type
-	7,  // [7:12] is the sub-list for method input_type
-	7,  // [7:7] is the sub-list for extension type_name
-	7,  // [7:7] is the sub-list for extension extendee
-	0,  // [0:7] is the sub-list for field type_name
+	13, // 7: meets.DateSlot.times:type_name -> meets.TimeSlot
+	12, // 8: meets.GetAvailabilityResponse.dates:type_name -> meets.DateSlot
+	5,  // 9: meets.MeetService.GetAll:input_type -> meets.GetAllRequest
+	1,  // 10: meets.MeetService.GetOne:input_type -> meets.GetOneRequest
+	7,  // 11: meets.MeetService.Create:input_type -> meets.CreateRequest
+	9,  // 12: meets.MeetService.Update:input_type -> meets.UpdateRequest
+	3,  // 13: meets.MeetService.Delete:input_type -> meets.DeleteRequest
+	11, // 14: meets.MeetService.GetAvailability:input_type -> meets.GetAvailabilityRequest
+	6,  // 15: meets.MeetService.GetAll:output_type -> meets.GetAllResponse
+	2,  // 16: meets.MeetService.GetOne:output_type -> meets.GetOneResponse
+	8,  // 17: meets.MeetService.Create:output_type -> meets.CreateResponse
+	10, // 18: meets.MeetService.Update:output_type -> meets.UpdateResponse
+	4,  // 19: meets.MeetService.Delete:output_type -> meets.DeleteResponse
+	14, // 20: meets.MeetService.GetAvailability:output_type -> meets.GetAvailabilityResponse
+	15, // [15:21] is the sub-list for method output_type
+	9,  // [9:15] is the sub-list for method input_type
+	9,  // [9:9] is the sub-list for extension type_name
+	9,  // [9:9] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_proto_meets_proto_init() }
@@ -682,7 +939,7 @@ func file_proto_meets_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_meets_proto_rawDesc), len(file_proto_meets_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   11,
+			NumMessages:   15,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

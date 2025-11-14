@@ -3,10 +3,14 @@ package middlewares
 import (
 	"context"
 	"net/http"
+	"strings"
+
+	"google.golang.org/grpc/metadata"
 )
 
 type User struct {
 	ID        string
+	Uuid      string
 	Email     string
 	Roles     []string
 	Mobile    *string `json:"mobile"`
@@ -21,8 +25,8 @@ var userKey = &struct{}{}
 
 // GetUser retrieves user info from context
 func GetUser(ctx context.Context) (*User, bool) {
-	info, ok := ctx.Value(userKey).(*User)
-	return info, ok
+	user, ok := ctx.Value(userKey).(*User)
+	return user, ok
 }
 
 // AuthServiceFunc checks token and returns user info (mock signature)
@@ -37,12 +41,23 @@ func AuthMiddleware(authService AuthServiceFunc) Middleware {
 				http.Error(w, "missing access token", http.StatusUnauthorized)
 				return
 			}
+
 			user, err := authService(token)
 			if err != nil {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusUnauthorized)
 				http.Error(w, `{"Code": 401, "message": "invalid access token"}`, http.StatusUnauthorized)
 				return
 			}
+
+			// Set user in context for HTTP handlers
 			ctx := context.WithValue(r.Context(), userKey, user)
+
+			// Set headers for gRPC-Gateway to forward as metadata
+			r.Header.Set("x-user-id", user.ID)
+			r.Header.Set("x-user-uuid", user.Uuid)
+			r.Header.Set("x-user-roles", strings.Join(user.Roles, ","))
+
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -57,4 +72,38 @@ func extractToken(r *http.Request) string {
 		return cookie.Value
 	}
 	return ""
+}
+
+// GetUserFromContext tries to extract user info and roles from context or gRPC metadata
+func GetUserFromContext(ctx context.Context) User {
+	// Try context first (HTTP)
+	if user, ok := GetUser(ctx); ok && user != nil {
+		return *user
+	}
+	// Try gRPC metadata (gRPC-Gateway)
+	if md, ok := metadata.FromIncomingContext(ctx); ok {
+		// Try x-user-id, x-user-uuid, x-user-roles (string fields)
+		id := ""
+		uuid := ""
+		email := ""
+		roles := []string{}
+		if ids := md.Get("x-user-id"); len(ids) > 0 {
+			id = ids[0]
+		}
+		if uuids := md.Get("x-user-uuid"); len(uuids) > 0 {
+			uuid = uuids[0]
+		}
+		if emails := md.Get("x-user-email"); len(emails) > 0 {
+			email = emails[0]
+		}
+		if r := md.Get("x-user-roles"); len(r) > 0 {
+			roles = strings.Split(r[0], ",")
+		}
+		// If at least id or uuid is present, return a User
+		if id != "" || uuid != "" {
+			return User{ID: id, Uuid: uuid, Email: email, Roles: roles}
+		}
+	}
+
+	return User{}
 }

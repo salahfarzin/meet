@@ -220,6 +220,59 @@ func local_request_MeetService_Delete_0(ctx context.Context, marshaler runtime.M
 	return msg, metadata, err
 }
 
+var filter_MeetService_GetAvailability_0 = &utilities.DoubleArray{Encoding: map[string]int{"uuid": 0}, Base: []int{1, 1, 0}, Check: []int{0, 1, 2}}
+
+func request_MeetService_GetAvailability_0(ctx context.Context, marshaler runtime.Marshaler, client MeetServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var (
+		protoReq GetAvailabilityRequest
+		metadata runtime.ServerMetadata
+		err      error
+	)
+	if req.Body != nil {
+		_, _ = io.Copy(io.Discard, req.Body)
+	}
+	val, ok := pathParams["uuid"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "uuid")
+	}
+	protoReq.Uuid, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "uuid", err)
+	}
+	if err := req.ParseForm(); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_MeetService_GetAvailability_0); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	msg, err := client.GetAvailability(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	return msg, metadata, err
+}
+
+func local_request_MeetService_GetAvailability_0(ctx context.Context, marshaler runtime.Marshaler, server MeetServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var (
+		protoReq GetAvailabilityRequest
+		metadata runtime.ServerMetadata
+		err      error
+	)
+	val, ok := pathParams["uuid"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "uuid")
+	}
+	protoReq.Uuid, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "uuid", err)
+	}
+	if err := req.ParseForm(); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_MeetService_GetAvailability_0); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	msg, err := server.GetAvailability(ctx, &protoReq)
+	return msg, metadata, err
+}
+
 // RegisterMeetServiceHandlerServer registers the http handlers for service MeetService to "mux".
 // UnaryRPC     :call MeetServiceServer directly.
 // StreamingRPC :currently unsupported pending https://github.com/grpc/grpc-go/issues/906.
@@ -325,6 +378,26 @@ func RegisterMeetServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 			return
 		}
 		forward_MeetService_Delete_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+	})
+	mux.Handle(http.MethodGet, pattern_MeetService_GetAvailability_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		var stream runtime.ServerTransportStream
+		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/meets.MeetService/GetAvailability", runtime.WithHTTPPathPattern("/meets/{uuid}/availability"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := local_request_MeetService_GetAvailability_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		forward_MeetService_GetAvailability_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 	})
 
 	return nil
@@ -451,21 +524,40 @@ func RegisterMeetServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 		}
 		forward_MeetService_Delete_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 	})
+	mux.Handle(http.MethodGet, pattern_MeetService_GetAvailability_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/meets.MeetService/GetAvailability", runtime.WithHTTPPathPattern("/meets/{uuid}/availability"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := request_MeetService_GetAvailability_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		forward_MeetService_GetAvailability_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+	})
 	return nil
 }
 
 var (
-	pattern_MeetService_GetAll_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"meets"}, ""))
-	pattern_MeetService_GetOne_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1}, []string{"meets", "uuid"}, ""))
-	pattern_MeetService_Create_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"meets"}, ""))
-	pattern_MeetService_Update_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1}, []string{"meets", "uuid"}, ""))
-	pattern_MeetService_Delete_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1}, []string{"meets", "uuid"}, ""))
+	pattern_MeetService_GetAll_0          = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"meets"}, ""))
+	pattern_MeetService_GetOne_0          = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1}, []string{"meets", "uuid"}, ""))
+	pattern_MeetService_Create_0          = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"meets"}, ""))
+	pattern_MeetService_Update_0          = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1}, []string{"meets", "uuid"}, ""))
+	pattern_MeetService_Delete_0          = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1}, []string{"meets", "uuid"}, ""))
+	pattern_MeetService_GetAvailability_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1, 2, 2}, []string{"meets", "uuid", "availability"}, ""))
 )
 
 var (
-	forward_MeetService_GetAll_0 = runtime.ForwardResponseMessage
-	forward_MeetService_GetOne_0 = runtime.ForwardResponseMessage
-	forward_MeetService_Create_0 = runtime.ForwardResponseMessage
-	forward_MeetService_Update_0 = runtime.ForwardResponseMessage
-	forward_MeetService_Delete_0 = runtime.ForwardResponseMessage
+	forward_MeetService_GetAll_0          = runtime.ForwardResponseMessage
+	forward_MeetService_GetOne_0          = runtime.ForwardResponseMessage
+	forward_MeetService_Create_0          = runtime.ForwardResponseMessage
+	forward_MeetService_Update_0          = runtime.ForwardResponseMessage
+	forward_MeetService_Delete_0          = runtime.ForwardResponseMessage
+	forward_MeetService_GetAvailability_0 = runtime.ForwardResponseMessage
 )
