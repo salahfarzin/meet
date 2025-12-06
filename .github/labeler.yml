@@ -1,0 +1,43 @@
+# Labels for PR auto-labeling
+
+documentation:
+  - changed-files:
+    - any-glob-to-any-file:
+      - '**/*.md'
+      - 'docs/**'
+
+tests:
+  - changed-files:
+    - any-glob-to-any-file:
+      - '**/*_test.go'
+      - 'test/**'
+
+ci:
+  - changed-files:
+    - any-glob-to-any-file:
+      - '.github/**'
+
+database:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'migrations/**'
+
+api:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'proto/**'
+      - 'internal/meets/handler.go'
+      - 'router/**'
+
+dependencies:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'go.mod'
+      - 'go.sum'
+
+docker:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'Dockerfile'
+      - '.dockerignore'
+      - 'docker-compose*.yml'

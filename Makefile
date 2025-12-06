@@ -48,6 +48,45 @@ test:
 .PHONY: watch
 watch:
 	@~/go/bin/air -c air.conf
+	
+.PHONY: lint
+lint:
+	@golangci-lint run --timeout=5m
+
+.PHONY: lint-fix
+lint-fix:
+	@golangci-lint run --timeout=5m --fix
+
+.PHONY: test-coverage
+test-coverage:
+	@go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+	@go tool cover -html=coverage.out -o coverage.html
+	@echo "Coverage report generated: coverage.html"
+
+.PHONY: test-coverage-report
+test-coverage-report:
+	@go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+	@go tool cover -func=coverage.out
+
+.PHONY: benchmark
+benchmark:
+	@go test -bench=. -benchmem ./...
+
+.PHONY: security-scan
+security-scan:
+	@gosec ./...
+
+.PHONY: quality-check
+quality-check: lint test-coverage security-scan
+	@echo "✅ All quality checks passed!"
+
+.PHONY: complexity-check
+complexity-check:
+	@gocyclo -over 10 .
+
+.PHONY: quality-gate
+quality-gate:
+	@./scripts/quality-gate.sh
 	# @docker run -it --rm \
 	# 	-w "/go/src/github.com/cosmtrek/hub" \
 	# 	-v .:/go/src/github.com/cosmtrek/hub \

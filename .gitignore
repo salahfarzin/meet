@@ -15,3 +15,5 @@ storage/keys
 
 __debug_*
 .DS_Store
+
+coverage/

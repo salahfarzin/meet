@@ -1,0 +1,99 @@
+name: PR Checks
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+jobs:
+  conventional-commits:
+    name: Validate PR Title
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR title follows Conventional Commits
+        uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            docs
+            style
+            refactor
+            perf
+            test
+            build
+            ci
+            chore
+            revert
+          requireScope: false
+          subjectPattern: ^(?![A-Z]).+$
+          subjectPatternError: |
+            The subject "{subject}" found in the pull request title "{title}"
+            didn't match the configured pattern. Please ensure that the subject
+            doesn't start with an uppercase character.
+
+  label-pr:
+    name: Label PR
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Label PR based on files changed
+        uses: actions/labeler@v5
+        with:
+          repo-token: "${{ secrets.GITHUB_TOKEN }}"
+
+  pr-quality-gate:
+    name: PR Quality Gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Run tests with coverage
+        run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_USER: meet_user
+          DB_PASSWORD: root
+          DB_NAME: meet_db_test
+
+      - name: Check test coverage threshold
+        run: |
+          COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print substr($3, 1, length($3)-1)}')
+          echo "Current test coverage: $COVERAGE%"
+          if (( $(echo "$COVERAGE < 95.0" | bc -l) )); then
+            echo "❌ Test coverage is below 95%: $COVERAGE%"
+            exit 1
+          fi
+          echo "✅ Test coverage meets PR requirement: $COVERAGE%"
+
+      - name: Check for code quality degradation
+        run: |
+          # Check if any new critical issues were introduced
+          golangci-lint run --timeout=5m --out-format=json > lint-results.json || true
+          
+          # Count critical issues
+          CRITICAL_ISSUES=$(jq '[.Issues[] | select(.Severity == "error" or .Severity == "warning")] | length' lint-results.json)
+          
+          if [ "$CRITICAL_ISSUES" -gt 0 ]; then
+            echo "❌ Found $CRITICAL_ISSUES critical linting issues"
+            jq '.Issues[] | select(.Severity == "error" or .Severity == "warning") | "\(.FilePath):\(.Line):\(.Column): \(.Text)"' lint-results.json
+            exit 1
+          fi
+          
+          echo "✅ No critical linting issues found"
