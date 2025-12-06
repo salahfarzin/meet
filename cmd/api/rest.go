@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/salahfarzin/meet/pkg/middlewares"
@@ -45,7 +46,17 @@ func NewRESTServer(app *App) *RESTServer {
 func (s *RESTServer) Start(ctx context.Context) error {
 	grpcAddr := fmt.Sprintf(":%d", s.App.Configs.GRPCPort)
 
-	mux := runtime.NewServeMux()
+	// Configure gateway to forward custom headers as metadata
+	mux := runtime.NewServeMux(
+		runtime.WithIncomingHeaderMatcher(func(key string) (string, bool) {
+			switch strings.ToLower(key) {
+			case "x-user", "x-user-uuid", "x-user-roles":
+				return key, true
+			default:
+				return runtime.DefaultHeaderMatcher(key)
+			}
+		}),
+	)
 	opts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
 
 	// or use your middleware stack
@@ -55,22 +66,24 @@ func (s *RESTServer) Start(ctx context.Context) error {
 
 	authFunc := func(token string) (*middlewares.User, error) {
 		client := &http.Client{}
+
 		url := s.App.Configs.AuthService + "/me"
 		req, err := http.NewRequest("GET", url, nil)
 		if err != nil {
 			return nil, err
 		}
+
 		req.Header.Set("Authorization", "Bearer "+token)
 		resp, err := client.Do(req)
 		if err != nil {
 			return nil, err
 		}
 		defer resp.Body.Close()
+
 		if resp.StatusCode != http.StatusOK {
 			return nil, fmt.Errorf("invalid token, status: %d", resp.StatusCode)
 		}
-		fmt.Println("Auth service response:", resp)
-		// Example: parse JSON {"id": "...", "email": "...", "roles": ["..."]}
+
 		var user middlewares.User
 		if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
 			return nil, err
@@ -80,6 +93,7 @@ func (s *RESTServer) Start(ctx context.Context) error {
 
 	var handler http.Handler = mux
 	handler = middlewares.CreateStack(
+		middlewares.JSONHeader,
 		middlewares.CORSMiddleware(s.App.AllowedOrigins),
 		middlewares.LoggingMiddleware(s.App.Logger, s.App.Configs.Log.Level),
 		middlewares.AuthMiddleware(authFunc),

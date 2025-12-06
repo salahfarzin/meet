@@ -14,3 +14,4 @@ storage/keys
 .env
 
 __debug_*
+.DS_Store

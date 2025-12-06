@@ -17,15 +17,37 @@ type Meet struct {
 	End          time.Time `json:"end_time"`
 	Description  string    `json:"description"`
 	Color        string    `json:"color"`
+	Type         int32     `json:"type"`
+	OldPrice     float64   `json:"old_price"`
+	Discount     float64   `json:"discount"`
+	Price        float64   `json:"price"`
 }
 
 type Repository interface {
+	GenerateAvailableSlots(organizerID string, from time.Time, to time.Time) ([]*Meet, error)
 	Create(meet *Meet) error
 	GetByID(id string) (*Meet, error)
 	Update(meet *Meet) error
 	Delete(id string) error
-	GetAllByOrganizerId(organizerId string) ([]*Meet, error)
+	// QueryMeets: pass nil for no filter
+	QueryMeets(options *MeetQueryOptions) ([]*Meet, error)
 	HasConflict(organizerId string, start, end time.Time, excludeUUID ...string) (bool, error)
+}
+type repository struct {
+	db *sql.DB
+}
+
+func NewRepository(db *sql.DB) Repository {
+	return &repository{
+		db: db,
+	}
+}
+
+type MeetQueryOptions struct {
+	OrganizerID   string
+	From          *time.Time
+	To            *time.Time
+	OnlyAvailable *bool
 }
 
 // HasConflict checks if there is an overlapping appointment for the organizer and period
@@ -42,16 +64,6 @@ func (repo *repository) HasConflict(organizerId string, start, end time.Time, ex
 		return false, err
 	}
 	return count > 0, nil
-}
-
-type repository struct {
-	db *sql.DB
-}
-
-func NewRepository(db *sql.DB) Repository {
-	return &repository{
-		db: db,
-	}
 }
 
 func (repo *repository) Create(meet *Meet) error {
@@ -120,15 +132,47 @@ func (repo *repository) Delete(id string) error {
 	return err
 }
 
-func (repo *repository) GetAllByOrganizerId(organizerId string) ([]*Meet, error) {
+func (repo *repository) QueryMeets(options *MeetQueryOptions) ([]*Meet, error) {
+	var result []*Meet
+	if options == nil || options.OrganizerID == "" {
+		return nil, fmt.Errorf("OrganizerID is required")
+	}
+	avail := false
+	var from, to *time.Time
+	from = options.From
+	to = options.To
+	if options.OnlyAvailable != nil {
+		avail = *options.OnlyAvailable
+	}
+	if avail {
+		start := time.Now().UTC()
+		end := start.AddDate(0, 0, 6)
+		if from != nil {
+			start = *from
+		}
+		if to != nil {
+			end = *to
+		}
+		return repo.GenerateAvailableSlots(options.OrganizerID, start, end)
+	}
+
+	// Build query and args dynamically
 	query := `SELECT id, uuid, title, organizer_id, participants, start_time, end_time, description, color FROM meets WHERE organizer_id = ?`
-	rows, err := repo.db.Query(query, organizerId)
+	args := []interface{}{options.OrganizerID}
+	if from != nil {
+		query += " AND start_time >= ?"
+		args = append(args, *from)
+	}
+	if to != nil {
+		query += " AND end_time <= ?"
+		args = append(args, *to)
+	}
+	rows, err := repo.db.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var result []*Meet
 	for rows.Next() {
 		var a Meet
 		var participantsStr string
@@ -142,6 +186,32 @@ func (repo *repository) GetAllByOrganizerId(organizerId string) ([]*Meet, error)
 		a.Start = start
 		a.End = end
 		result = append(result, &a)
+	}
+	return result, nil
+}
+
+// GenerateAvailableSlots returns all available slots for an organizer between from and to
+func (repo *repository) GenerateAvailableSlots(organizerID string, from, to time.Time) ([]*Meet, error) {
+	var result []*Meet
+	query := `SELECT title, start_time, end_time FROM meets WHERE organizer_id = ? AND start_time BETWEEN ? AND ? ORDER BY start_time ASC`
+	rows, err := repo.db.Query(query, organizerID, from, to)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var title string
+		var start, end time.Time
+		if err := rows.Scan(&title, &start, &end); err != nil {
+			return nil, err
+		}
+		result = append(result, &Meet{
+			Title:       title,
+			OrganizerID: organizerID,
+			Start:       start,
+			End:         end,
+		})
 	}
 	return result, nil
 }
