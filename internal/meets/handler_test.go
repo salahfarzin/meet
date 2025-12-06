@@ -9,6 +9,7 @@ import (
 	pb "github.com/salahfarzin/meet/proto/meets"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
 
@@ -17,16 +18,18 @@ type MockRepoConflict struct {
 	HasConflictResult bool
 }
 
-func (m *MockRepoConflict) HasConflict(organizerId string, start, end time.Time, excludeUUID ...string) (bool, error) {
+func (m *MockRepoConflict) HasConflict(ctx context.Context, organizerId string, start, end time.Time, excludeUUID ...string) (bool, error) {
 	return m.HasConflictResult, nil
 }
 
-func (m *MockRepoConflict) Create(meet *Meet) error                               { return nil }
-func (m *MockRepoConflict) GetByID(id string) (*Meet, error)                      { return nil, nil }
-func (m *MockRepoConflict) Update(meet *Meet) error                               { return nil }
-func (m *MockRepoConflict) Delete(id string) error                                { return nil }
-func (m *MockRepoConflict) QueryMeets(options *MeetQueryOptions) ([]*Meet, error) { return nil, nil }
-func (m *MockRepoConflict) GenerateAvailableSlots(organizerID string, from, to time.Time) ([]*Meet, error) {
+func (m *MockRepoConflict) Create(ctx context.Context, meet *Meet) error          { return nil }
+func (m *MockRepoConflict) GetByID(ctx context.Context, id string) (*Meet, error) { return nil, nil }
+func (m *MockRepoConflict) Update(ctx context.Context, meet *Meet) error          { return nil }
+func (m *MockRepoConflict) Delete(ctx context.Context, id string) error           { return nil }
+func (m *MockRepoConflict) QueryMeets(ctx context.Context, options *MeetQueryOptions) ([]*Meet, error) {
+	return nil, nil
+}
+func (m *MockRepoConflict) GenerateAvailableSlots(ctx context.Context, organizerID string, from, to time.Time) ([]*Meet, error) {
 	return nil, nil
 }
 
@@ -135,7 +138,7 @@ func (m *MockService) GetAvailability(ctx context.Context, organizerId string, f
 	}, nil
 }
 
-func (m *MockService) ParseStartAndEndTimes(start, end string) (time.Time, time.Time, error) {
+func (m *MockService) ParseStartAndEndTimes(start, end string) (startTime, endTime time.Time, err error) {
 	st, err := time.Parse(time.RFC3339, start)
 	if err != nil {
 		return time.Time{}, time.Time{}, errors.New("invalid start time format")
@@ -265,8 +268,13 @@ func TestCreateMeetInternalError(t *testing.T) {
 }
 
 func TestGetAllMeets(t *testing.T) {
+	md := metadata.New(map[string]string{
+		"x-user-roles": "Programmer",
+		"x-user-uuid":  "user1",
+	})
+	ctx := metadata.NewIncomingContext(context.Background(), md)
 	h := NewHandler(NewMockService())
-	resp, err := h.GetAll(context.Background(), &pb.GetAllRequest{OrganizerId: "any"})
+	resp, err := h.GetAll(ctx, &pb.GetAllRequest{OrganizerId: "any"})
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
 	assert.Len(t, resp.Meets, 1)
@@ -274,8 +282,13 @@ func TestGetAllMeets(t *testing.T) {
 }
 
 func TestGetAllMeetsError(t *testing.T) {
+	md := metadata.New(map[string]string{
+		"x-user-roles": "Programmer",
+		"x-user-uuid":  "user1",
+	})
+	ctx := metadata.NewIncomingContext(context.Background(), md)
 	h := NewHandler(NewMockService())
-	resp, err := h.GetAll(context.Background(), &pb.GetAllRequest{OrganizerId: "error"})
+	resp, err := h.GetAll(ctx, &pb.GetAllRequest{OrganizerId: "error"})
 	assert.Nil(t, resp)
 	st, ok := status.FromError(err)
 	assert.True(t, ok)
@@ -448,8 +461,13 @@ func TestGetAvailabilityInvalidRequest(t *testing.T) {
 }
 
 func TestGetAvailabilityError(t *testing.T) {
+	md := metadata.New(map[string]string{
+		"x-user-roles": "Programmer",
+		"x-user-uuid":  "user1",
+	})
+	ctx := metadata.NewIncomingContext(context.Background(), md)
 	h := NewHandler(NewMockService())
-	resp, err := h.GetAvailability(context.Background(), &pb.GetAvailabilityRequest{
+	resp, err := h.GetAvailability(ctx, &pb.GetAvailabilityRequest{
 		Uuid: "error",
 	})
 	assert.Nil(t, resp)

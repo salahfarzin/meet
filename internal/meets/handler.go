@@ -8,7 +8,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/salahfarzin/meet/pkg/logger"
+	"github.com/salahfarzin/logger"
 	"github.com/salahfarzin/meet/pkg/middlewares"
 	"github.com/salahfarzin/meet/proto/common"
 	pb "github.com/salahfarzin/meet/proto/meets"
@@ -144,7 +144,10 @@ func (h *handler) GetAll(ctx context.Context, req *pb.GetAllRequest) (*pb.GetAll
 	pbMeets := make([]*pb.Meet, 0, len(meetsList))
 	for _, a := range meetsList {
 		var id int32
-		fmt.Sscanf(a.ID, "%d", &id)
+		if _, err := fmt.Sscanf(a.ID, "%d", &id); err != nil {
+			logger.FromContext(ctx).Error("Invalid meet ID format", zap.String("id", a.ID), zap.Error(err))
+			return nil, status.Error(codes.Internal, "Internal server error")
+		}
 		pbMeets = append(pbMeets, &pb.Meet{
 			Uuid:         a.UUID,
 			OrganizerId:  a.OrganizerID,
@@ -267,11 +270,12 @@ func validateUpdateRequest(req *pb.UpdateRequest) *common.ResponseStatus {
 	return nil
 }
 
-func retrieveOrganizerID(ctx context.Context, organizerID string) string {
+func retrieveOrganizerID(ctx context.Context, organizerUserID string) string {
 	user := middlewares.GetUserFromContext(ctx)
 
+	organizerID := ""
 	if slices.Contains(user.Roles, "Programmer") {
-		organizerID = organizerID
+		organizerID = organizerUserID
 	}
 
 	if organizerID == "" {

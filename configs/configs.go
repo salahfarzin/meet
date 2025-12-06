@@ -40,7 +40,8 @@ type Configs struct {
 }
 
 func Init() *Configs {
-	godotenv.Load()
+	// Load .env file if it exists (ignore error if file doesn't exist)
+	_ = godotenv.Load()
 
 	return &Configs{
 		AppName:     getEnv("APP_NAME", "AuthService"),

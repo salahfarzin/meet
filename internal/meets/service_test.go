@@ -10,62 +10,62 @@ import (
 )
 
 type MockRepository struct {
-	CreateFunc        func(meet *Meet) error
-	GetByIDFunc       func(id string) (*Meet, error)
-	UpdateFunc        func(meet *Meet) error
-	DeleteFunc        func(id string) error
-	QueryMeetsFunc    func(options *MeetQueryOptions) ([]*Meet, error)
-	HasConflictFunc   func(organizerId string, start, end time.Time, excludeUUID ...string) (bool, error)
-	GenerateSlotsFunc func(organizerID string, from, to time.Time) ([]*Meet, error)
+	CreateFunc        func(ctx context.Context, meet *Meet) error
+	GetByIDFunc       func(ctx context.Context, id string) (*Meet, error)
+	UpdateFunc        func(ctx context.Context, meet *Meet) error
+	DeleteFunc        func(ctx context.Context, id string) error
+	QueryMeetsFunc    func(ctx context.Context, options *MeetQueryOptions) ([]*Meet, error)
+	HasConflictFunc   func(ctx context.Context, organizerId string, start, end time.Time, excludeUUID ...string) (bool, error)
+	GenerateSlotsFunc func(ctx context.Context, organizerID string, from, to time.Time) ([]*Meet, error)
 }
 
-func (m *MockRepository) Create(meet *Meet) error {
+func (m *MockRepository) Create(ctx context.Context, meet *Meet) error {
 	if m.CreateFunc != nil {
-		return m.CreateFunc(meet)
+		return m.CreateFunc(ctx, meet)
 	}
 	return nil
 }
 
-func (m *MockRepository) GetByID(id string) (*Meet, error) {
+func (m *MockRepository) GetByID(ctx context.Context, id string) (*Meet, error) {
 	if m.GetByIDFunc != nil {
-		return m.GetByIDFunc(id)
+		return m.GetByIDFunc(ctx, id)
 	}
 	return &Meet{ID: id, Title: "Test Meet"}, nil
 }
 
-func (m *MockRepository) Update(meet *Meet) error {
+func (m *MockRepository) Update(ctx context.Context, meet *Meet) error {
 	if m.UpdateFunc != nil {
-		return m.UpdateFunc(meet)
+		return m.UpdateFunc(ctx, meet)
 	}
 	return nil
 }
 
-func (m *MockRepository) Delete(id string) error {
+func (m *MockRepository) Delete(ctx context.Context, id string) error {
 	if m.DeleteFunc != nil {
-		return m.DeleteFunc(id)
+		return m.DeleteFunc(ctx, id)
 	}
 	return nil
 }
 
-func (m *MockRepository) QueryMeets(options *MeetQueryOptions) ([]*Meet, error) {
+func (m *MockRepository) QueryMeets(ctx context.Context, options *MeetQueryOptions) ([]*Meet, error) {
 	if m.QueryMeetsFunc != nil {
-		return m.QueryMeetsFunc(options)
+		return m.QueryMeetsFunc(ctx, options)
 	}
 	return []*Meet{
 		{ID: "1", Title: "Meet 1", Start: time.Now(), End: time.Now().Add(time.Hour)},
 	}, nil
 }
 
-func (m *MockRepository) HasConflict(organizerId string, start, end time.Time, excludeUUID ...string) (bool, error) {
+func (m *MockRepository) HasConflict(ctx context.Context, organizerId string, start, end time.Time, excludeUUID ...string) (bool, error) {
 	if m.HasConflictFunc != nil {
-		return m.HasConflictFunc(organizerId, start, end, excludeUUID...)
+		return m.HasConflictFunc(ctx, organizerId, start, end, excludeUUID...)
 	}
 	return false, nil
 }
 
-func (m *MockRepository) GenerateAvailableSlots(organizerID string, from, to time.Time) ([]*Meet, error) {
+func (m *MockRepository) GenerateAvailableSlots(ctx context.Context, organizerID string, from, to time.Time) ([]*Meet, error) {
 	if m.GenerateSlotsFunc != nil {
-		return m.GenerateSlotsFunc(organizerID, from, to)
+		return m.GenerateSlotsFunc(ctx, organizerID, from, to)
 	}
 	return []*Meet{}, nil
 }
@@ -84,7 +84,7 @@ func TestService_GetByID(t *testing.T) {
 
 func TestService_GetByID_Error(t *testing.T) {
 	mockRepo := &MockRepository{
-		GetByIDFunc: func(id string) (*Meet, error) {
+		GetByIDFunc: func(ctx context.Context, id string) (*Meet, error) {
 			return nil, errors.New("not found")
 		},
 	}
@@ -111,7 +111,7 @@ func TestService_QueryMeets(t *testing.T) {
 
 func TestService_QueryMeets_Error(t *testing.T) {
 	mockRepo := &MockRepository{
-		QueryMeetsFunc: func(options *MeetQueryOptions) ([]*Meet, error) {
+		QueryMeetsFunc: func(ctx context.Context, options *MeetQueryOptions) ([]*Meet, error) {
 			return nil, errors.New("query error")
 		},
 	}
@@ -175,7 +175,7 @@ func TestService_ParseStartAndEndTimes_InvalidEnd(t *testing.T) {
 func TestService_GetAvailability(t *testing.T) {
 	now := time.Now().UTC()
 	mockRepo := &MockRepository{
-		QueryMeetsFunc: func(options *MeetQueryOptions) ([]*Meet, error) {
+		QueryMeetsFunc: func(ctx context.Context, options *MeetQueryOptions) ([]*Meet, error) {
 			return []*Meet{
 				{
 					Title: "Meeting 1",
@@ -210,7 +210,7 @@ func TestService_GetAvailability(t *testing.T) {
 
 func TestService_GetAvailability_Error(t *testing.T) {
 	mockRepo := &MockRepository{
-		QueryMeetsFunc: func(options *MeetQueryOptions) ([]*Meet, error) {
+		QueryMeetsFunc: func(ctx context.Context, options *MeetQueryOptions) ([]*Meet, error) {
 			return nil, errors.New("query error")
 		},
 	}
@@ -228,7 +228,7 @@ func TestService_GetAvailability_Error(t *testing.T) {
 
 func TestService_Create_Success(t *testing.T) {
 	mockRepo := &MockRepository{
-		HasConflictFunc: func(organizerId string, start, end time.Time, excludeUUID ...string) (bool, error) {
+		HasConflictFunc: func(ctx context.Context, organizerId string, start, end time.Time, excludeUUID ...string) (bool, error) {
 			return false, nil
 		},
 	}
@@ -251,7 +251,7 @@ func TestService_Create_Success(t *testing.T) {
 
 func TestService_Create_Conflict(t *testing.T) {
 	mockRepo := &MockRepository{
-		HasConflictFunc: func(organizerId string, start, end time.Time, excludeUUID ...string) (bool, error) {
+		HasConflictFunc: func(ctx context.Context, organizerId string, start, end time.Time, excludeUUID ...string) (bool, error) {
 			return true, nil
 		},
 	}
@@ -273,10 +273,10 @@ func TestService_Create_Conflict(t *testing.T) {
 
 func TestService_Create_RepoError(t *testing.T) {
 	mockRepo := &MockRepository{
-		HasConflictFunc: func(organizerId string, start, end time.Time, excludeUUID ...string) (bool, error) {
+		HasConflictFunc: func(ctx context.Context, organizerId string, start, end time.Time, excludeUUID ...string) (bool, error) {
 			return false, nil
 		},
-		CreateFunc: func(meet *Meet) error {
+		CreateFunc: func(ctx context.Context, meet *Meet) error {
 			return errors.New("repo create error")
 		},
 	}
@@ -298,7 +298,7 @@ func TestService_Create_RepoError(t *testing.T) {
 
 func TestService_Update_Success(t *testing.T) {
 	mockRepo := &MockRepository{
-		HasConflictFunc: func(organizerId string, start, end time.Time, excludeUUID ...string) (bool, error) {
+		HasConflictFunc: func(ctx context.Context, organizerId string, start, end time.Time, excludeUUID ...string) (bool, error) {
 			return false, nil
 		},
 	}
@@ -339,7 +339,7 @@ func TestService_Update_NoUUID(t *testing.T) {
 
 func TestService_Update_Conflict(t *testing.T) {
 	mockRepo := &MockRepository{
-		HasConflictFunc: func(organizerId string, start, end time.Time, excludeUUID ...string) (bool, error) {
+		HasConflictFunc: func(ctx context.Context, organizerId string, start, end time.Time, excludeUUID ...string) (bool, error) {
 			return true, nil
 		},
 	}
