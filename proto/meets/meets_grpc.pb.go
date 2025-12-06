@@ -25,6 +25,7 @@ const (
 	MeetService_Update_FullMethodName          = "/meets.MeetService/Update"
 	MeetService_Delete_FullMethodName          = "/meets.MeetService/Delete"
 	MeetService_GetAvailability_FullMethodName = "/meets.MeetService/GetAvailability"
+	MeetService_GetMeetTypes_FullMethodName    = "/meets.MeetService/GetMeetTypes"
 )
 
 // MeetServiceClient is the client API for MeetService service.
@@ -40,6 +41,8 @@ type MeetServiceClient interface {
 	Delete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*DeleteResponse, error)
 	// Get user availability for next 7 days
 	GetAvailability(ctx context.Context, in *GetAvailabilityRequest, opts ...grpc.CallOption) (*GetAvailabilityResponse, error)
+	// Get all meet types for an organizer
+	GetMeetTypes(ctx context.Context, in *GetMeetTypesRequest, opts ...grpc.CallOption) (*GetMeetTypesResponse, error)
 }
 
 type meetServiceClient struct {
@@ -110,6 +113,16 @@ func (c *meetServiceClient) GetAvailability(ctx context.Context, in *GetAvailabi
 	return out, nil
 }
 
+func (c *meetServiceClient) GetMeetTypes(ctx context.Context, in *GetMeetTypesRequest, opts ...grpc.CallOption) (*GetMeetTypesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetMeetTypesResponse)
+	err := c.cc.Invoke(ctx, MeetService_GetMeetTypes_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MeetServiceServer is the server API for MeetService service.
 // All implementations must embed UnimplementedMeetServiceServer
 // for forward compatibility.
@@ -123,6 +136,8 @@ type MeetServiceServer interface {
 	Delete(context.Context, *DeleteRequest) (*DeleteResponse, error)
 	// Get user availability for next 7 days
 	GetAvailability(context.Context, *GetAvailabilityRequest) (*GetAvailabilityResponse, error)
+	// Get all meet types for an organizer
+	GetMeetTypes(context.Context, *GetMeetTypesRequest) (*GetMeetTypesResponse, error)
 	mustEmbedUnimplementedMeetServiceServer()
 }
 
@@ -150,6 +165,9 @@ func (UnimplementedMeetServiceServer) Delete(context.Context, *DeleteRequest) (*
 }
 func (UnimplementedMeetServiceServer) GetAvailability(context.Context, *GetAvailabilityRequest) (*GetAvailabilityResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetAvailability not implemented")
+}
+func (UnimplementedMeetServiceServer) GetMeetTypes(context.Context, *GetMeetTypesRequest) (*GetMeetTypesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetMeetTypes not implemented")
 }
 func (UnimplementedMeetServiceServer) mustEmbedUnimplementedMeetServiceServer() {}
 func (UnimplementedMeetServiceServer) testEmbeddedByValue()                     {}
@@ -280,6 +298,24 @@ func _MeetService_GetAvailability_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MeetService_GetMeetTypes_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetMeetTypesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MeetServiceServer).GetMeetTypes(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MeetService_GetMeetTypes_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MeetServiceServer).GetMeetTypes(ctx, req.(*GetMeetTypesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // MeetService_ServiceDesc is the grpc.ServiceDesc for MeetService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -310,6 +346,10 @@ var MeetService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetAvailability",
 			Handler:    _MeetService_GetAvailability_Handler,
+		},
+		{
+			MethodName: "GetMeetTypes",
+			Handler:    _MeetService_GetMeetTypes_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

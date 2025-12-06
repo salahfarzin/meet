@@ -53,6 +53,7 @@ func (s *service) Create(ctx context.Context, meet *Meet) (*Meet, error) {
 	}
 
 	meet.UUID = uuid.New().String()
+	// Type, OldPrice, Discount, Price are already set in meet
 	if err := s.repo.Create(meet); err != nil {
 		return nil, err
 	}
@@ -73,6 +74,7 @@ func (s *service) Update(ctx context.Context, meet *Meet) (*Meet, error) {
 		return nil, errors.New("appointment conflict for this organizer and period")
 	}
 
+	// Type, OldPrice, Discount, Price are already set in meet
 	if err := s.repo.Update(meet); err != nil {
 		return nil, err
 	}

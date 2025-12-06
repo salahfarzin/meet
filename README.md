@@ -25,16 +25,16 @@ protoc -I. -I./googleapis --go_out=proto --go-grpc_out=proto --grpc-gateway_out=
 ## Database migrations
 the most popular tool for generating and running database migrations is golang-migrate/migrate.
 
-Migration path: ```database/migrations```
+Migration path: ```migrations```
 ### Install migrate CLI (if you haven’t already):
 ```
 brew install golang-migrate
 ```
 ### Create migrations
 ```
-migrate create -ext sql -dir database/migrations -seq create_meets_table
+migrate create -ext sql -dir migrations -seq create_meets_table
 ```
 ### Run migration
 ```
-migrate -path database/migrations -database \"mysql://user:password@tcp(localhost:3306)/dbname\" up
+migrate -path migrations -database \"mysql://user:password@tcp(localhost:3306)/dbname\" up
 ```

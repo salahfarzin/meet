@@ -17,6 +17,10 @@ type Meet struct {
 	End          time.Time `json:"end_time"`
 	Description  string    `json:"description"`
 	Color        string    `json:"color"`
+	Type         int32     `json:"type"`
+	OldPrice     float64   `json:"old_price"`
+	Discount     float64   `json:"discount"`
+	Price        float64   `json:"price"`
 }
 
 type Repository interface {

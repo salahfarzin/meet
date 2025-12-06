@@ -51,6 +51,10 @@ func (h *handler) Create(ctx context.Context, req *pb.CreateRequest) (*pb.Create
 		End:          endTime,
 		Description:  req.Meet.Description,
 		Color:        req.Meet.Color,
+		Type:         int32(req.Meet.Type),
+		OldPrice:     req.Meet.OldPrice,
+		Discount:     req.Meet.Discount,
+		Price:        req.Meet.Price,
 	})
 	if err != nil {
 		logger.FromContext(ctx).Error("service create error", zap.Error(err))
@@ -71,6 +75,10 @@ func (h *handler) Create(ctx context.Context, req *pb.CreateRequest) (*pb.Create
 			End:          meet.End.String(),
 			Color:        meet.Color,
 			Description:  meet.Description,
+			Type:         pb.MeetType(meet.Type),
+			OldPrice:     meet.OldPrice,
+			Discount:     meet.Discount,
+			Price:        meet.Price,
 		},
 	}, nil
 }
@@ -95,6 +103,10 @@ func (h *handler) Update(ctx context.Context, req *pb.UpdateRequest) (*pb.Update
 		End:          endTime,
 		Color:        req.Meet.Color,
 		Description:  req.Meet.Description,
+		Type:         int32(req.Meet.Type),
+		OldPrice:     req.Meet.OldPrice,
+		Discount:     req.Meet.Discount,
+		Price:        req.Meet.Price,
 	})
 	if err != nil {
 		logger.FromContext(ctx).Error("service update error", zap.Error(err))
@@ -113,6 +125,11 @@ func (h *handler) Update(ctx context.Context, req *pb.UpdateRequest) (*pb.Update
 			Start:        meet.Start.String(),
 			End:          meet.End.String(),
 			Description:  meet.Description,
+			Color:        meet.Color,
+			Type:         pb.MeetType(meet.Type),
+			OldPrice:     meet.OldPrice,
+			Discount:     meet.Discount,
+			Price:        meet.Price,
 		},
 	}, nil
 }
@@ -129,12 +146,18 @@ func (h *handler) GetAll(ctx context.Context, req *pb.GetAllRequest) (*pb.GetAll
 		var id int32
 		fmt.Sscanf(a.ID, "%d", &id)
 		pbMeets = append(pbMeets, &pb.Meet{
-			Uuid:        a.UUID,
-			Title:       a.Title,
-			Description: a.Description,
-			Start:       a.Start.String(),
-			End:         a.End.String(),
-			Color:       a.Color,
+			Uuid:         a.UUID,
+			OrganizerId:  a.OrganizerID,
+			Participants: a.Participants,
+			Title:        a.Title,
+			Description:  a.Description,
+			Start:        a.Start.String(),
+			End:          a.End.String(),
+			Color:        a.Color,
+			Type:         pb.MeetType(a.Type),
+			OldPrice:     a.OldPrice,
+			Discount:     a.Discount,
+			Price:        a.Price,
 		})
 	}
 	return &pb.GetAllResponse{Meets: pbMeets}, nil
@@ -194,6 +217,18 @@ func (h *handler) GetAvailability(ctx context.Context, req *pb.GetAvailabilityRe
 		})
 	}
 	return &pb.GetAvailabilityResponse{Dates: dates}, nil
+}
+
+// GetMeetTypes returns all possible meet types for an organizer
+func (h *handler) GetMeetTypes(ctx context.Context, req *pb.GetMeetTypesRequest) (*pb.GetMeetTypesResponse, error) {
+	types := []pb.MeetType{
+		pb.MeetType_MEET_TYPE_UNSPECIFIED,
+		pb.MeetType_IMMEDIATE_PHONE_CALL,
+		pb.MeetType_CHAT,
+		pb.MeetType_PHONE_CALL,
+		pb.MeetType_VIDEO_CALL,
+	}
+	return &pb.GetMeetTypesResponse{Types: types}, nil
 }
 
 // validateCreateRequest checks required fields and returns a gRPC error if invalid

@@ -7,6 +7,13 @@ import "proto/common.proto";
 
 option go_package = "proto/meets;meets";
 
+enum MeetType {
+  MEET_TYPE_UNSPECIFIED = 0;
+  IMMEDIATE_PHONE_CALL = 1;
+  CHAT = 2;
+  PHONE_CALL = 3;
+  VIDEO_CALL = 4;
+}
 // Meet message
 message Meet {
   string uuid = 1;
@@ -17,6 +24,10 @@ message Meet {
   string color = 6;
   string start = 7;
   string end = 8;
+  MeetType type = 9;
+  double old_price = 10;
+  double discount = 11;
+  double price = 12;
 }
 
 // Request & Response
@@ -80,6 +91,14 @@ message GetAvailabilityResponse {
   repeated DateSlot dates = 1;
 }
 
+// Request & Response for meet types
+message GetMeetTypesRequest {
+  string uuid = 1;
+}
+message GetMeetTypesResponse {
+  repeated MeetType types = 1;
+}
+
 // Service definition
 service MeetService {
   rpc GetAll (GetAllRequest) returns (GetAllResponse) {
@@ -113,6 +132,12 @@ service MeetService {
   rpc GetAvailability (GetAvailabilityRequest) returns (GetAvailabilityResponse) {
     option (google.api.http) = {
       get: "/meets/{uuid}/availability"
+    };
+  }
+  // Get all meet types for an organizer
+  rpc GetMeetTypes (GetMeetTypesRequest) returns (GetMeetTypesResponse) {
+    option (google.api.http) = {
+      get: "/meets/{uuid}/types"
     };
   }
 }

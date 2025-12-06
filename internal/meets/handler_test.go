@@ -21,12 +21,14 @@ func (m *MockRepoConflict) HasConflict(organizerId string, start, end time.Time,
 	return m.HasConflictResult, nil
 }
 
-// Satisfy interface, not used in these tests
-func (m *MockRepoConflict) Create(meet *Meet) error                                 { return nil }
-func (m *MockRepoConflict) GetByID(id string) (*Meet, error)                        { return nil, nil }
-func (m *MockRepoConflict) Update(meet *Meet) error                                 { return nil }
-func (m *MockRepoConflict) Delete(id string) error                                  { return nil }
-func (m *MockRepoConflict) GetAllByOrganizerId(organizerId string) ([]*Meet, error) { return nil, nil }
+func (m *MockRepoConflict) Create(meet *Meet) error                               { return nil }
+func (m *MockRepoConflict) GetByID(id string) (*Meet, error)                      { return nil, nil }
+func (m *MockRepoConflict) Update(meet *Meet) error                               { return nil }
+func (m *MockRepoConflict) Delete(id string) error                                { return nil }
+func (m *MockRepoConflict) QueryMeets(options *MeetQueryOptions) ([]*Meet, error) { return nil, nil }
+func (m *MockRepoConflict) GenerateAvailableSlots(organizerID string, from, to time.Time) ([]*Meet, error) {
+	return nil, nil
+}
 
 func newServiceWithConflict(conflict bool) Service {
 	return &service{repo: &MockRepoConflict{HasConflictResult: conflict}}
@@ -106,8 +108,12 @@ func (m *MockService) GetByID(ctx context.Context, id string) (*Meet, error) {
 	return &Meet{ID: id, Title: "Dentist"}, nil
 }
 
-func (m *MockService) GetAllByOrganizerId(ctx context.Context, organizerId string) ([]*Meet, error) {
+func (m *MockService) QueryMeets(ctx context.Context, opts *MeetQueryOptions) ([]*Meet, error) {
 	return []*Meet{{ID: "1", Title: "Dentist"}}, nil
+}
+
+func (m *MockService) GetAvailability(ctx context.Context, organizerId string, from, to time.Time) (map[string]DateSlot, error) {
+	return map[string]DateSlot{}, nil
 }
 
 func (m *MockService) ParseStartAndEndTimes(start, end string) (time.Time, time.Time, error) {
