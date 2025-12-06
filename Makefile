@@ -59,14 +59,16 @@ lint-fix:
 
 .PHONY: test-coverage
 test-coverage:
-	@go test -v -race -coverprofile=coverage.out -covermode=atomic $(shell go list ./... | grep -v -E "(cmd|proto)")
-	@go tool cover -html=coverage.out -o coverage.html
-	@echo "Coverage report generated: coverage.html"
+	@mkdir -p coverage
+	@go test -v -race -coverprofile=coverage/coverage.out -covermode=atomic $(shell go list ./... | grep -v -E "(cmd|proto)")
+	@go tool cover -html=coverage/coverage.out -o coverage/coverage.html
+	@echo "Coverage report generated: coverage/coverage.html"
 
 .PHONY: test-coverage-report
 test-coverage-report:
-	@go test -v -race -coverprofile=coverage.out -covermode=atomic $(shell go list ./... | grep -v -E "(cmd|proto)")
-	@go tool cover -func=coverage.out
+	@mkdir -p coverage
+	@go test -v -race -coverprofile=coverage/coverage.out -covermode=atomic $(shell go list ./... | grep -v -E "(cmd|proto)")
+	@go tool cover -func=coverage/coverage.out
 
 .PHONY: coverage-by-package
 coverage-by-package:

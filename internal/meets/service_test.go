@@ -359,3 +359,74 @@ func TestService_Update_Conflict(t *testing.T) {
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "appointment conflict")
 }
+
+func TestService_Create_HasConflictError(t *testing.T) {
+	mockRepo := &MockRepository{
+		HasConflictFunc: func(ctx context.Context, organizerId string, start, end time.Time, excludeUUID ...string) (bool, error) {
+			return false, errors.New("conflict check error")
+		},
+	}
+	svc := NewService(mockRepo)
+
+	meet := &Meet{
+		Title:       "Test Meet",
+		OrganizerID: "org1",
+		Start:       time.Now(),
+		End:         time.Now().Add(time.Hour),
+	}
+
+	result, err := svc.Create(context.Background(), meet)
+
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "conflict check error")
+}
+
+func TestService_Update_HasConflictError(t *testing.T) {
+	mockRepo := &MockRepository{
+		HasConflictFunc: func(ctx context.Context, organizerId string, start, end time.Time, excludeUUID ...string) (bool, error) {
+			return false, errors.New("conflict check error")
+		},
+	}
+	svc := NewService(mockRepo)
+
+	meet := &Meet{
+		UUID:        "test-uuid",
+		Title:       "Updated Meet",
+		OrganizerID: "org1",
+		Start:       time.Now(),
+		End:         time.Now().Add(time.Hour),
+	}
+
+	result, err := svc.Update(context.Background(), meet)
+
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "conflict check error")
+}
+
+func TestService_Update_RepoError(t *testing.T) {
+	mockRepo := &MockRepository{
+		HasConflictFunc: func(ctx context.Context, organizerId string, start, end time.Time, excludeUUID ...string) (bool, error) {
+			return false, nil
+		},
+		UpdateFunc: func(ctx context.Context, meet *Meet) error {
+			return errors.New("repo update error")
+		},
+	}
+	svc := NewService(mockRepo)
+
+	meet := &Meet{
+		UUID:        "test-uuid",
+		Title:       "Updated Meet",
+		OrganizerID: "org1",
+		Start:       time.Now(),
+		End:         time.Now().Add(time.Hour),
+	}
+
+	result, err := svc.Update(context.Background(), meet)
+
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "repo update error")
+}

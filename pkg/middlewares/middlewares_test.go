@@ -59,6 +59,23 @@ func TestCORSMiddleware_DisallowedOrigin(t *testing.T) {
 	assert.Equal(t, "", w.Header().Get("Access-Control-Allow-Origin"))
 }
 
+func TestCORSMiddleware_OptionsRequest(t *testing.T) {
+	middleware := CORSMiddleware([]string{"http://localhost:3000"})
+	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("Handler should not be called for OPTIONS request")
+	}))
+
+	req := httptest.NewRequest("OPTIONS", "/test", http.NoBody)
+	req.Header.Set("Origin", "http://localhost:3000")
+	w := httptest.NewRecorder()
+
+	handler.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusNoContent, w.Code)
+	assert.Equal(t, "http://localhost:3000", w.Header().Get("Access-Control-Allow-Origin"))
+	assert.Equal(t, "GET, POST, PUT, DELETE, OPTIONS", w.Header().Get("Access-Control-Allow-Methods"))
+}
+
 func TestJSONHeader(t *testing.T) {
 	handler := JSONHeader(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)

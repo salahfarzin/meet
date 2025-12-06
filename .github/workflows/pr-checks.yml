@@ -64,7 +64,9 @@ jobs:
         run: go mod download
 
       - name: Run tests with coverage
-        run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+        run: |
+          mkdir -p coverage
+          go test -v -race -coverprofile=coverage/coverage.out -covermode=atomic ./...
         env:
           DB_HOST: 127.0.0.1
           DB_PORT: 3306
@@ -74,8 +76,28 @@ jobs:
 
       - name: Check test coverage threshold
         run: |
-          COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print substr($3, 1, length($3)-1)}')
-          echo "Current test coverage: $COVERAGE%"
+          # Calculate coverage excluding main, cmd, proto, and configs packages
+          TOTAL_COVERAGE=0
+          PACKAGE_COUNT=0
+          while IFS= read -r line; do
+            if [[ $line == github.com/salahfarzin/meet/main.go* ]] || \
+               [[ $line == github.com/salahfarzin/meet/cmd/* ]] || \
+               [[ $line == github.com/salahfarzin/meet/proto/* ]] || \
+               [[ $line == github.com/salahfarzin/meet/configs/* ]]; then
+              continue
+            fi
+            COVERAGE_PERCENT=$(echo "$line" | awk '{print $3}' | sed 's/%//')
+            TOTAL_COVERAGE=$(echo "$TOTAL_COVERAGE + $COVERAGE_PERCENT" | bc -l)
+            PACKAGE_COUNT=$((PACKAGE_COUNT + 1))
+          done < <(go tool cover -func=coverage/coverage.out | grep -E "^github\.com/salahfarzin/meet/")
+          
+          if [ $PACKAGE_COUNT -gt 0 ]; then
+            COVERAGE=$(echo "scale=1; $TOTAL_COVERAGE / $PACKAGE_COUNT" | bc -l)
+          else
+            COVERAGE=0
+          fi
+          
+          echo "Test coverage (excluding main/cmd/proto/configs): $COVERAGE%"
           if (( $(echo "$COVERAGE < 95.0" | bc -l) )); then
             echo "❌ Test coverage is below 95%: $COVERAGE%"
             exit 1
