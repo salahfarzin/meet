@@ -23,10 +23,10 @@ func main() {
 	loggerFile := "app-" + currentDate + ".log"
 
 	logger.Init(&zap.Config{OutputPaths: []string{filepath.Join(curPath, cfg.Log.Path, loggerFile)}, Level: zap.NewAtomicLevelAt(zap.DebugLevel)})
-	defer logger.Sync() // flush logs on shutdown
 
 	dbConn, err := db.NewMySQLStorage(cfg)
 	if err != nil {
+		_ = logger.Sync() // flush logs before exit
 		log.Fatal(err)
 	}
 
@@ -41,8 +41,6 @@ func main() {
 		},
 	}
 
-	logger.Init(&zap.Config{OutputPaths: []string{filepath.Join(curPath, cfg.Log.Path, loggerFile)}, Level: zap.NewAtomicLevelAt(zap.DebugLevel)})
-	defer logger.Sync()
-
 	app.Serve()
+	_ = logger.Sync() // flush logs on normal exit
 }

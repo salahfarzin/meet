@@ -1,0 +1,25 @@
+#!/bin/bash
+
+# Pre-commit hook to run quality checks
+# To install: cp .githooks/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+
+echo "🔍 Running pre-commit quality checks..."
+
+# Run quality gate script
+if [ -f "scripts/quality-gate.sh" ]; then
+    ./scripts/quality-gate.sh
+else
+    echo "⚠️  Quality gate script not found. Running basic checks..."
+
+    # Basic checks if quality gate script is not available
+    echo "Running go fmt..."
+    go fmt ./...
+
+    echo "Running go vet..."
+    go vet ./...
+
+    echo "Running tests..."
+    go test ./...
+fi
+
+echo "✅ Pre-commit checks passed!"

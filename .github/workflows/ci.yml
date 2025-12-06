@@ -1,0 +1,217 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+env:
+  GO_VERSION: '1.25'
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: --timeout=5m
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: meet_db_test
+          MYSQL_USER: meet_user
+          MYSQL_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Run tests
+        run: |
+          mkdir -p coverage
+          go test -v -race -coverprofile=coverage/coverage.out -covermode=atomic ./...
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_USER: meet_user
+          DB_PASSWORD: root
+          DB_NAME: meet_db_test
+
+      - name: Check test coverage
+        run: |
+          # Calculate coverage excluding main, cmd, proto, and configs packages
+          TOTAL_COVERAGE=0
+          PACKAGE_COUNT=0
+          while IFS= read -r line; do
+            if [[ $line == github.com/salahfarzin/meet/main.go* ]] || \
+               [[ $line == github.com/salahfarzin/meet/cmd/* ]] || \
+               [[ $line == github.com/salahfarzin/meet/proto/* ]] || \
+               [[ $line == github.com/salahfarzin/meet/configs/* ]]; then
+              continue
+            fi
+            COVERAGE_PERCENT=$(echo "$line" | awk '{print $3}' | sed 's/%//')
+            TOTAL_COVERAGE=$(echo "$TOTAL_COVERAGE + $COVERAGE_PERCENT" | bc -l)
+            PACKAGE_COUNT=$((PACKAGE_COUNT + 1))
+          done < <(go tool cover -func=coverage/coverage.out | grep -E "^github\.com/salahfarzin/meet/")
+          
+          if [ $PACKAGE_COUNT -gt 0 ]; then
+            COVERAGE=$(echo "scale=1; $TOTAL_COVERAGE / $PACKAGE_COUNT" | bc -l)
+          else
+            COVERAGE=0
+          fi
+          
+          echo "Test coverage (excluding main/cmd/proto/configs): $COVERAGE%"
+          if (( $(echo "$COVERAGE < 95.0" | bc -l) )); then
+            echo "❌ Test coverage is below 95%: $COVERAGE%"
+            exit 1
+          fi
+          echo "✅ Test coverage meets minimum requirement: $COVERAGE%"
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage/coverage.out
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [quality-gate]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Build
+        run: go build -v -o bin/meet-api ./main.go
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: meet-api
+          path: bin/meet-api
+          retention-days: 7
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Run Gosec Security Scanner
+        uses: securego/gosec@master
+        with:
+          args: '-no-fail -fmt sarif -out results.sarif ./...'
+
+      - name: Upload SARIF file
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif
+        if: always()
+
+  vulnerability-scan:
+    name: Vulnerability Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results.sarif'
+        if: always()
+
+  quality-gate:
+    name: Quality Gate
+    runs-on: ubuntu-latest
+    needs: [lint, test, security, vulnerability-scan]
+    steps:
+      - name: All quality checks passed
+        run: echo "✅ All quality gates passed successfully!"
+
+  mutation-test:
+    name: Mutation Testing
+    runs-on: ubuntu-latest
+    needs: [quality-gate]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Install go-mutesting
+        run: go install github.com/zimmski/go-mutesting/cmd/go-mutesting@latest
+
+      - name: Run mutation testing on critical packages
+        run: |
+          # Run mutation testing on the main internal package
+          go-mutesting --debug ./internal/meets/...
+        continue-on-error: true

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/salahfarzin/meet/pkg/middlewares"
@@ -15,21 +16,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
-
-type responseRecorder struct {
-	http.ResponseWriter
-	body       *[]byte
-	statusCode int
-}
-
-func (r *responseRecorder) WriteHeader(statusCode int) {
-	r.statusCode = statusCode
-}
-
-func (r *responseRecorder) Write(b []byte) (int, error) {
-	*r.body = append(*r.body, b...)
-	return len(b), nil
-}
 
 type RESTServer struct {
 	Server *runtime.ServeMux
@@ -60,7 +46,10 @@ func (s *RESTServer) Start(ctx context.Context) error {
 	opts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
 
 	// or use your middleware stack
-	router.SetupRESTRoutes(ctx, mux, grpcAddr, opts)
+	err := router.SetupRESTRoutes(ctx, mux, grpcAddr, opts)
+	if err != nil {
+		return err
+	}
 
 	log.Printf("REST gateway listening on %d", s.App.Configs.Port)
 
@@ -68,7 +57,7 @@ func (s *RESTServer) Start(ctx context.Context) error {
 		client := &http.Client{}
 
 		url := s.App.Configs.AuthService + "/me"
-		req, err := http.NewRequest("GET", url, nil)
+		req, err := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
 		if err != nil {
 			return nil, err
 		}
@@ -107,7 +96,14 @@ func (s *RESTServer) Start(ctx context.Context) error {
 
 	http.Handle(prefix+"/", http.StripPrefix(prefix, handler))
 
-	if err := http.ListenAndServe(":"+strconv.FormatInt(s.App.Configs.Port, 10), nil); err != nil {
+	server := &http.Server{
+		Addr:         ":" + strconv.FormatInt(s.App.Configs.Port, 10),
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+
+	if err := server.ListenAndServe(); err != nil {
 		return err
 	}
 

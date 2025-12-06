@@ -8,6 +8,7 @@ package meets
 
 import (
 	context "context"
+
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -190,7 +191,7 @@ func RegisterMeetServiceServer(s grpc.ServiceRegistrar, srv MeetServiceServer) {
 	s.RegisterService(&MeetService_ServiceDesc, srv)
 }
 
-func _MeetService_GetAll_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _MeetService_GetAll_Handler(srv any, ctx context.Context, dec func(any) error, interceptor grpc.UnaryServerInterceptor) (any, error) {
 	in := new(GetAllRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -202,13 +203,13 @@ func _MeetService_GetAll_Handler(srv interface{}, ctx context.Context, dec func(
 		Server:     srv,
 		FullMethod: MeetService_GetAll_FullMethodName,
 	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+	handler := func(ctx context.Context, req any) (any, error) {
 		return srv.(MeetServiceServer).GetAll(ctx, req.(*GetAllRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _MeetService_GetOne_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _MeetService_GetOne_Handler(srv any, ctx context.Context, dec func(any) error, interceptor grpc.UnaryServerInterceptor) (any, error) {
 	in := new(GetOneRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -220,13 +221,13 @@ func _MeetService_GetOne_Handler(srv interface{}, ctx context.Context, dec func(
 		Server:     srv,
 		FullMethod: MeetService_GetOne_FullMethodName,
 	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+	handler := func(ctx context.Context, req any) (any, error) {
 		return srv.(MeetServiceServer).GetOne(ctx, req.(*GetOneRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _MeetService_Create_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _MeetService_Create_Handler(srv any, ctx context.Context, dec func(any) error, interceptor grpc.UnaryServerInterceptor) (any, error) {
 	in := new(CreateRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -238,13 +239,13 @@ func _MeetService_Create_Handler(srv interface{}, ctx context.Context, dec func(
 		Server:     srv,
 		FullMethod: MeetService_Create_FullMethodName,
 	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+	handler := func(ctx context.Context, req any) (any, error) {
 		return srv.(MeetServiceServer).Create(ctx, req.(*CreateRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _MeetService_Update_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _MeetService_Update_Handler(srv any, ctx context.Context, dec func(any) error, interceptor grpc.UnaryServerInterceptor) (any, error) {
 	in := new(UpdateRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -256,13 +257,13 @@ func _MeetService_Update_Handler(srv interface{}, ctx context.Context, dec func(
 		Server:     srv,
 		FullMethod: MeetService_Update_FullMethodName,
 	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+	handler := func(ctx context.Context, req any) (any, error) {
 		return srv.(MeetServiceServer).Update(ctx, req.(*UpdateRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _MeetService_Delete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _MeetService_Delete_Handler(srv any, ctx context.Context, dec func(any) error, interceptor grpc.UnaryServerInterceptor) (any, error) {
 	in := new(DeleteRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -274,13 +275,13 @@ func _MeetService_Delete_Handler(srv interface{}, ctx context.Context, dec func(
 		Server:     srv,
 		FullMethod: MeetService_Delete_FullMethodName,
 	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+	handler := func(ctx context.Context, req any) (any, error) {
 		return srv.(MeetServiceServer).Delete(ctx, req.(*DeleteRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _MeetService_GetAvailability_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _MeetService_GetAvailability_Handler(srv any, ctx context.Context, dec func(any) error, interceptor grpc.UnaryServerInterceptor) (any, error) {
 	in := new(GetAvailabilityRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -292,13 +293,13 @@ func _MeetService_GetAvailability_Handler(srv interface{}, ctx context.Context, 
 		Server:     srv,
 		FullMethod: MeetService_GetAvailability_FullMethodName,
 	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+	handler := func(ctx context.Context, req any) (any, error) {
 		return srv.(MeetServiceServer).GetAvailability(ctx, req.(*GetAvailabilityRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _MeetService_GetMeetTypes_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _MeetService_GetMeetTypes_Handler(srv any, ctx context.Context, dec func(any) error, interceptor grpc.UnaryServerInterceptor) (any, error) {
 	in := new(GetMeetTypesRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -310,7 +311,7 @@ func _MeetService_GetMeetTypes_Handler(srv interface{}, ctx context.Context, dec
 		Server:     srv,
 		FullMethod: MeetService_GetMeetTypes_FullMethodName,
 	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+	handler := func(ctx context.Context, req any) (any, error) {
 		return srv.(MeetServiceServer).GetMeetTypes(ctx, req.(*GetMeetTypesRequest))
 	}
 	return interceptor(ctx, in, info, handler)

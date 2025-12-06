@@ -1,6 +1,7 @@
 package meets
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -24,14 +25,14 @@ type Meet struct {
 }
 
 type Repository interface {
-	GenerateAvailableSlots(organizerID string, from time.Time, to time.Time) ([]*Meet, error)
-	Create(meet *Meet) error
-	GetByID(id string) (*Meet, error)
-	Update(meet *Meet) error
-	Delete(id string) error
+	GenerateAvailableSlots(ctx context.Context, organizerID string, from time.Time, to time.Time) ([]*Meet, error)
+	Create(ctx context.Context, meet *Meet) error
+	GetByID(ctx context.Context, id string) (*Meet, error)
+	Update(ctx context.Context, meet *Meet) error
+	Delete(ctx context.Context, id string) error
 	// QueryMeets: pass nil for no filter
-	QueryMeets(options *MeetQueryOptions) ([]*Meet, error)
-	HasConflict(organizerId string, start, end time.Time, excludeUUID ...string) (bool, error)
+	QueryMeets(ctx context.Context, options *MeetQueryOptions) ([]*Meet, error)
+	HasConflict(ctx context.Context, organizerId string, start, end time.Time, excludeUUID ...string) (bool, error)
 }
 type repository struct {
 	db *sql.DB
@@ -51,22 +52,22 @@ type MeetQueryOptions struct {
 }
 
 // HasConflict checks if there is an overlapping appointment for the organizer and period
-func (repo *repository) HasConflict(organizerId string, start, end time.Time, excludeUUID ...string) (bool, error) {
+func (repo *repository) HasConflict(ctx context.Context, organizerId string, start, end time.Time, excludeUUID ...string) (bool, error) {
 	query := `SELECT COUNT(1) FROM meets WHERE organizer_id = ? AND start_time < ? AND end_time > ?`
-	args := []interface{}{organizerId, end, start}
+	args := []any{organizerId, end, start}
 	if len(excludeUUID) > 0 && excludeUUID[0] != "" {
 		query += " AND uuid != ?"
 		args = append(args, excludeUUID[0])
 	}
 	var count int
-	err := repo.db.QueryRow(query, args...).Scan(&count)
+	err := repo.db.QueryRowContext(ctx, query, args...).Scan(&count)
 	if err != nil {
 		return false, err
 	}
 	return count > 0, nil
 }
 
-func (repo *repository) Create(meet *Meet) error {
+func (repo *repository) Create(ctx context.Context, meet *Meet) error {
 	participantsJSON, err := json.Marshal(meet.Participants)
 	if err != nil {
 		return fmt.Errorf("failed to marshal participants: %w", err)
@@ -77,7 +78,7 @@ func (repo *repository) Create(meet *Meet) error {
 	endUTC := meet.End.UTC()
 
 	query := `INSERT INTO meets (uuid, title, organizer_id, participants, start_time, end_time, description, color) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-	res, err := repo.db.Exec(query, meet.UUID, meet.Title, meet.OrganizerID, string(participantsJSON), startUTC, endUTC, meet.Description, meet.Color)
+	res, err := repo.db.ExecContext(ctx, query, meet.UUID, meet.Title, meet.OrganizerID, string(participantsJSON), startUTC, endUTC, meet.Description, meet.Color)
 	if err != nil {
 		return err
 	}
@@ -89,9 +90,9 @@ func (repo *repository) Create(meet *Meet) error {
 	return nil
 }
 
-func (repo *repository) GetByID(id string) (*Meet, error) {
+func (repo *repository) GetByID(ctx context.Context, id string) (*Meet, error) {
 	query := `SELECT id, uuid, title, organizer_id, participants, start_time, end_time, description, color FROM meets WHERE id = ?`
-	row := repo.db.QueryRow(query, id)
+	row := repo.db.QueryRowContext(ctx, query, id)
 	var a Meet
 	var participantsStr string
 	var start, end time.Time
@@ -110,7 +111,7 @@ func (repo *repository) GetByID(id string) (*Meet, error) {
 	return &a, nil
 }
 
-func (repo *repository) Update(meet *Meet) error {
+func (repo *repository) Update(ctx context.Context, meet *Meet) error {
 	participantsJSON, err := json.Marshal(meet.Participants)
 	if err != nil {
 		return fmt.Errorf("failed to marshal participants: %w", err)
@@ -120,58 +121,74 @@ func (repo *repository) Update(meet *Meet) error {
 	startUTC := meet.Start.UTC()
 	endUTC := meet.End.UTC()
 
-	query := `UPDATE meets SET title=?, organizer_id=?, participants=?, start_time=?, end_time=?, description=?, color=? WHERE id=?`
-	_, err = repo.db.Exec(query, meet.Title, meet.OrganizerID, string(participantsJSON), startUTC, endUTC, meet.Description, meet.Color, meet.UUID)
+	query := `UPDATE meets SET title=?, organizer_id=?, participants=?, start_time=?, end_time=?, description=?, color=? WHERE uuid=?`
+	_, err = repo.db.ExecContext(ctx, query, meet.Title, meet.OrganizerID, string(participantsJSON), startUTC, endUTC, meet.Description, meet.Color, meet.UUID)
 
 	return err
 }
 
-func (repo *repository) Delete(id string) error {
+func (repo *repository) Delete(ctx context.Context, id string) error {
 	query := `DELETE FROM meets WHERE id = ?`
-	_, err := repo.db.Exec(query, id)
+	_, err := repo.db.ExecContext(ctx, query, id)
 	return err
 }
 
-func (repo *repository) QueryMeets(options *MeetQueryOptions) ([]*Meet, error) {
-	var result []*Meet
+func (repo *repository) QueryMeets(ctx context.Context, options *MeetQueryOptions) ([]*Meet, error) {
 	if options == nil || options.OrganizerID == "" {
 		return nil, fmt.Errorf("OrganizerID is required")
 	}
-	avail := false
-	var from, to *time.Time
-	from = options.From
-	to = options.To
-	if options.OnlyAvailable != nil {
-		avail = *options.OnlyAvailable
-	}
-	if avail {
-		start := time.Now().UTC()
-		end := start.AddDate(0, 0, 6)
-		if from != nil {
-			start = *from
-		}
-		if to != nil {
-			end = *to
-		}
-		return repo.GenerateAvailableSlots(options.OrganizerID, start, end)
+
+	// Handle availability query
+	if options.OnlyAvailable != nil && *options.OnlyAvailable {
+		return repo.handleAvailabilityQuery(ctx, options)
 	}
 
-	// Build query and args dynamically
-	query := `SELECT id, uuid, title, organizer_id, participants, start_time, end_time, description, color FROM meets WHERE organizer_id = ?`
-	args := []interface{}{options.OrganizerID}
-	if from != nil {
-		query += " AND start_time >= ?"
-		args = append(args, *from)
-	}
-	if to != nil {
-		query += " AND end_time <= ?"
-		args = append(args, *to)
-	}
-	rows, err := repo.db.Query(query, args...)
+	// Handle regular query
+	query, args := repo.buildQueryAndArgs(options)
+	rows, err := repo.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
+
+	return repo.processRows(rows)
+}
+
+// buildQueryAndArgs constructs the SQL query and arguments based on options
+func (repo *repository) buildQueryAndArgs(options *MeetQueryOptions) (query string, args []any) {
+	query = `SELECT id, uuid, title, organizer_id, participants, start_time, end_time, description, color FROM meets WHERE organizer_id = ?`
+	args = []any{options.OrganizerID}
+
+	if options.From != nil {
+		query += " AND start_time >= ?"
+		args = append(args, *options.From)
+	}
+	if options.To != nil {
+		query += " AND end_time <= ?"
+		args = append(args, *options.To)
+	}
+
+	return query, args
+}
+
+// handleAvailabilityQuery handles the availability-specific query logic
+func (repo *repository) handleAvailabilityQuery(ctx context.Context, options *MeetQueryOptions) ([]*Meet, error) {
+	start := time.Now().UTC()
+	end := start.AddDate(0, 0, 6)
+
+	if options.From != nil {
+		start = *options.From
+	}
+	if options.To != nil {
+		end = *options.To
+	}
+
+	return repo.GenerateAvailableSlots(ctx, options.OrganizerID, start, end)
+}
+
+// processRows converts database rows to Meet objects
+func (repo *repository) processRows(rows *sql.Rows) ([]*Meet, error) {
+	var result []*Meet
 
 	for rows.Next() {
 		var a Meet
@@ -187,14 +204,15 @@ func (repo *repository) QueryMeets(options *MeetQueryOptions) ([]*Meet, error) {
 		a.End = end
 		result = append(result, &a)
 	}
+
 	return result, nil
 }
 
 // GenerateAvailableSlots returns all available slots for an organizer between from and to
-func (repo *repository) GenerateAvailableSlots(organizerID string, from, to time.Time) ([]*Meet, error) {
+func (repo *repository) GenerateAvailableSlots(ctx context.Context, organizerID string, from, to time.Time) ([]*Meet, error) {
 	var result []*Meet
 	query := `SELECT title, start_time, end_time FROM meets WHERE organizer_id = ? AND start_time BETWEEN ? AND ? ORDER BY start_time ASC`
-	rows, err := repo.db.Query(query, organizerID, from, to)
+	rows, err := repo.db.QueryContext(ctx, query, organizerID, from, to)
 	if err != nil {
 		return nil, err
 	}

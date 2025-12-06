@@ -7,7 +7,7 @@ import (
 	"net"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
-	"github.com/salahfarzin/meet/pkg/logger"
+	"github.com/salahfarzin/logger"
 	"github.com/salahfarzin/meet/router"
 	"github.com/salahfarzin/meet/utils"
 	"go.uber.org/zap"
@@ -55,7 +55,7 @@ func NewGRPCServer(app *App) *GRPCServer {
 func (s *GRPCServer) Start() error {
 	address := fmt.Sprintf(":%d", s.app.Configs.GRPCPort)
 
-	listener, err := net.Listen("tcp", address)
+	listener, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", address)
 	if err != nil {
 		return err
 	}
