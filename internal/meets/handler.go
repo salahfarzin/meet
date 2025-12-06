@@ -143,11 +143,6 @@ func (h *handler) GetAll(ctx context.Context, req *pb.GetAllRequest) (*pb.GetAll
 	}
 	pbMeets := make([]*pb.Meet, 0, len(meetsList))
 	for _, a := range meetsList {
-		var id int32
-		if _, err := fmt.Sscanf(a.ID, "%d", &id); err != nil {
-			logger.FromContext(ctx).Error("Invalid meet ID format", zap.String("id", a.ID), zap.Error(err))
-			return nil, status.Error(codes.Internal, "Internal server error")
-		}
 		pbMeets = append(pbMeets, &pb.Meet{
 			Uuid:         a.UUID,
 			OrganizerId:  a.OrganizerID,

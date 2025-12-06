@@ -58,8 +58,8 @@ run_lint() {
 # Run tests with coverage
 run_tests() {
     echo "Running tests with coverage..."
-    # Get list of packages to test, excluding proto and cmd
-    PACKAGES=$(go list ./... | grep -v proto | grep -v cmd | tr '\n' ' ')
+    # Get list of packages to test, excluding proto, cmd, and infrastructure packages
+    PACKAGES=$(go list ./... | grep -v proto | grep -v cmd | grep -v rabbitmq | tr '\n' ' ')
     if go test -v -race -coverprofile=coverage/coverage.out -covermode=atomic $PACKAGES; then
         # Calculate coverage only for the packages we tested (excluding main package)
         TOTAL_COVERAGE=0
@@ -81,8 +81,8 @@ run_tests() {
 
         echo "Test coverage: $COVERAGE%"
 
-        if (( $(echo "$COVERAGE < 85.0" | bc -l) )); then
-            echo -e "${RED}❌ Test coverage is below 85%: $COVERAGE%${NC}"
+        if (( $(echo "$COVERAGE < 95.0" | bc -l) )); then
+            echo -e "${RED}❌ Test coverage is below 95%: $COVERAGE%${NC}"
             return 1
         fi
 

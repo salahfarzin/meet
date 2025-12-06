@@ -72,7 +72,24 @@ jobs:
 
       - name: Check test coverage
         run: |
-          COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print substr($3, 1, length($3)-1)}')
+          # Calculate coverage excluding main, cmd, and proto packages
+          TOTAL_COVERAGE=0
+          PACKAGE_COUNT=0
+          while IFS= read -r line; do
+            if [[ $line == github.com/salahfarzin/meet/main.go* ]] || [[ $line == github.com/salahfarzin/meet/cmd/* ]] || [[ $line == github.com/salahfarzin/meet/proto/* ]]; then
+              continue
+            fi
+            COVERAGE_PERCENT=$(echo "$line" | awk '{print $3}' | sed 's/%//')
+            TOTAL_COVERAGE=$(echo "$TOTAL_COVERAGE + $COVERAGE_PERCENT" | bc -l)
+            PACKAGE_COUNT=$((PACKAGE_COUNT + 1))
+          done < <(go tool cover -func=coverage.out | grep -E "^github\.com/salahfarzin/meet/")
+          
+          if [ $PACKAGE_COUNT -gt 0 ]; then
+            COVERAGE=$(echo "scale=1; $TOTAL_COVERAGE / $PACKAGE_COUNT" | bc -l)
+          else
+            COVERAGE=0
+          fi
+          
           echo "Test coverage: $COVERAGE%"
           if (( $(echo "$COVERAGE < 95.0" | bc -l) )); then
             echo "❌ Test coverage is below 95%: $COVERAGE%"

@@ -41,3 +41,14 @@ func TestSetupRESTRoutes(t *testing.T) {
 	err := SetupRESTRoutes(ctx, mux, grpcAddr, opts)
 	assert.NoError(t, err)
 }
+
+func TestSetupRESTRoutes_InvalidAddress(t *testing.T) {
+	ctx := context.Background()
+	mux := runtime.NewServeMux()
+	grpcAddr := "invalid:address"
+	opts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+
+	// This should return an error because the address is invalid
+	err := SetupRESTRoutes(ctx, mux, grpcAddr, opts)
+	assert.Error(t, err)
+}

@@ -99,6 +99,9 @@ func (m *MockService) Create(ctx context.Context, meet *Meet) (*Meet, error) {
 	if meet.Title == "internal-error" {
 		return nil, errors.New("some internal error")
 	}
+	if meet.Title == "conflict" {
+		return nil, errors.New("appointment conflict for this organizer and period")
+	}
 	meet.UUID = "mock-uuid"
 	return meet, nil
 }
@@ -109,6 +112,9 @@ func (m *MockService) Update(ctx context.Context, meet *Meet) (*Meet, error) {
 	}
 	if meet.Title == "internal-error" {
 		return nil, errors.New("some internal error")
+	}
+	if meet.Title == "conflict" {
+		return nil, errors.New("appointment conflict for this organizer and period")
 	}
 	return meet, nil
 }
@@ -265,6 +271,22 @@ func TestCreateMeetInternalError(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, codes.Internal, st.Code())
 	assert.Contains(t, st.Message(), "Internal server error")
+}
+
+func TestCreateMeetConflict(t *testing.T) {
+	h := NewHandler(NewMockService())
+	resp, err := h.Create(context.Background(), &pb.CreateRequest{
+		Meet: &pb.Meet{
+			Title: "conflict",
+			Start: "2023-01-01T10:00:00Z",
+			End:   "2023-01-01T11:00:00Z",
+		},
+	})
+	assert.Nil(t, resp)
+	st, ok := status.FromError(err)
+	assert.True(t, ok)
+	assert.Equal(t, codes.InvalidArgument, st.Code())
+	assert.Contains(t, st.Message(), "appointment conflict")
 }
 
 func TestGetAllMeets(t *testing.T) {
@@ -426,6 +448,23 @@ func TestUpdateMeetInternalError(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, codes.Internal, st.Code())
 	assert.Contains(t, st.Message(), "Internal server error")
+}
+
+func TestUpdateMeetConflict(t *testing.T) {
+	h := NewHandler(NewMockService())
+	resp, err := h.Update(context.Background(), &pb.UpdateRequest{
+		Uuid: "test-uuid",
+		Meet: &pb.Meet{
+			Title: "conflict",
+			Start: "2023-01-01T10:00:00Z",
+			End:   "2023-01-01T11:00:00Z",
+		},
+	})
+	assert.Nil(t, resp)
+	st, ok := status.FromError(err)
+	assert.True(t, ok)
+	assert.Equal(t, codes.InvalidArgument, st.Code())
+	assert.Contains(t, st.Message(), "appointment conflict")
 }
 
 func TestGetAvailability(t *testing.T) {

@@ -2,6 +2,8 @@ package meets
 
 import (
 	"context"
+	"database/sql"
+	"encoding/json"
 	"errors"
 	"testing"
 	"time"
@@ -159,6 +161,26 @@ func TestRepository_GetByID(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
+func TestRepository_GetByID_InvalidParticipants(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer db.Close()
+
+	repo := NewRepository(db)
+
+	mock.ExpectQuery("SELECT id, uuid, title, organizer_id, participants, start_time, end_time, description, color FROM meets WHERE id = \\?").
+		WithArgs("1").
+		WillReturnRows(sqlmock.NewRows([]string{"id", "uuid", "title", "organizer_id", "participants", "start_time", "end_time", "description", "color"}).
+			AddRow("1", "test-uuid", "Test Meet", "org1", "invalid", time.Now(), time.Now().Add(time.Hour), "Test description", "#ffffff"))
+
+	result, err := repo.GetByID(context.Background(), "1")
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "failed to unmarshal participants")
+
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
 func TestRepository_Update(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	assert.NoError(t, err)
@@ -211,8 +233,13 @@ func TestRepository_QueryMeets(t *testing.T) {
 
 	repo := NewRepository(db)
 
+	from := time.Now()
+	to := from.Add(time.Hour)
+
 	opts := &MeetQueryOptions{
 		OrganizerID: "org1",
+		From:        &from,
+		To:          &to,
 	}
 
 	expectedMeets := []*Meet{
@@ -229,8 +256,8 @@ func TestRepository_QueryMeets(t *testing.T) {
 		},
 	}
 
-	mock.ExpectQuery("SELECT id, uuid, title, organizer_id, participants, start_time, end_time, description, color FROM meets WHERE organizer_id = \\?").
-		WithArgs("org1").
+	mock.ExpectQuery("SELECT id, uuid, title, organizer_id, participants, start_time, end_time, description, color FROM meets WHERE organizer_id = \\? AND start_time >= \\? AND end_time <= \\?").
+		WithArgs("org1", sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "uuid", "title", "organizer_id", "participants", "start_time", "end_time", "description", "color"}).
 			AddRow(expectedMeets[0].ID, expectedMeets[0].UUID, expectedMeets[0].Title, expectedMeets[0].OrganizerID, `["p1"]`, expectedMeets[0].Start, expectedMeets[0].End, expectedMeets[0].Description, expectedMeets[0].Color))
 
@@ -269,6 +296,122 @@ func TestRepository_GenerateAvailableSlots(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, result, 1)
 	assert.Equal(t, expectedSlots[0].Title, result[0].Title)
+
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestRepository_QueryMeets_Availability(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer db.Close()
+
+	repo := NewRepository(db)
+
+	from := time.Now()
+	to := from.AddDate(0, 0, 7)
+	onlyAvailable := true
+
+	expectedSlots := []*Meet{
+		{
+			Title: "Available Slot 1",
+			Start: from.Add(time.Hour),
+			End:   from.Add(2 * time.Hour),
+		},
+	}
+
+	mock.ExpectQuery("SELECT title, start_time, end_time FROM meets WHERE organizer_id = \\? AND start_time BETWEEN \\? AND \\? ORDER BY start_time ASC").
+		WithArgs("org1", from, to).
+		WillReturnRows(sqlmock.NewRows([]string{"title", "start_time", "end_time"}).
+			AddRow(expectedSlots[0].Title, expectedSlots[0].Start, expectedSlots[0].End))
+
+	result, err := repo.QueryMeets(context.Background(), &MeetQueryOptions{
+		OrganizerID:   "org1",
+		OnlyAvailable: &onlyAvailable,
+		From:          &from,
+		To:            &to,
+	})
+
+	assert.NoError(t, err)
+	assert.Len(t, result, 1)
+	assert.Equal(t, expectedSlots[0].Title, result[0].Title)
+
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestRepository_GetByID(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer db.Close()
+
+	repo := NewRepository(db)
+
+	expectedMeet := &Meet{
+		ID:           1,
+		UUID:         "uuid-123",
+		Title:        "Test Meet",
+		OrganizerID:  "org1",
+		Participants: []string{"user1", "user2"},
+		Start:        time.Now(),
+		End:          time.Now().Add(time.Hour),
+		Description:  "Test Description",
+		Color:        "#FF0000",
+	}
+
+	participantsJSON, _ := json.Marshal(expectedMeet.Participants)
+
+	mock.ExpectQuery("SELECT id, uuid, title, organizer_id, participants, start_time, end_time, description, color FROM meets WHERE id = \\?").
+		WithArgs(1).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "uuid", "title", "organizer_id", "participants", "start_time", "end_time", "description", "color"}).
+			AddRow(expectedMeet.ID, expectedMeet.UUID, expectedMeet.Title, expectedMeet.OrganizerID, string(participantsJSON), expectedMeet.Start, expectedMeet.End, expectedMeet.Description, expectedMeet.Color))
+
+	result, err := repo.GetByID(context.Background(), "1")
+
+	assert.NoError(t, err)
+	assert.Equal(t, expectedMeet.ID, result.ID)
+	assert.Equal(t, expectedMeet.UUID, result.UUID)
+	assert.Equal(t, expectedMeet.Title, result.Title)
+	assert.Equal(t, expectedMeet.OrganizerID, result.OrganizerID)
+	assert.Equal(t, expectedMeet.Participants, result.Participants)
+	assert.Equal(t, expectedMeet.Description, result.Description)
+	assert.Equal(t, expectedMeet.Color, result.Color)
+
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestRepository_GetByID_NotFound(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer db.Close()
+
+	repo := NewRepository(db)
+
+	mock.ExpectQuery("SELECT id, uuid, title, organizer_id, participants, start_time, end_time, description, color FROM meets WHERE id = \\?").
+		WithArgs(1).
+		WillReturnError(sql.ErrNoRows)
+
+	result, err := repo.GetByID(context.Background(), "1")
+
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "meet not found")
+
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestRepository_Delete(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer db.Close()
+
+	repo := NewRepository(db)
+
+	mock.ExpectExec("DELETE FROM meets WHERE id = \\?").
+		WithArgs(1).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	err = repo.Delete(context.Background(), "1")
+
+	assert.NoError(t, err)
 
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
