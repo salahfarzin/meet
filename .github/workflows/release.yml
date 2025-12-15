@@ -1,8 +1,8 @@
 name: Release
 
 on:
-  release:
-    types: [published]
+  push:
+    branches: [main, master]
 
 permissions:
   contents: write
@@ -31,8 +31,8 @@ jobs:
         with:
           images: ${{ secrets.DOCKERHUB_USERNAME }}/meet
           tags: |
-            type=ref,event=tag
             type=raw,value=latest
+            type=sha
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
