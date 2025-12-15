@@ -31,14 +31,10 @@ func main() {
 	}
 
 	app := &api.App{
-		Configs: cfg,
-		Logger:  logger.Get(),
-		DB:      dbConn,
-		AllowedOrigins: []string{
-			"http://localhost:5173",
-			"https://dashboard.psychometrist.local",
-			"https://api.psychometrist.local",
-		},
+		Configs:        cfg,
+		Logger:         logger.Get(),
+		DB:             dbConn,
+		AllowedOrigins: cfg.CORS.AllowedOrigins,
 	}
 
 	app.Serve()

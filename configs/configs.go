@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
@@ -24,6 +25,10 @@ type DBDriver struct {
 	ConnMaxLifetime int    `env:"DB_CONN_MAX_LIFETIME,required"`
 }
 
+type CORS struct {
+	AllowedOrigins []string
+}
+
 type Configs struct {
 	AppName    string `env:"APP_NAME,required"`
 	AppEnv     string `env:"APP_ENV,required"`
@@ -35,8 +40,9 @@ type Configs struct {
 
 	AuthService string `env:"AUTH_SERVICE,required"`
 
-	Log Log
-	DB  DBDriver
+	Log  Log
+	DB   DBDriver
+	CORS CORS
 }
 
 func Init() *Configs {
@@ -66,6 +72,9 @@ func Init() *Configs {
 			MaxIdleConns:    25,
 			ConnMaxLifetime: 5,
 		},
+		CORS: CORS{
+			AllowedOrigins: parseCORSOrigins(),
+		},
 	}
 }
 
@@ -89,4 +98,19 @@ func getEnvAsInt(key string, fallback int64) int64 {
 	}
 
 	return fallback
+}
+
+// parseCORSOrigins reads CORS allowed origins from environment variable
+// Expected format: CORS_ALLOWED_ORIGINS=http://localhost:5173,https://dashboard.psychometrist.local,https://api.psychometrist.local
+func parseCORSOrigins() []string {
+	originsStr := getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:5173")
+	return splitAndTrim(originsStr, ",")
+}
+
+func splitAndTrim(s, sep string) []string {
+	parts := strings.Split(s, sep)
+	for i, part := range parts {
+		parts[i] = strings.TrimSpace(part)
+	}
+	return parts
 }
