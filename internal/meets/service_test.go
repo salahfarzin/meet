@@ -173,7 +173,7 @@ func TestService_ParseStartAndEndTimes_InvalidEnd(t *testing.T) {
 }
 
 func TestService_GetAvailability(t *testing.T) {
-	now := time.Now().UTC()
+	now := time.Date(2023, 1, 1, 10, 0, 0, 0, time.UTC)
 	mockRepo := &MockRepository{
 		QueryMeetsFunc: func(ctx context.Context, options *MeetQueryOptions) ([]*Meet, error) {
 			return []*Meet{
