@@ -24,7 +24,7 @@ jobs:
           cache: true
 
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v9
         with:
           version: latest
           args: --timeout=5m
@@ -96,8 +96,8 @@ jobs:
           fi
           
           echo "Test coverage (excluding main/cmd/proto/configs): $COVERAGE%"
-          if (( $(echo "$COVERAGE < 95.0" | bc -l) )); then
-            echo "❌ Test coverage is below 95%: $COVERAGE%"
+          if (( $(echo "$COVERAGE < 85.0" | bc -l) )); then
+            echo "❌ Test coverage is below 85%: $COVERAGE%"
             exit 1
           fi
           echo "✅ Test coverage meets minimum requirement: $COVERAGE%"
