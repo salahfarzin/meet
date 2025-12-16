@@ -43,7 +43,7 @@ func TestInit(t *testing.T) {
 	config := Init()
 
 	// Check default values
-	assert.Equal(t, "AuthService", config.AppName)
+	assert.Equal(t, "Meet Service", config.AppName)
 	assert.Equal(t, "development", config.AppEnv)
 	assert.Equal(t, "0.1.0", config.Version)
 	assert.Equal(t, "http://localhost", config.URL)
@@ -63,7 +63,7 @@ func TestInit(t *testing.T) {
 	assert.Equal(t, 5, config.DB.ConnMaxLifetime)
 }
 
-func TestInit_WithCustomEnvVars(t *testing.T) {
+func TestInitWithCustomEnvVars(t *testing.T) {
 	// Save original environment
 	originalEnv := make(map[string]string)
 	envVars := []string{

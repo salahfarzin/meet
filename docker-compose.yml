@@ -1,25 +1,20 @@
-version: '3.8'
-
 services:
   app:
     build:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "8080:8080"
-      - "50051:50051"
-    environment:
-      - DB_HOST=mysql
-      - DB_PORT=3306
-      - DB_USER=meet_user
-      - DB_PASSWORD=root
-      - DB_NAME=meet_db
-      - GRPC_PORT=50051
-      - HTTP_PORT=8080
+      - "8083:8083"
+      - "9093:9093"
+    env_file:
+      - .env
     depends_on:
       mysql:
         condition: service_healthy
     restart: unless-stopped
+    volumes:
+      - ./storage/logs:/app/storage/logs
+      - .env:/app/.env
     networks:
       - meet-network
 

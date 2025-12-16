@@ -1,0 +1,21 @@
+services:
+  app:
+    image: ${DOCKER_IMAGE:-psychometrist/meet}:${IMAGE_TAG:-latest}
+    container_name: meet-service
+    ports:
+      - "8083:8083"
+      - "9093:9093"
+    env_file:
+      - .env
+    restart: unless-stopped
+    volumes:
+      - ./storage/logs:/app/storage/logs
+      - .env:/app/.env
+    networks:
+      - meet-network
+    extra_hosts:
+      - "mysql:10.10.0.7"
+
+networks:
+  meet-network:
+    driver: bridge

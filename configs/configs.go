@@ -50,7 +50,7 @@ func Init() *Configs {
 	_ = godotenv.Load()
 
 	return &Configs{
-		AppName:     getEnv("APP_NAME", "AuthService"),
+		AppName:     getEnv("APP_NAME", "Meet Service"),
 		AppEnv:      getEnv("APP_ENV", "development"),
 		Version:     getEnv("APP_VERSION", "0.1.0"),
 		URL:         getEnv("APP_URL", "http://localhost"),
