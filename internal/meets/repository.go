@@ -13,15 +13,13 @@ type Meet struct {
 	UUID         string    `json:"uuid"`
 	Title        string    `json:"title"`
 	OrganizerID  string    `json:"organizer_id"`
-	Participants []string  `json:"participants"`
+	PriceId      *string   `json:"price_id"`
+	Type         int32     `json:"type"`
 	Start        time.Time `json:"start_time"`
 	End          time.Time `json:"end_time"`
 	Description  string    `json:"description"`
 	Color        string    `json:"color"`
-	Type         int32     `json:"type"`
-	OldPrice     float64   `json:"old_price"`
-	Discount     float64   `json:"discount"`
-	Price        float64   `json:"price"`
+	Participants []string  `json:"participants"`
 }
 
 type Repository interface {
@@ -77,8 +75,8 @@ func (repo *repository) Create(ctx context.Context, meet *Meet) error {
 	startUTC := meet.Start.UTC()
 	endUTC := meet.End.UTC()
 
-	query := `INSERT INTO meets (uuid, title, organizer_id, participants, start_time, end_time, description, color) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-	res, err := repo.db.ExecContext(ctx, query, meet.UUID, meet.Title, meet.OrganizerID, string(participantsJSON), startUTC, endUTC, meet.Description, meet.Color)
+	query := `INSERT INTO meets (uuid, title, organizer_id, participants, start_time, end_time, description, color, type, price_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	res, err := repo.db.ExecContext(ctx, query, meet.UUID, meet.Title, meet.OrganizerID, string(participantsJSON), startUTC, endUTC, meet.Description, meet.Color, meet.Type, meet.PriceId)
 	if err != nil {
 		return err
 	}
@@ -91,12 +89,12 @@ func (repo *repository) Create(ctx context.Context, meet *Meet) error {
 }
 
 func (repo *repository) GetByID(ctx context.Context, id string) (*Meet, error) {
-	query := `SELECT id, uuid, title, organizer_id, participants, start_time, end_time, description, color FROM meets WHERE id = ?`
+	query := `SELECT id, uuid, title, organizer_id, participants, start_time, end_time, description, color, type, price_id FROM meets WHERE id = ?`
 	row := repo.db.QueryRowContext(ctx, query, id)
 	var a Meet
 	var participantsStr string
 	var start, end time.Time
-	err := row.Scan(&a.ID, &a.UUID, &a.Title, &a.OrganizerID, &participantsStr, &start, &end, &a.Description, &a.Color)
+	err := row.Scan(&a.ID, &a.UUID, &a.Title, &a.OrganizerID, &participantsStr, &start, &end, &a.Description, &a.Color, &a.Type, &a.PriceId)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("meet not found")
@@ -121,8 +119,8 @@ func (repo *repository) Update(ctx context.Context, meet *Meet) error {
 	startUTC := meet.Start.UTC()
 	endUTC := meet.End.UTC()
 
-	query := `UPDATE meets SET title=?, organizer_id=?, participants=?, start_time=?, end_time=?, description=?, color=? WHERE uuid=?`
-	_, err = repo.db.ExecContext(ctx, query, meet.Title, meet.OrganizerID, string(participantsJSON), startUTC, endUTC, meet.Description, meet.Color, meet.UUID)
+	query := `UPDATE meets SET title=?, organizer_id=?, participants=?, start_time=?, end_time=?, description=?, color=?, type=?, price_id=? WHERE uuid=?`
+	_, err = repo.db.ExecContext(ctx, query, meet.Title, meet.OrganizerID, string(participantsJSON), startUTC, endUTC, meet.Description, meet.Color, meet.Type, meet.PriceId, meet.UUID)
 
 	return err
 }
@@ -156,7 +154,7 @@ func (repo *repository) QueryMeets(ctx context.Context, options *MeetQueryOption
 
 // buildQueryAndArgs constructs the SQL query and arguments based on options
 func (repo *repository) buildQueryAndArgs(options *MeetQueryOptions) (query string, args []any) {
-	query = `SELECT id, uuid, title, organizer_id, participants, start_time, end_time, description, color FROM meets WHERE organizer_id = ?`
+	query = `SELECT id, uuid, title, organizer_id, participants, start_time, end_time, description, color, type, price_id FROM meets WHERE organizer_id = ?`
 	args = []any{options.OrganizerID}
 
 	if options.From != nil {
@@ -194,7 +192,7 @@ func (repo *repository) processRows(rows *sql.Rows) ([]*Meet, error) {
 		var a Meet
 		var participantsStr string
 		var start, end time.Time
-		if err := rows.Scan(&a.ID, &a.UUID, &a.Title, &a.OrganizerID, &participantsStr, &start, &end, &a.Description, &a.Color); err != nil {
+		if err := rows.Scan(&a.ID, &a.UUID, &a.Title, &a.OrganizerID, &participantsStr, &start, &end, &a.Description, &a.Color, &a.Type, &a.PriceId); err != nil {
 			return nil, err
 		}
 		if err := json.Unmarshal([]byte(participantsStr), &a.Participants); err != nil {

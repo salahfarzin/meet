@@ -1,0 +1,1 @@
+ALTER TABLE meets ADD COLUMN price_id VARCHAR(36) AFTER organizer_id;

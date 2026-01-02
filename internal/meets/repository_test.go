@@ -102,6 +102,7 @@ func TestRepository_Create(t *testing.T) {
 
 	repo := NewRepository(db)
 
+	priceID := "price-uuid-1"
 	meet := &Meet{
 		UUID:         "test-uuid",
 		Title:        "Test Meet",
@@ -112,13 +113,11 @@ func TestRepository_Create(t *testing.T) {
 		Description:  "Test description",
 		Color:        "#ffffff",
 		Type:         1,
-		OldPrice:     100.0,
-		Discount:     10.0,
-		Price:        90.0,
+		PriceId:      &priceID,
 	}
 
-	mock.ExpectExec("INSERT INTO meets \\(uuid, title, organizer_id, participants, start_time, end_time, description, color\\) VALUES \\(\\?, \\?, \\?, \\?, \\?, \\?, \\?, \\?\\)").
-		WithArgs(meet.UUID, meet.Title, meet.OrganizerID, `["p1","p2"]`, sqlmock.AnyArg(), sqlmock.AnyArg(), meet.Description, meet.Color).
+	mock.ExpectExec("INSERT INTO meets \\(uuid, title, organizer_id, participants, start_time, end_time, description, color, type, price_id\\) VALUES \\(\\?, \\?, \\?, \\?, \\?, \\?, \\?, \\?, \\?, \\?\\)").
+		WithArgs(meet.UUID, meet.Title, meet.OrganizerID, `["p1","p2"]`, sqlmock.AnyArg(), sqlmock.AnyArg(), meet.Description, meet.Color, meet.Type, meet.PriceId).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	err = repo.Create(context.Background(), meet)
@@ -134,6 +133,7 @@ func TestRepository_GetByID(t *testing.T) {
 
 	repo := NewRepository(db)
 
+	priceID := "price-uuid-1"
 	expectedMeet := &Meet{
 		ID:           "1",
 		UUID:         "test-uuid",
@@ -144,12 +144,14 @@ func TestRepository_GetByID(t *testing.T) {
 		End:          time.Now().Add(time.Hour),
 		Description:  "Test description",
 		Color:        "#ffffff",
+		Type:         1,
+		PriceId:      &priceID,
 	}
 
-	mock.ExpectQuery("SELECT id, uuid, title, organizer_id, participants, start_time, end_time, description, color FROM meets WHERE id = \\?").
+	mock.ExpectQuery("SELECT id, uuid, title, organizer_id, participants, start_time, end_time, description, color, type, price_id FROM meets WHERE id = \\?").
 		WithArgs("1").
-		WillReturnRows(sqlmock.NewRows([]string{"id", "uuid", "title", "organizer_id", "participants", "start_time", "end_time", "description", "color"}).
-			AddRow(expectedMeet.ID, expectedMeet.UUID, expectedMeet.Title, expectedMeet.OrganizerID, `["p1","p2"]`, expectedMeet.Start, expectedMeet.End, expectedMeet.Description, expectedMeet.Color))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "uuid", "title", "organizer_id", "participants", "start_time", "end_time", "description", "color", "type", "price_id"}).
+			AddRow(expectedMeet.ID, expectedMeet.UUID, expectedMeet.Title, expectedMeet.OrganizerID, `["p1","p2"]`, expectedMeet.Start, expectedMeet.End, expectedMeet.Description, expectedMeet.Color, expectedMeet.Type, expectedMeet.PriceId))
 
 	result, err := repo.GetByID(context.Background(), "1")
 	assert.NoError(t, err)
@@ -167,10 +169,10 @@ func TestRepository_GetByID_InvalidParticipants(t *testing.T) {
 
 	repo := NewRepository(db)
 
-	mock.ExpectQuery("SELECT id, uuid, title, organizer_id, participants, start_time, end_time, description, color FROM meets WHERE id = \\?").
+	mock.ExpectQuery("SELECT id, uuid, title, organizer_id, participants, start_time, end_time, description, color, type, price_id FROM meets WHERE id = \\?").
 		WithArgs("1").
-		WillReturnRows(sqlmock.NewRows([]string{"id", "uuid", "title", "organizer_id", "participants", "start_time", "end_time", "description", "color"}).
-			AddRow("1", "test-uuid", "Test Meet", "org1", "invalid", time.Now(), time.Now().Add(time.Hour), "Test description", "#ffffff"))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "uuid", "title", "organizer_id", "participants", "start_time", "end_time", "description", "color", "type", "price_id"}).
+			AddRow("1", "test-uuid", "Test Meet", "org1", "invalid", time.Now(), time.Now().Add(time.Hour), "Test description", "#ffffff", 1, nil))
 
 	result, err := repo.GetByID(context.Background(), "1")
 	assert.Error(t, err)
@@ -187,6 +189,7 @@ func TestRepository_Update(t *testing.T) {
 
 	repo := NewRepository(db)
 
+	priceID := "price-uuid-updated"
 	meet := &Meet{
 		UUID:         "test-uuid",
 		Title:        "Updated Meet",
@@ -196,10 +199,12 @@ func TestRepository_Update(t *testing.T) {
 		End:          time.Now().Add(time.Hour),
 		Description:  "Updated description",
 		Color:        "#000000",
+		Type:         2,
+		PriceId:      &priceID,
 	}
 
-	mock.ExpectExec("UPDATE meets SET title=\\?, organizer_id=\\?, participants=\\?, start_time=\\?, end_time=\\?, description=\\?, color=\\? WHERE uuid=\\?").
-		WithArgs(meet.Title, meet.OrganizerID, `["p1","p3"]`, sqlmock.AnyArg(), sqlmock.AnyArg(), meet.Description, meet.Color, meet.UUID).
+	mock.ExpectExec("UPDATE meets SET title=\\?, organizer_id=\\?, participants=\\?, start_time=\\?, end_time=\\?, description=\\?, color=\\?, type=\\?, price_id=\\? WHERE uuid=\\?").
+		WithArgs(meet.Title, meet.OrganizerID, `["p1","p3"]`, sqlmock.AnyArg(), sqlmock.AnyArg(), meet.Description, meet.Color, meet.Type, meet.PriceId, meet.UUID).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	err = repo.Update(context.Background(), meet)
@@ -241,6 +246,7 @@ func TestRepository_QueryMeets(t *testing.T) {
 		To:          &to,
 	}
 
+	priceID := "price-uuid-1"
 	expectedMeets := []*Meet{
 		{
 			ID:           "1",
@@ -252,13 +258,15 @@ func TestRepository_QueryMeets(t *testing.T) {
 			End:          time.Now().Add(time.Hour),
 			Description:  "Desc 1",
 			Color:        "#fff",
+			Type:         1,
+			PriceId:      &priceID,
 		},
 	}
 
-	mock.ExpectQuery("SELECT id, uuid, title, organizer_id, participants, start_time, end_time, description, color FROM meets WHERE organizer_id = \\? AND start_time >= \\? AND end_time <= \\?").
+	mock.ExpectQuery("SELECT id, uuid, title, organizer_id, participants, start_time, end_time, description, color, type, price_id FROM meets WHERE organizer_id = \\?").
 		WithArgs("org1", sqlmock.AnyArg(), sqlmock.AnyArg()).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "uuid", "title", "organizer_id", "participants", "start_time", "end_time", "description", "color"}).
-			AddRow(expectedMeets[0].ID, expectedMeets[0].UUID, expectedMeets[0].Title, expectedMeets[0].OrganizerID, `["p1"]`, expectedMeets[0].Start, expectedMeets[0].End, expectedMeets[0].Description, expectedMeets[0].Color))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "uuid", "title", "organizer_id", "participants", "start_time", "end_time", "description", "color", "type", "price_id"}).
+			AddRow(expectedMeets[0].ID, expectedMeets[0].UUID, expectedMeets[0].Title, expectedMeets[0].OrganizerID, `["p1"]`, expectedMeets[0].Start, expectedMeets[0].End, expectedMeets[0].Description, expectedMeets[0].Color, expectedMeets[0].Type, expectedMeets[0].PriceId))
 
 	result, err := repo.QueryMeets(context.Background(), opts)
 	assert.NoError(t, err)
@@ -355,8 +363,8 @@ func TestRepository_Create_Error(t *testing.T) {
 		Color:        "#ffffff",
 	}
 
-	mock.ExpectExec("INSERT INTO meets \\(uuid, title, organizer_id, participants, start_time, end_time, description, color\\) VALUES \\(\\?, \\?, \\?, \\?, \\?, \\?, \\?, \\?\\)").
-		WithArgs(meet.UUID, meet.Title, meet.OrganizerID, `["p1","p2"]`, sqlmock.AnyArg(), sqlmock.AnyArg(), meet.Description, meet.Color).
+	mock.ExpectExec("INSERT INTO meets \\(uuid, title, organizer_id, participants, start_time, end_time, description, color, type, price_id\\) VALUES \\(\\?, \\?, \\?, \\?, \\?, \\?, \\?, \\?, \\?, \\?\\)").
+		WithArgs(meet.UUID, meet.Title, meet.OrganizerID, `["p1","p2"]`, sqlmock.AnyArg(), sqlmock.AnyArg(), meet.Description, meet.Color, sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnError(errors.New("insert error"))
 
 	err = repo.Create(context.Background(), meet)
@@ -384,8 +392,8 @@ func TestRepository_Update_Error(t *testing.T) {
 		Color:        "#000000",
 	}
 
-	mock.ExpectExec("UPDATE meets SET title=\\?, organizer_id=\\?, participants=\\?, start_time=\\?, end_time=\\?, description=\\?, color=\\? WHERE uuid=\\?").
-		WithArgs(meet.Title, meet.OrganizerID, `["p1","p3"]`, sqlmock.AnyArg(), sqlmock.AnyArg(), meet.Description, meet.Color, meet.UUID).
+	mock.ExpectExec("UPDATE meets SET title=\\?, organizer_id=\\?, participants=\\?, start_time=\\?, end_time=\\?, description=\\?, color=\\?, type=\\?, price_id=\\? WHERE uuid=\\?").
+		WithArgs(meet.Title, meet.OrganizerID, `["p1","p3"]`, sqlmock.AnyArg(), sqlmock.AnyArg(), meet.Description, meet.Color, sqlmock.AnyArg(), sqlmock.AnyArg(), meet.UUID).
 		WillReturnError(errors.New("update error"))
 
 	err = repo.Update(context.Background(), meet)
@@ -437,7 +445,7 @@ func TestRepository_QueryMeets_QueryError(t *testing.T) {
 		To:          &to,
 	}
 
-	mock.ExpectQuery("SELECT id, uuid, title, organizer_id, participants, start_time, end_time, description, color FROM meets WHERE organizer_id = \\? AND start_time >= \\? AND end_time <= \\?").
+	mock.ExpectQuery("SELECT id, uuid, title, organizer_id, participants, start_time, end_time, description, color, type, price_id FROM meets WHERE organizer_id = \\?").
 		WithArgs("org1", sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnError(errors.New("query error"))
 
@@ -456,7 +464,7 @@ func TestRepository_GetByID_NotFound(t *testing.T) {
 
 	repo := NewRepository(db)
 
-	mock.ExpectQuery("SELECT id, uuid, title, organizer_id, participants, start_time, end_time, description, color FROM meets WHERE id = \\?").
+	mock.ExpectQuery("SELECT id, uuid, title, organizer_id, participants, start_time, end_time, description, color, type, price_id FROM meets WHERE id = \\?").
 		WithArgs("999").
 		WillReturnError(sql.ErrNoRows)
 
@@ -475,7 +483,7 @@ func TestRepository_GetByID_QueryError(t *testing.T) {
 
 	repo := NewRepository(db)
 
-	mock.ExpectQuery("SELECT id, uuid, title, organizer_id, participants, start_time, end_time, description, color FROM meets WHERE id = \\?").
+	mock.ExpectQuery("SELECT id, uuid, title, organizer_id, participants, start_time, end_time, description, color, type, price_id FROM meets WHERE id = \\?").
 		WithArgs("1").
 		WillReturnError(errors.New("database error"))
 
@@ -504,10 +512,10 @@ func TestRepository_ProcessRows_ScanError(t *testing.T) {
 	}
 
 	// Return invalid data to trigger scan error
-	mock.ExpectQuery("SELECT id, uuid, title, organizer_id, participants, start_time, end_time, description, color FROM meets WHERE organizer_id = \\? AND start_time >= \\? AND end_time <= \\?").
+	mock.ExpectQuery("SELECT id, uuid, title, organizer_id, participants, start_time, end_time, description, color, type, price_id FROM meets WHERE organizer_id = \\?").
 		WithArgs("org1", sqlmock.AnyArg(), sqlmock.AnyArg()).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "uuid", "title", "organizer_id", "participants", "start_time", "end_time", "description", "color"}).
-			AddRow("1", "uuid1", "Meet 1", "org1", `["p1"]`, "invalid-time", "invalid-time", "Desc", "#fff"))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "uuid", "title", "organizer_id", "participants", "start_time", "end_time", "description", "color", "type", "price_id"}).
+			AddRow("1", "uuid1", "Meet 1", "org1", `["p1"]`, "invalid-time", "invalid-time", "Desc", "#fff", 1, nil))
 
 	result, err := repo.QueryMeets(context.Background(), opts)
 	assert.Error(t, err)
@@ -533,10 +541,10 @@ func TestRepository_ProcessRows_UnmarshalError(t *testing.T) {
 	}
 
 	// Return invalid JSON to trigger unmarshal error
-	mock.ExpectQuery("SELECT id, uuid, title, organizer_id, participants, start_time, end_time, description, color FROM meets WHERE organizer_id = \\? AND start_time >= \\? AND end_time <= \\?").
+	mock.ExpectQuery("SELECT id, uuid, title, organizer_id, participants, start_time, end_time, description, color, type, price_id FROM meets WHERE organizer_id = \\?").
 		WithArgs("org1", sqlmock.AnyArg(), sqlmock.AnyArg()).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "uuid", "title", "organizer_id", "participants", "start_time", "end_time", "description", "color"}).
-			AddRow("1", "uuid1", "Meet 1", "org1", "invalid-json", time.Now(), time.Now().Add(time.Hour), "Desc", "#fff"))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "uuid", "title", "organizer_id", "participants", "start_time", "end_time", "description", "color", "type", "price_id"}).
+			AddRow("1", "uuid1", "Meet 1", "org1", "invalid-json", time.Now(), time.Now().Add(time.Hour), "Desc", "#fff", 1, nil))
 
 	result, err := repo.QueryMeets(context.Background(), opts)
 	assert.Error(t, err)

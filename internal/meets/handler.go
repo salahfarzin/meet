@@ -52,9 +52,7 @@ func (h *handler) Create(ctx context.Context, req *pb.CreateRequest) (*pb.Create
 		Description:  req.Meet.Description,
 		Color:        req.Meet.Color,
 		Type:         int32(req.Meet.Type),
-		OldPrice:     req.Meet.OldPrice,
-		Discount:     req.Meet.Discount,
-		Price:        req.Meet.Price,
+		PriceId:      req.Meet.PriceId,
 	})
 	if err != nil {
 		logger.FromContext(ctx).Error("service create error", zap.Error(err))
@@ -76,9 +74,7 @@ func (h *handler) Create(ctx context.Context, req *pb.CreateRequest) (*pb.Create
 			Color:        meet.Color,
 			Description:  meet.Description,
 			Type:         pb.MeetType(meet.Type),
-			OldPrice:     meet.OldPrice,
-			Discount:     meet.Discount,
-			Price:        meet.Price,
+			PriceId:      meet.PriceId,
 		},
 	}, nil
 }
@@ -104,9 +100,7 @@ func (h *handler) Update(ctx context.Context, req *pb.UpdateRequest) (*pb.Update
 		Color:        req.Meet.Color,
 		Description:  req.Meet.Description,
 		Type:         int32(req.Meet.Type),
-		OldPrice:     req.Meet.OldPrice,
-		Discount:     req.Meet.Discount,
-		Price:        req.Meet.Price,
+		PriceId:      req.Meet.PriceId,
 	})
 	if err != nil {
 		logger.FromContext(ctx).Error("service update error", zap.Error(err))
@@ -127,9 +121,7 @@ func (h *handler) Update(ctx context.Context, req *pb.UpdateRequest) (*pb.Update
 			Description:  meet.Description,
 			Color:        meet.Color,
 			Type:         pb.MeetType(meet.Type),
-			OldPrice:     meet.OldPrice,
-			Discount:     meet.Discount,
-			Price:        meet.Price,
+			PriceId:      meet.PriceId,
 		},
 	}, nil
 }
@@ -153,9 +145,7 @@ func (h *handler) GetAll(ctx context.Context, req *pb.GetAllRequest) (*pb.GetAll
 			End:          a.End.String(),
 			Color:        a.Color,
 			Type:         pb.MeetType(a.Type),
-			OldPrice:     a.OldPrice,
-			Discount:     a.Discount,
-			Price:        a.Price,
+			PriceId:      a.PriceId,
 		})
 	}
 	return &pb.GetAllResponse{Meets: pbMeets}, nil

@@ -3,9 +3,9 @@ syntax = "proto3";
 package meets;
 
 import "google/api/annotations.proto";
-import "proto/common.proto";
+import "common/common.proto";
 
-option go_package = "proto/meets;meets";
+option go_package = "github.com/salahfarzin/meet/proto/meets;meets";
 
 enum MeetType {
   MEET_TYPE_UNSPECIFIED = 0;
@@ -14,20 +14,19 @@ enum MeetType {
   PHONE_CALL = 3;
   VIDEO_CALL = 4;
 }
+
 // Meet message
 message Meet {
   string uuid = 1;
   string organizer_id = 2;
-  repeated string participants = 3;
+  optional string price_id = 3;
   string title = 4;
   string description = 5;
   string color = 6;
   string start = 7;
   string end = 8;
-  MeetType type = 9;
-  double old_price = 10;
-  double discount = 11;
-  double price = 12;
+  repeated string participants = 9;
+  MeetType type = 10;
 }
 
 // Request & Response
