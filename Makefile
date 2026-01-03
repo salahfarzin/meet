@@ -6,6 +6,18 @@ GOOGLEAPIS_DIR := $(HOME)/go/src/googleapis
 .PHONY: generate-proto
 generate-proto:
 	cd $(PROTO_DIR) && buf generate
+	@if command -v ruby >/dev/null 2>&1; then \
+		echo "Converting Swagger JSON to YAML..."; \
+		for f in $$(find pkg/swagger/gen -name "*.json"); do \
+			ruby -e "require 'yaml'; require 'json'; puts YAML.dump(JSON.parse(ARGF.read))" < $$f > $${f%.json}.yaml; \
+		done; \
+		echo "Identifying main API spec..."; \
+		MAIN_SPEC=$$(grep -l "/meets" pkg/swagger/gen/meets/*.yaml | head -n 1); \
+		if [ -n "$$MAIN_SPEC" ]; then \
+			cp "$$MAIN_SPEC" pkg/swagger/gen/openapi.yaml; \
+			echo "Main spec copied to openapi.yaml"; \
+		fi \
+	fi
 
 .PHONY: migrate
 migrate:

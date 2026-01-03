@@ -1,8 +1,10 @@
 CREATE TABLE meets (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     uuid VARCHAR(36) NOT NULL,
-    organizer_id VARCHAR(36) NOT NULL,
-    participants JSON NULL,
+    organizer_uuid VARCHAR(36) NOT NULL,
+    price_uuid VARCHAR(36) NULL,
+    participant_uuids JSON NULL,
+    type INT NOT NULL,
     title VARCHAR(255) NOT NULL,
     start_time DATETIME NOT NULL,
     end_time DATETIME NOT NULL,

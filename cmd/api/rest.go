@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"log"
 	"net/http"
 	"strconv"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/salahfarzin/meet/pkg/middlewares"
+	"github.com/salahfarzin/meet/pkg/swagger"
 	"github.com/salahfarzin/meet/router"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -95,6 +97,14 @@ func (s *RESTServer) Start(ctx context.Context) error {
 	}
 
 	http.Handle(prefix+"/", http.StripPrefix(prefix, handler))
+
+	// Serve openapi.yaml from embedded files
+	yamlFS, _ := fs.Sub(swagger.Gen, "gen")
+	http.Handle("/openapi.yaml", http.FileServer(http.FS(yamlFS)))
+
+	// Serve Documentation UI from embedded files
+	uiFS, _ := fs.Sub(swagger.UI, "assets")
+	http.Handle("/docs/", http.StripPrefix("/docs/", http.FileServer(http.FS(uiFS))))
 
 	server := &http.Server{
 		Addr:         ":" + strconv.FormatInt(s.App.Configs.Port, 10),

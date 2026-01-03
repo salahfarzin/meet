@@ -101,7 +101,7 @@ func TestService_QueryMeets(t *testing.T) {
 	mockRepo := &MockRepository{}
 	svc := NewService(mockRepo)
 
-	opts := &MeetQueryOptions{OrganizerID: "org1"}
+	opts := &MeetQueryOptions{OrganizerUuid: "org1"}
 	meets, err := svc.QueryMeets(context.Background(), opts)
 
 	assert.NoError(t, err)
@@ -235,10 +235,10 @@ func TestService_Create_Success(t *testing.T) {
 	svc := NewService(mockRepo)
 
 	meet := &Meet{
-		Title:       "Test Meet",
-		OrganizerID: "org1",
-		Start:       time.Now(),
-		End:         time.Now().Add(time.Hour),
+		Title:         "Test Meet",
+		OrganizerUuid: "org1",
+		Start:         time.Now(),
+		End:           time.Now().Add(time.Hour),
 	}
 
 	result, err := svc.Create(context.Background(), meet)
@@ -258,10 +258,10 @@ func TestService_Create_Conflict(t *testing.T) {
 	svc := NewService(mockRepo)
 
 	meet := &Meet{
-		Title:       "Test Meet",
-		OrganizerID: "org1",
-		Start:       time.Now(),
-		End:         time.Now().Add(time.Hour),
+		Title:         "Test Meet",
+		OrganizerUuid: "org1",
+		Start:         time.Now(),
+		End:           time.Now().Add(time.Hour),
 	}
 
 	result, err := svc.Create(context.Background(), meet)
@@ -283,10 +283,10 @@ func TestService_Create_RepoError(t *testing.T) {
 	svc := NewService(mockRepo)
 
 	meet := &Meet{
-		Title:       "Test Meet",
-		OrganizerID: "org1",
-		Start:       time.Now(),
-		End:         time.Now().Add(time.Hour),
+		Title:         "Test Meet",
+		OrganizerUuid: "org1",
+		Start:         time.Now(),
+		End:           time.Now().Add(time.Hour),
 	}
 
 	result, err := svc.Create(context.Background(), meet)
@@ -305,11 +305,11 @@ func TestService_Update_Success(t *testing.T) {
 	svc := NewService(mockRepo)
 
 	meet := &Meet{
-		UUID:        "test-uuid",
-		Title:       "Updated Meet",
-		OrganizerID: "org1",
-		Start:       time.Now(),
-		End:         time.Now().Add(time.Hour),
+		UUID:          "test-uuid",
+		Title:         "Updated Meet",
+		OrganizerUuid: "org1",
+		Start:         time.Now(),
+		End:           time.Now().Add(time.Hour),
 	}
 
 	result, err := svc.Update(context.Background(), meet)
@@ -324,10 +324,10 @@ func TestService_Update_NoUUID(t *testing.T) {
 	svc := NewService(mockRepo)
 
 	meet := &Meet{
-		Title:       "Updated Meet",
-		OrganizerID: "org1",
-		Start:       time.Now(),
-		End:         time.Now().Add(time.Hour),
+		Title:         "Updated Meet",
+		OrganizerUuid: "org1",
+		Start:         time.Now(),
+		End:           time.Now().Add(time.Hour),
 	}
 
 	result, err := svc.Update(context.Background(), meet)
@@ -346,11 +346,11 @@ func TestService_Update_Conflict(t *testing.T) {
 	svc := NewService(mockRepo)
 
 	meet := &Meet{
-		UUID:        "test-uuid",
-		Title:       "Updated Meet",
-		OrganizerID: "org1",
-		Start:       time.Now(),
-		End:         time.Now().Add(time.Hour),
+		UUID:          "test-uuid",
+		Title:         "Updated Meet",
+		OrganizerUuid: "org1",
+		Start:         time.Now(),
+		End:           time.Now().Add(time.Hour),
 	}
 
 	result, err := svc.Update(context.Background(), meet)
@@ -369,10 +369,10 @@ func TestService_Create_HasConflictError(t *testing.T) {
 	svc := NewService(mockRepo)
 
 	meet := &Meet{
-		Title:       "Test Meet",
-		OrganizerID: "org1",
-		Start:       time.Now(),
-		End:         time.Now().Add(time.Hour),
+		Title:         "Test Meet",
+		OrganizerUuid: "org1",
+		Start:         time.Now(),
+		End:           time.Now().Add(time.Hour),
 	}
 
 	result, err := svc.Create(context.Background(), meet)
@@ -391,11 +391,11 @@ func TestService_Update_HasConflictError(t *testing.T) {
 	svc := NewService(mockRepo)
 
 	meet := &Meet{
-		UUID:        "test-uuid",
-		Title:       "Updated Meet",
-		OrganizerID: "org1",
-		Start:       time.Now(),
-		End:         time.Now().Add(time.Hour),
+		UUID:          "test-uuid",
+		Title:         "Updated Meet",
+		OrganizerUuid: "org1",
+		Start:         time.Now(),
+		End:           time.Now().Add(time.Hour),
 	}
 
 	result, err := svc.Update(context.Background(), meet)
@@ -417,11 +417,11 @@ func TestService_Update_RepoError(t *testing.T) {
 	svc := NewService(mockRepo)
 
 	meet := &Meet{
-		UUID:        "test-uuid",
-		Title:       "Updated Meet",
-		OrganizerID: "org1",
-		Start:       time.Now(),
-		End:         time.Now().Add(time.Hour),
+		UUID:          "test-uuid",
+		Title:         "Updated Meet",
+		OrganizerUuid: "org1",
+		Start:         time.Now(),
+		End:           time.Now().Add(time.Hour),
 	}
 
 	result, err := svc.Update(context.Background(), meet)

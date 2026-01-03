@@ -44,7 +44,7 @@ func (s *service) GetByID(ctx context.Context, id string) (*Meet, error) {
 
 func (s *service) Create(ctx context.Context, meet *Meet) (*Meet, error) {
 	// Check for conflicts for this organizer and period
-	hasConflict, err := s.repo.HasConflict(ctx, meet.OrganizerID, meet.Start, meet.End)
+	hasConflict, err := s.repo.HasConflict(ctx, meet.OrganizerUuid, meet.Start, meet.End)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +66,7 @@ func (s *service) Update(ctx context.Context, meet *Meet) (*Meet, error) {
 		return nil, errors.New("UUID is required")
 	}
 	// Check for conflicts for this organizer and period, excluding this meet's UUID
-	hasConflict, err := s.repo.HasConflict(ctx, meet.OrganizerID, meet.Start, meet.End, meet.UUID)
+	hasConflict, err := s.repo.HasConflict(ctx, meet.OrganizerUuid, meet.Start, meet.End, meet.UUID)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +102,7 @@ func (s *service) QueryMeets(ctx context.Context, opts *MeetQueryOptions) ([]*Me
 // GetAvailability returns available datetimes for a user between from and to
 func (s *service) GetAvailability(ctx context.Context, organizerId string, from, to time.Time) (map[string]DateSlot, error) {
 	opts := &MeetQueryOptions{
-		OrganizerID:   organizerId,
+		OrganizerUuid: organizerId,
 		From:          &from,
 		To:            &to,
 		OnlyAvailable: func(b bool) *bool { return &b }(true),

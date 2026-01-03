@@ -9,17 +9,17 @@ import (
 )
 
 type Meet struct {
-	ID           string    `json:"id"`
-	UUID         string    `json:"uuid"`
-	Title        string    `json:"title"`
-	OrganizerID  string    `json:"organizer_id"`
-	PriceId      *string   `json:"price_id"`
-	Type         int32     `json:"type"`
-	Start        time.Time `json:"start_time"`
-	End          time.Time `json:"end_time"`
-	Description  string    `json:"description"`
-	Color        string    `json:"color"`
-	Participants []string  `json:"participants"`
+	ID               string    `json:"id" db:"id"`
+	UUID             string    `json:"uuid" db:"uuid"`
+	Title            string    `json:"title" db:"title"`
+	OrganizerUuid    string    `json:"organizer_uuid" db:"organizer_uuid"`
+	PriceUuid        *string   `json:"price_uuid" db:"price_uuid"`
+	Type             int32     `json:"type" db:"type"`
+	Start            time.Time `json:"start_time" db:"start_time"`
+	End              time.Time `json:"end_time" db:"end_time"`
+	Description      string    `json:"description" db:"description"`
+	Color            string    `json:"color" db:"color"`
+	ParticipantUuids []string  `json:"participant_uuids" db:"participant_uuids"`
 }
 
 type Repository interface {
@@ -43,7 +43,7 @@ func NewRepository(db *sql.DB) Repository {
 }
 
 type MeetQueryOptions struct {
-	OrganizerID   string
+	OrganizerUuid string
 	From          *time.Time
 	To            *time.Time
 	OnlyAvailable *bool
@@ -51,7 +51,7 @@ type MeetQueryOptions struct {
 
 // HasConflict checks if there is an overlapping appointment for the organizer and period
 func (repo *repository) HasConflict(ctx context.Context, organizerId string, start, end time.Time, excludeUUID ...string) (bool, error) {
-	query := `SELECT COUNT(1) FROM meets WHERE organizer_id = ? AND start_time < ? AND end_time > ?`
+	query := `SELECT COUNT(1) FROM meets WHERE organizer_uuid = ? AND start_time < ? AND end_time > ?`
 	args := []any{organizerId, end, start}
 	if len(excludeUUID) > 0 && excludeUUID[0] != "" {
 		query += " AND uuid != ?"
@@ -66,7 +66,7 @@ func (repo *repository) HasConflict(ctx context.Context, organizerId string, sta
 }
 
 func (repo *repository) Create(ctx context.Context, meet *Meet) error {
-	participantsJSON, err := json.Marshal(meet.Participants)
+	participantsJSON, err := json.Marshal(meet.ParticipantUuids)
 	if err != nil {
 		return fmt.Errorf("failed to marshal participants: %w", err)
 	}
@@ -75,8 +75,8 @@ func (repo *repository) Create(ctx context.Context, meet *Meet) error {
 	startUTC := meet.Start.UTC()
 	endUTC := meet.End.UTC()
 
-	query := `INSERT INTO meets (uuid, title, organizer_id, participants, start_time, end_time, description, color, type, price_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-	res, err := repo.db.ExecContext(ctx, query, meet.UUID, meet.Title, meet.OrganizerID, string(participantsJSON), startUTC, endUTC, meet.Description, meet.Color, meet.Type, meet.PriceId)
+	query := `INSERT INTO meets (uuid, title, organizer_uuid, participant_uuids, start_time, end_time, description, color, type, price_uuid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	res, err := repo.db.ExecContext(ctx, query, meet.UUID, meet.Title, meet.OrganizerUuid, string(participantsJSON), startUTC, endUTC, meet.Description, meet.Color, meet.Type, meet.PriceUuid)
 	if err != nil {
 		return err
 	}
@@ -89,19 +89,19 @@ func (repo *repository) Create(ctx context.Context, meet *Meet) error {
 }
 
 func (repo *repository) GetByID(ctx context.Context, id string) (*Meet, error) {
-	query := `SELECT id, uuid, title, organizer_id, participants, start_time, end_time, description, color, type, price_id FROM meets WHERE id = ?`
+	query := `SELECT id, uuid, title, organizer_uuid, participant_uuids, start_time, end_time, description, color, type, price_uuid FROM meets WHERE id = ?`
 	row := repo.db.QueryRowContext(ctx, query, id)
 	var a Meet
 	var participantsStr string
 	var start, end time.Time
-	err := row.Scan(&a.ID, &a.UUID, &a.Title, &a.OrganizerID, &participantsStr, &start, &end, &a.Description, &a.Color, &a.Type, &a.PriceId)
+	err := row.Scan(&a.ID, &a.UUID, &a.Title, &a.OrganizerUuid, &participantsStr, &start, &end, &a.Description, &a.Color, &a.Type, &a.PriceUuid)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("meet not found")
 		}
 		return nil, err
 	}
-	if err := json.Unmarshal([]byte(participantsStr), &a.Participants); err != nil {
+	if err := json.Unmarshal([]byte(participantsStr), &a.ParticipantUuids); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal participants: %w", err)
 	}
 	a.Start = start
@@ -110,7 +110,7 @@ func (repo *repository) GetByID(ctx context.Context, id string) (*Meet, error) {
 }
 
 func (repo *repository) Update(ctx context.Context, meet *Meet) error {
-	participantsJSON, err := json.Marshal(meet.Participants)
+	participantsJSON, err := json.Marshal(meet.ParticipantUuids)
 	if err != nil {
 		return fmt.Errorf("failed to marshal participants: %w", err)
 	}
@@ -119,8 +119,8 @@ func (repo *repository) Update(ctx context.Context, meet *Meet) error {
 	startUTC := meet.Start.UTC()
 	endUTC := meet.End.UTC()
 
-	query := `UPDATE meets SET title=?, organizer_id=?, participants=?, start_time=?, end_time=?, description=?, color=?, type=?, price_id=? WHERE uuid=?`
-	_, err = repo.db.ExecContext(ctx, query, meet.Title, meet.OrganizerID, string(participantsJSON), startUTC, endUTC, meet.Description, meet.Color, meet.Type, meet.PriceId, meet.UUID)
+	query := `UPDATE meets SET title=?, organizer_uuid=?, participants=?, start_time=?, end_time=?, description=?, color=?, type=?, price_uuid=? WHERE uuid=?`
+	_, err = repo.db.ExecContext(ctx, query, meet.Title, meet.OrganizerUuid, string(participantsJSON), startUTC, endUTC, meet.Description, meet.Color, meet.Type, meet.PriceUuid, meet.UUID)
 
 	return err
 }
@@ -132,8 +132,8 @@ func (repo *repository) Delete(ctx context.Context, id string) error {
 }
 
 func (repo *repository) QueryMeets(ctx context.Context, options *MeetQueryOptions) ([]*Meet, error) {
-	if options == nil || options.OrganizerID == "" {
-		return nil, fmt.Errorf("OrganizerID is required")
+	if options == nil || options.OrganizerUuid == "" {
+		return nil, fmt.Errorf("OrganizerUuid is required")
 	}
 
 	// Handle availability query
@@ -154,8 +154,8 @@ func (repo *repository) QueryMeets(ctx context.Context, options *MeetQueryOption
 
 // buildQueryAndArgs constructs the SQL query and arguments based on options
 func (repo *repository) buildQueryAndArgs(options *MeetQueryOptions) (query string, args []any) {
-	query = `SELECT id, uuid, title, organizer_id, participants, start_time, end_time, description, color, type, price_id FROM meets WHERE organizer_id = ?`
-	args = []any{options.OrganizerID}
+	query = `SELECT id, uuid, title, organizer_uuid, participant_uuids, start_time, end_time, description, color, type, price_uuid FROM meets WHERE organizer_uuid = ?`
+	args = []any{options.OrganizerUuid}
 
 	if options.From != nil {
 		query += " AND start_time >= ?"
@@ -181,7 +181,7 @@ func (repo *repository) handleAvailabilityQuery(ctx context.Context, options *Me
 		end = *options.To
 	}
 
-	return repo.GenerateAvailableSlots(ctx, options.OrganizerID, start, end)
+	return repo.GenerateAvailableSlots(ctx, options.OrganizerUuid, start, end)
 }
 
 // processRows converts database rows to Meet objects
@@ -192,10 +192,10 @@ func (repo *repository) processRows(rows *sql.Rows) ([]*Meet, error) {
 		var a Meet
 		var participantsStr string
 		var start, end time.Time
-		if err := rows.Scan(&a.ID, &a.UUID, &a.Title, &a.OrganizerID, &participantsStr, &start, &end, &a.Description, &a.Color, &a.Type, &a.PriceId); err != nil {
+		if err := rows.Scan(&a.ID, &a.UUID, &a.Title, &a.OrganizerUuid, &participantsStr, &start, &end, &a.Description, &a.Color, &a.Type, &a.PriceUuid); err != nil {
 			return nil, err
 		}
-		if err := json.Unmarshal([]byte(participantsStr), &a.Participants); err != nil {
+		if err := json.Unmarshal([]byte(participantsStr), &a.ParticipantUuids); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal participants: %w", err)
 		}
 		a.Start = start
@@ -209,7 +209,7 @@ func (repo *repository) processRows(rows *sql.Rows) ([]*Meet, error) {
 // GenerateAvailableSlots returns all available slots for an organizer between from and to
 func (repo *repository) GenerateAvailableSlots(ctx context.Context, organizerID string, from, to time.Time) ([]*Meet, error) {
 	var result []*Meet
-	query := `SELECT title, start_time, end_time FROM meets WHERE organizer_id = ? AND start_time BETWEEN ? AND ? ORDER BY start_time ASC`
+	query := `SELECT title, start_time, end_time FROM meets WHERE organizer_uuid = ? AND start_time BETWEEN ? AND ? ORDER BY start_time ASC`
 	rows, err := repo.db.QueryContext(ctx, query, organizerID, from, to)
 	if err != nil {
 		return nil, err
@@ -223,10 +223,10 @@ func (repo *repository) GenerateAvailableSlots(ctx context.Context, organizerID 
 			return nil, err
 		}
 		result = append(result, &Meet{
-			Title:       title,
-			OrganizerID: organizerID,
-			Start:       start,
-			End:         end,
+			Title:         title,
+			OrganizerUuid: organizerID,
+			Start:         start,
+			End:           end,
 		})
 	}
 	return result, nil

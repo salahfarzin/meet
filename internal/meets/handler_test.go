@@ -18,7 +18,7 @@ type MockRepoConflict struct {
 	HasConflictResult bool
 }
 
-func (m *MockRepoConflict) HasConflict(ctx context.Context, organizerId string, start, end time.Time, excludeUUID ...string) (bool, error) {
+func (m *MockRepoConflict) HasConflict(ctx context.Context, organizerUuid string, start, end time.Time, excludeUUID ...string) (bool, error) {
 	return m.HasConflictResult, nil
 }
 
@@ -40,9 +40,9 @@ func newServiceWithConflict(conflict bool) Service {
 func TestServiceCreateConflict(t *testing.T) {
 	svc := newServiceWithConflict(true)
 	meet := &Meet{
-		OrganizerID: "org1",
-		Start:       time.Date(2023, 1, 1, 10, 0, 0, 0, time.UTC),
-		End:         time.Date(2023, 1, 1, 11, 0, 0, 0, time.UTC),
+		OrganizerUuid: "org1",
+		Start:         time.Date(2023, 1, 1, 10, 0, 0, 0, time.UTC),
+		End:           time.Date(2023, 1, 1, 11, 0, 0, 0, time.UTC),
 	}
 	_, err := svc.Create(context.Background(), meet)
 	assert.Error(t, err)
@@ -52,9 +52,9 @@ func TestServiceCreateConflict(t *testing.T) {
 func TestServiceCreateNoConflict(t *testing.T) {
 	svc := newServiceWithConflict(false)
 	meet := &Meet{
-		OrganizerID: "org1",
-		Start:       time.Date(2023, 1, 1, 10, 0, 0, 0, time.UTC),
-		End:         time.Date(2023, 1, 1, 11, 0, 0, 0, time.UTC),
+		OrganizerUuid: "org1",
+		Start:         time.Date(2023, 1, 1, 10, 0, 0, 0, time.UTC),
+		End:           time.Date(2023, 1, 1, 11, 0, 0, 0, time.UTC),
 	}
 	got, err := svc.Create(context.Background(), meet)
 	assert.NoError(t, err)
@@ -64,10 +64,10 @@ func TestServiceCreateNoConflict(t *testing.T) {
 func TestServiceUpdateConflict(t *testing.T) {
 	svc := newServiceWithConflict(true)
 	meet := &Meet{
-		UUID:        "uuid1",
-		OrganizerID: "org1",
-		Start:       time.Date(2023, 1, 1, 10, 0, 0, 0, time.UTC),
-		End:         time.Date(2023, 1, 1, 11, 0, 0, 0, time.UTC),
+		UUID:          "uuid1",
+		OrganizerUuid: "org1",
+		Start:         time.Date(2023, 1, 1, 10, 0, 0, 0, time.UTC),
+		End:           time.Date(2023, 1, 1, 11, 0, 0, 0, time.UTC),
 	}
 	_, err := svc.Update(context.Background(), meet)
 	assert.Error(t, err)
@@ -77,10 +77,10 @@ func TestServiceUpdateConflict(t *testing.T) {
 func TestServiceUpdateNoConflict(t *testing.T) {
 	svc := newServiceWithConflict(false)
 	meet := &Meet{
-		UUID:        "uuid1",
-		OrganizerID: "org1",
-		Start:       time.Date(2023, 1, 1, 10, 0, 0, 0, time.UTC),
-		End:         time.Date(2023, 1, 1, 11, 0, 0, 0, time.UTC),
+		UUID:          "uuid1",
+		OrganizerUuid: "org1",
+		Start:         time.Date(2023, 1, 1, 10, 0, 0, 0, time.UTC),
+		End:           time.Date(2023, 1, 1, 11, 0, 0, 0, time.UTC),
 	}
 	got, err := svc.Update(context.Background(), meet)
 	assert.NoError(t, err)
@@ -124,9 +124,33 @@ func (m *MockService) GetByID(ctx context.Context, id string) (*Meet, error) {
 }
 
 func (m *MockService) QueryMeets(ctx context.Context, opts *MeetQueryOptions) ([]*Meet, error) {
-	if opts.OrganizerID == "error" {
+	if opts.OrganizerUuid == "error" {
 		return nil, errors.New("query error")
 	}
+
+	// Return different results based on date filters for testing
+	if opts.From != nil && opts.To != nil {
+		// Date range specified
+		return []*Meet{
+			{ID: "1", Title: "Filtered Meet", Start: *opts.From, End: *opts.To},
+		}, nil
+	}
+
+	if opts.From != nil {
+		// Only from date specified
+		return []*Meet{
+			{ID: "2", Title: "From Date Meet", Start: *opts.From},
+		}, nil
+	}
+
+	if opts.To != nil {
+		// Only to date specified
+		return []*Meet{
+			{ID: "3", Title: "To Date Meet", End: *opts.To},
+		}, nil
+	}
+
+	// No date filters
 	return []*Meet{{ID: "1", Title: "Dentist"}}, nil
 }
 
@@ -316,6 +340,113 @@ func TestGetAllMeetsError(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, codes.Internal, st.Code())
 	assert.Contains(t, st.Message(), "Internal server error")
+}
+
+func TestGetAllMeetsWithDateRange(t *testing.T) {
+	md := metadata.New(map[string]string{
+		"x-user-roles": "Programmer",
+		"x-user-uuid":  "user1",
+	})
+	ctx := metadata.NewIncomingContext(context.Background(), md)
+	h := NewHandler(NewMockService())
+	resp, err := h.GetAll(ctx, &pb.GetAllRequest{
+		OrganizerId: "org1",
+		From:        "2026-01-01T00:00:00Z",
+		To:          "2026-01-31T23:59:59Z",
+	})
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Len(t, resp.Meets, 1)
+	assert.Equal(t, "Filtered Meet", resp.Meets[0].Title)
+}
+
+func TestGetAllMeetsWithFromDateOnly(t *testing.T) {
+	md := metadata.New(map[string]string{
+		"x-user-roles": "Programmer",
+		"x-user-uuid":  "user1",
+	})
+	ctx := metadata.NewIncomingContext(context.Background(), md)
+	h := NewHandler(NewMockService())
+	resp, err := h.GetAll(ctx, &pb.GetAllRequest{
+		OrganizerId: "org1",
+		From:        "2026-01-01T00:00:00Z",
+	})
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Len(t, resp.Meets, 1)
+	assert.Equal(t, "From Date Meet", resp.Meets[0].Title)
+}
+
+func TestGetAllMeetsWithToDateOnly(t *testing.T) {
+	md := metadata.New(map[string]string{
+		"x-user-roles": "Programmer",
+		"x-user-uuid":  "user1",
+	})
+	ctx := metadata.NewIncomingContext(context.Background(), md)
+	h := NewHandler(NewMockService())
+	resp, err := h.GetAll(ctx, &pb.GetAllRequest{
+		OrganizerId: "org1",
+		To:          "2026-12-31T23:59:59Z",
+	})
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Len(t, resp.Meets, 1)
+	assert.Equal(t, "To Date Meet", resp.Meets[0].Title)
+}
+
+func TestGetAllMeetsWithInvalidFromDate(t *testing.T) {
+	md := metadata.New(map[string]string{
+		"x-user-roles": "Programmer",
+		"x-user-uuid":  "user1",
+	})
+	ctx := metadata.NewIncomingContext(context.Background(), md)
+	h := NewHandler(NewMockService())
+	// Invalid date format should be ignored and query should succeed without filter
+	resp, err := h.GetAll(ctx, &pb.GetAllRequest{
+		OrganizerId: "org1",
+		From:        "invalid-date",
+	})
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Len(t, resp.Meets, 1)
+	assert.Equal(t, "Dentist", resp.Meets[0].Title) // Falls back to unfiltered query
+}
+
+func TestGetAllMeetsWithInvalidToDate(t *testing.T) {
+	md := metadata.New(map[string]string{
+		"x-user-roles": "Programmer",
+		"x-user-uuid":  "user1",
+	})
+	ctx := metadata.NewIncomingContext(context.Background(), md)
+	h := NewHandler(NewMockService())
+	// Invalid date format should be ignored and query should succeed without filter
+	resp, err := h.GetAll(ctx, &pb.GetAllRequest{
+		OrganizerId: "org1",
+		To:          "not-a-date",
+	})
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Len(t, resp.Meets, 1)
+	assert.Equal(t, "Dentist", resp.Meets[0].Title) // Falls back to unfiltered query
+}
+
+func TestGetAllMeetsWithPartiallyInvalidDates(t *testing.T) {
+	md := metadata.New(map[string]string{
+		"x-user-roles": "Programmer",
+		"x-user-uuid":  "user1",
+	})
+	ctx := metadata.NewIncomingContext(context.Background(), md)
+	h := NewHandler(NewMockService())
+	// Valid from, invalid to - should use only the from filter
+	resp, err := h.GetAll(ctx, &pb.GetAllRequest{
+		OrganizerId: "org1",
+		From:        "2026-01-01T00:00:00Z",
+		To:          "invalid",
+	})
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Len(t, resp.Meets, 1)
+	assert.Equal(t, "From Date Meet", resp.Meets[0].Title)
 }
 
 func TestUpdateMeet(t *testing.T) {

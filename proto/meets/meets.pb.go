@@ -7,6 +7,7 @@
 package meets
 
 import (
+	_ "github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2/options"
 	common "github.com/salahfarzin/meet/proto/common"
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -80,19 +81,19 @@ func (MeetType) EnumDescriptor() ([]byte, []int) {
 
 // Meet message
 type Meet struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Uuid          string                 `protobuf:"bytes,1,opt,name=uuid,proto3" json:"uuid,omitempty"`
-	OrganizerId   string                 `protobuf:"bytes,2,opt,name=organizer_id,json=organizerId,proto3" json:"organizer_id,omitempty"`
-	PriceId       *string                `protobuf:"bytes,3,opt,name=price_id,json=priceId,proto3,oneof" json:"price_id,omitempty"`
-	Title         string                 `protobuf:"bytes,4,opt,name=title,proto3" json:"title,omitempty"`
-	Description   string                 `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`
-	Color         string                 `protobuf:"bytes,6,opt,name=color,proto3" json:"color,omitempty"`
-	Start         string                 `protobuf:"bytes,7,opt,name=start,proto3" json:"start,omitempty"`
-	End           string                 `protobuf:"bytes,8,opt,name=end,proto3" json:"end,omitempty"`
-	Participants  []string               `protobuf:"bytes,9,rep,name=participants,proto3" json:"participants,omitempty"`
-	Type          MeetType               `protobuf:"varint,10,opt,name=type,proto3,enum=meets.MeetType" json:"type,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Uuid             string                 `protobuf:"bytes,1,opt,name=uuid,proto3" json:"uuid,omitempty"`
+	OrganizerUuid    string                 `protobuf:"bytes,2,opt,name=organizer_uuid,json=organizerUuid,proto3" json:"organizer_uuid,omitempty"`
+	PriceUuid        *string                `protobuf:"bytes,3,opt,name=price_uuid,json=priceUuid,proto3,oneof" json:"price_uuid,omitempty"`
+	Title            string                 `protobuf:"bytes,4,opt,name=title,proto3" json:"title,omitempty"`
+	Description      string                 `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`
+	Color            string                 `protobuf:"bytes,6,opt,name=color,proto3" json:"color,omitempty"`
+	Start            string                 `protobuf:"bytes,7,opt,name=start,proto3" json:"start,omitempty"`
+	End              string                 `protobuf:"bytes,8,opt,name=end,proto3" json:"end,omitempty"`
+	ParticipantUuids []string               `protobuf:"bytes,9,rep,name=participant_uuids,json=participantUuids,proto3" json:"participant_uuids,omitempty"`
+	Type             MeetType               `protobuf:"varint,10,opt,name=type,proto3,enum=meets.MeetType" json:"type,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *Meet) Reset() {
@@ -132,16 +133,16 @@ func (x *Meet) GetUuid() string {
 	return ""
 }
 
-func (x *Meet) GetOrganizerId() string {
+func (x *Meet) GetOrganizerUuid() string {
 	if x != nil {
-		return x.OrganizerId
+		return x.OrganizerUuid
 	}
 	return ""
 }
 
-func (x *Meet) GetPriceId() string {
-	if x != nil && x.PriceId != nil {
-		return *x.PriceId
+func (x *Meet) GetPriceUuid() string {
+	if x != nil && x.PriceUuid != nil {
+		return *x.PriceUuid
 	}
 	return ""
 }
@@ -181,9 +182,9 @@ func (x *Meet) GetEnd() string {
 	return ""
 }
 
-func (x *Meet) GetParticipants() []string {
+func (x *Meet) GetParticipantUuids() []string {
 	if x != nil {
-		return x.Participants
+		return x.ParticipantUuids
 	}
 	return nil
 }
@@ -369,6 +370,8 @@ func (*DeleteResponse) Descriptor() ([]byte, []int) {
 type GetAllRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	OrganizerId   string                 `protobuf:"bytes,1,opt,name=organizer_id,json=organizerId,proto3" json:"organizer_id,omitempty"`
+	From          string                 `protobuf:"bytes,2,opt,name=from,proto3" json:"from,omitempty"`
+	To            string                 `protobuf:"bytes,3,opt,name=to,proto3" json:"to,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -406,6 +409,20 @@ func (*GetAllRequest) Descriptor() ([]byte, []int) {
 func (x *GetAllRequest) GetOrganizerId() string {
 	if x != nil {
 		return x.OrganizerId
+	}
+	return ""
+}
+
+func (x *GetAllRequest) GetFrom() string {
+	if x != nil {
+		return x.From
+	}
+	return ""
+}
+
+func (x *GetAllRequest) GetTo() string {
+	if x != nil {
+		return x.To
 	}
 	return ""
 }
@@ -974,29 +991,32 @@ var File_meets_meets_proto protoreflect.FileDescriptor
 
 const file_meets_meets_proto_rawDesc = "" +
 	"\n" +
-	"\x11meets/meets.proto\x12\x05meets\x1a\x1cgoogle/api/annotations.proto\x1a\x13common/common.proto\"\xa9\x02\n" +
+	"\x11meets/meets.proto\x12\x05meets\x1a\x1cgoogle/api/annotations.proto\x1a\x13common/common.proto\x1a.protoc-gen-openapiv2/options/annotations.proto\"\xbc\x02\n" +
 	"\x04Meet\x12\x12\n" +
-	"\x04uuid\x18\x01 \x01(\tR\x04uuid\x12!\n" +
-	"\forganizer_id\x18\x02 \x01(\tR\vorganizerId\x12\x1e\n" +
-	"\bprice_id\x18\x03 \x01(\tH\x00R\apriceId\x88\x01\x01\x12\x14\n" +
+	"\x04uuid\x18\x01 \x01(\tR\x04uuid\x12%\n" +
+	"\x0eorganizer_uuid\x18\x02 \x01(\tR\rorganizerUuid\x12\"\n" +
+	"\n" +
+	"price_uuid\x18\x03 \x01(\tH\x00R\tpriceUuid\x88\x01\x01\x12\x14\n" +
 	"\x05title\x18\x04 \x01(\tR\x05title\x12 \n" +
 	"\vdescription\x18\x05 \x01(\tR\vdescription\x12\x14\n" +
 	"\x05color\x18\x06 \x01(\tR\x05color\x12\x14\n" +
 	"\x05start\x18\a \x01(\tR\x05start\x12\x10\n" +
-	"\x03end\x18\b \x01(\tR\x03end\x12\"\n" +
-	"\fparticipants\x18\t \x03(\tR\fparticipants\x12#\n" +
+	"\x03end\x18\b \x01(\tR\x03end\x12+\n" +
+	"\x11participant_uuids\x18\t \x03(\tR\x10participantUuids\x12#\n" +
 	"\x04type\x18\n" +
-	" \x01(\x0e2\x0f.meets.MeetTypeR\x04typeB\v\n" +
-	"\t_price_id\"#\n" +
+	" \x01(\x0e2\x0f.meets.MeetTypeR\x04typeB\r\n" +
+	"\v_price_uuid\"#\n" +
 	"\rGetOneRequest\x12\x12\n" +
 	"\x04uuid\x18\x01 \x01(\tR\x04uuid\"1\n" +
 	"\x0eGetOneResponse\x12\x1f\n" +
 	"\x04meet\x18\x01 \x01(\v2\v.meets.MeetR\x04meet\"#\n" +
 	"\rDeleteRequest\x12\x12\n" +
 	"\x04uuid\x18\x01 \x01(\tR\x04uuid\"\x10\n" +
-	"\x0eDeleteResponse\"2\n" +
+	"\x0eDeleteResponse\"V\n" +
 	"\rGetAllRequest\x12!\n" +
-	"\forganizer_id\x18\x01 \x01(\tR\vorganizerId\"3\n" +
+	"\forganizer_id\x18\x01 \x01(\tR\vorganizerId\x12\x12\n" +
+	"\x04from\x18\x02 \x01(\tR\x04from\x12\x0e\n" +
+	"\x02to\x18\x03 \x01(\tR\x02to\"3\n" +
 	"\x0eGetAllResponse\x12!\n" +
 	"\x05meets\x18\x01 \x03(\v2\v.meets.MeetR\x05meets\"0\n" +
 	"\rCreateRequest\x12\x1f\n" +
@@ -1043,7 +1063,13 @@ const file_meets_meets_proto_rawDesc = "" +
 	"\x06Update\x12\x14.meets.UpdateRequest\x1a\x15.meets.UpdateResponse\"\x1b\x82\xd3\xe4\x93\x02\x15:\x04meet\x1a\r/meets/{uuid}\x12L\n" +
 	"\x06Delete\x12\x14.meets.DeleteRequest\x1a\x15.meets.DeleteResponse\"\x15\x82\xd3\xe4\x93\x02\x0f*\r/meets/{uuid}\x12t\n" +
 	"\x0fGetAvailability\x12\x1d.meets.GetAvailabilityRequest\x1a\x1e.meets.GetAvailabilityResponse\"\"\x82\xd3\xe4\x93\x02\x1c\x12\x1a/meets/{uuid}/availability\x12d\n" +
-	"\fGetMeetTypes\x12\x1a.meets.GetMeetTypesRequest\x1a\x1b.meets.GetMeetTypesResponse\"\x1b\x82\xd3\xe4\x93\x02\x15\x12\x13/meets/{uuid}/typesB/Z-github.com/salahfarzin/meet/proto/meets;meetsb\x06proto3"
+	"\fGetMeetTypes\x12\x1a.meets.GetMeetTypesRequest\x1a\x1b.meets.GetMeetTypesResponse\"\x1b\x82\xd3\xe4\x93\x02\x15\x12\x13/meets/{uuid}/typesB\x86\x02\x92A\xd3\x01\x12l\n" +
+	"\tMeets API\x12*API for managing meetings and appointments\".\n" +
+	"\x11Meets API Support\x1a\x19support@meets.example.com2\x031.0*\x02\x01\x022\x10application/json:\x10application/jsonR\x1b\n" +
+	"\x03404\x12\x14\n" +
+	"\x12Resource not foundR\x1e\n" +
+	"\x03500\x12\x17\n" +
+	"\x15Internal server errorZ-github.com/salahfarzin/meet/proto/meets;meetsb\x06proto3"
 
 var (
 	file_meets_meets_proto_rawDescOnce sync.Once

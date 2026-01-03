@@ -44,15 +44,15 @@ func (h *handler) Create(ctx context.Context, req *pb.CreateRequest) (*pb.Create
 	}
 
 	meet, err := h.service.Create(ctx, &Meet{
-		Title:        req.Meet.Title,
-		OrganizerID:  retrieveOrganizerID(ctx, req.Meet.OrganizerId),
-		Participants: req.Meet.Participants,
-		Start:        startTime,
-		End:          endTime,
-		Description:  req.Meet.Description,
-		Color:        req.Meet.Color,
-		Type:         int32(req.Meet.Type),
-		PriceId:      req.Meet.PriceId,
+		Title:            req.Meet.Title,
+		OrganizerUuid:    retrieveOrganizerUuid(ctx, req.Meet.OrganizerUuid),
+		PriceUuid:        req.Meet.PriceUuid,
+		ParticipantUuids: req.Meet.ParticipantUuids,
+		Start:            startTime,
+		End:              endTime,
+		Description:      req.Meet.Description,
+		Color:            req.Meet.Color,
+		Type:             int32(req.Meet.Type),
 	})
 	if err != nil {
 		logger.FromContext(ctx).Error("service create error", zap.Error(err))
@@ -65,16 +65,16 @@ func (h *handler) Create(ctx context.Context, req *pb.CreateRequest) (*pb.Create
 	return &pb.CreateResponse{
 		Status: &common.ResponseStatus{Code: 0, Message: "success"},
 		Meet: &pb.Meet{
-			Uuid:         meet.UUID,
-			OrganizerId:  meet.OrganizerID,
-			Participants: meet.Participants,
-			Title:        meet.Title,
-			Start:        meet.Start.String(),
-			End:          meet.End.String(),
-			Color:        meet.Color,
-			Description:  meet.Description,
-			Type:         pb.MeetType(meet.Type),
-			PriceId:      meet.PriceId,
+			Uuid:             meet.UUID,
+			OrganizerUuid:    meet.OrganizerUuid,
+			PriceUuid:        meet.PriceUuid,
+			ParticipantUuids: meet.ParticipantUuids,
+			Title:            meet.Title,
+			Start:            meet.Start.String(),
+			End:              meet.End.String(),
+			Color:            meet.Color,
+			Description:      meet.Description,
+			Type:             pb.MeetType(meet.Type),
 		},
 	}, nil
 }
@@ -91,16 +91,16 @@ func (h *handler) Update(ctx context.Context, req *pb.UpdateRequest) (*pb.Update
 	}
 
 	meet, err := h.service.Update(ctx, &Meet{
-		UUID:         req.Uuid,
-		OrganizerID:  retrieveOrganizerID(ctx, req.Meet.OrganizerId),
-		Participants: req.Meet.Participants,
-		Title:        req.Meet.Title,
-		Start:        startTime,
-		End:          endTime,
-		Color:        req.Meet.Color,
-		Description:  req.Meet.Description,
-		Type:         int32(req.Meet.Type),
-		PriceId:      req.Meet.PriceId,
+		UUID:             req.Uuid,
+		OrganizerUuid:    retrieveOrganizerUuid(ctx, req.Meet.OrganizerUuid),
+		PriceUuid:        req.Meet.PriceUuid,
+		ParticipantUuids: req.Meet.ParticipantUuids,
+		Title:            req.Meet.Title,
+		Start:            startTime,
+		End:              endTime,
+		Color:            req.Meet.Color,
+		Description:      req.Meet.Description,
+		Type:             int32(req.Meet.Type),
 	})
 	if err != nil {
 		logger.FromContext(ctx).Error("service update error", zap.Error(err))
@@ -112,22 +112,42 @@ func (h *handler) Update(ctx context.Context, req *pb.UpdateRequest) (*pb.Update
 
 	return &pb.UpdateResponse{
 		Meet: &pb.Meet{
-			Uuid:         meet.UUID,
-			OrganizerId:  meet.OrganizerID,
-			Participants: meet.Participants,
-			Title:        meet.Title,
-			Start:        meet.Start.String(),
-			End:          meet.End.String(),
-			Description:  meet.Description,
-			Color:        meet.Color,
-			Type:         pb.MeetType(meet.Type),
-			PriceId:      meet.PriceId,
+			Uuid:             meet.UUID,
+			OrganizerUuid:    meet.OrganizerUuid,
+			PriceUuid:        meet.PriceUuid,
+			ParticipantUuids: meet.ParticipantUuids,
+			Title:            meet.Title,
+			Start:            meet.Start.String(),
+			End:              meet.End.String(),
+			Description:      meet.Description,
+			Color:            meet.Color,
+			Type:             pb.MeetType(meet.Type),
 		},
 	}, nil
 }
 
 func (h *handler) GetAll(ctx context.Context, req *pb.GetAllRequest) (*pb.GetAllResponse, error) {
-	opts := &MeetQueryOptions{OrganizerID: retrieveOrganizerID(ctx, req.OrganizerId)}
+	opts := &MeetQueryOptions{OrganizerUuid: retrieveOrganizerUuid(ctx, req.OrganizerId)}
+
+	// Parse optional date range filters for performance optimization
+	if req.From != "" {
+		fromTime, err := time.Parse(time.RFC3339, req.From)
+		if err != nil {
+			logger.FromContext(ctx).Warn("Invalid from date format", zap.String("from", req.From), zap.Error(err))
+		} else {
+			opts.From = &fromTime
+		}
+	}
+
+	if req.To != "" {
+		toTime, err := time.Parse(time.RFC3339, req.To)
+		if err != nil {
+			logger.FromContext(ctx).Warn("Invalid to date format", zap.String("to", req.To), zap.Error(err))
+		} else {
+			opts.To = &toTime
+		}
+	}
+
 	meetsList, err := h.service.QueryMeets(ctx, opts)
 	if err != nil {
 		logger.FromContext(ctx).Error("DB error", zap.Error(err))
@@ -136,16 +156,16 @@ func (h *handler) GetAll(ctx context.Context, req *pb.GetAllRequest) (*pb.GetAll
 	pbMeets := make([]*pb.Meet, 0, len(meetsList))
 	for _, a := range meetsList {
 		pbMeets = append(pbMeets, &pb.Meet{
-			Uuid:         a.UUID,
-			OrganizerId:  a.OrganizerID,
-			Participants: a.Participants,
-			Title:        a.Title,
-			Description:  a.Description,
-			Start:        a.Start.String(),
-			End:          a.End.String(),
-			Color:        a.Color,
-			Type:         pb.MeetType(a.Type),
-			PriceId:      a.PriceId,
+			Uuid:             a.UUID,
+			OrganizerUuid:    a.OrganizerUuid,
+			PriceUuid:        a.PriceUuid,
+			ParticipantUuids: a.ParticipantUuids,
+			Title:            a.Title,
+			Description:      a.Description,
+			Start:            a.Start.String(),
+			End:              a.End.String(),
+			Color:            a.Color,
+			Type:             pb.MeetType(a.Type),
 		})
 	}
 	return &pb.GetAllResponse{Meets: pbMeets}, nil
@@ -157,7 +177,7 @@ func (h *handler) GetAvailability(ctx context.Context, req *pb.GetAvailabilityRe
 		return nil, status.Error(codes.InvalidArgument, "uuid is required")
 	}
 
-	organizerID := retrieveOrganizerID(ctx, req.Uuid)
+	organizerID := retrieveOrganizerUuid(ctx, req.Uuid)
 
 	var from, to time.Time
 	now := time.Now().UTC()
@@ -255,7 +275,7 @@ func validateUpdateRequest(req *pb.UpdateRequest) *common.ResponseStatus {
 	return nil
 }
 
-func retrieveOrganizerID(ctx context.Context, organizerUserID string) string {
+func retrieveOrganizerUuid(ctx context.Context, organizerUserID string) string {
 	user := middlewares.GetUserFromContext(ctx)
 
 	organizerID := ""

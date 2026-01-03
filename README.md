@@ -9,9 +9,16 @@ This project is a backend system designed for managing meets for psychologists a
 - Integration with RabbitMQ for message queuing.
 
 ## REST API
-```
+```bash
 curl http://localhost:8080/meets
 ```
+
+## Documentation
+- **Interactive API Docs**: [http://localhost:8083/docs/](http://localhost:8083/docs/)
+- **System Architecture**: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- **Developer Guide**: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
+- **OpenAPI Spec**: [docs/api/openapi.yaml](docs/api/openapi.yaml)
+
 ## GRPC API
 ```
 grpcurl -plaintext -d '{"meet": {"title":"Test","start":"2025-09-10 10:25"}}' localhost:50051 meets.MeetService/CreateMeet

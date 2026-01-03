@@ -9,3 +9,8 @@ plugins:
   - name: grpc-gateway
     out: .
     opt: paths=source_relative
+  - name: openapiv2
+    out: ../pkg/swagger/gen
+    opt: 
+      - json_names_for_fields=true
+      - enums_as_ints=true
