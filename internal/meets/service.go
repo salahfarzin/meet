@@ -28,6 +28,7 @@ type Service interface {
 	QueryMeets(ctx context.Context, opts *MeetQueryOptions) ([]*Meet, error)
 	GetAvailability(ctx context.Context, organizerId string, from, to time.Time) (map[string]DateSlot, error)
 	ParseStartAndEndTimes(start, end string) (time.Time, time.Time, error)
+	Delete(ctx context.Context, uuid string) error
 }
 
 type service struct {
@@ -100,9 +101,14 @@ func (s *service) ParseStartAndEndTimes(start, end string) (startTime, endTime t
 	return startTime, endTime, nil
 }
 
-// GetAll implements MeetsService.
+// QueryMeets implements Service.
 func (s *service) QueryMeets(ctx context.Context, opts *MeetQueryOptions) ([]*Meet, error) {
 	return s.repo.QueryMeets(ctx, opts)
+}
+
+// Delete implements Service.
+func (s *service) Delete(ctx context.Context, uuid string) error {
+	return s.repo.Delete(ctx, uuid)
 }
 
 // GetAvailability returns available datetimes for a user between from and to

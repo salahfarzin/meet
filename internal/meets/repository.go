@@ -28,7 +28,7 @@ type Repository interface {
 	GetByID(ctx context.Context, id string) (*Meet, error)
 	GetByUUID(ctx context.Context, uuid string) (*Meet, error)
 	Update(ctx context.Context, meet *Meet) error
-	Delete(ctx context.Context, id string) error
+	Delete(ctx context.Context, uuid string) error
 	// QueryMeets: pass nil for no filter
 	QueryMeets(ctx context.Context, options *MeetQueryOptions) ([]*Meet, error)
 	HasConflict(ctx context.Context, organizerId string, start, end time.Time, excludeUUID ...string) (bool, error)
@@ -90,12 +90,12 @@ func (repo *repository) Create(ctx context.Context, meet *Meet) error {
 }
 
 func (repo *repository) GetByID(ctx context.Context, id string) (*Meet, error) {
-	query := `SELECT id, uuid, title, organizer_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, price_uuid FROM meets WHERE id = ?`
+	query := `SELECT id, uuid, title, organizer_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type FROM meets WHERE id = ?`
 	row := repo.db.QueryRowContext(ctx, query, id)
 	var a Meet
 	var participantsStr string
 	var start, end time.Time
-	err := row.Scan(&a.ID, &a.UUID, &a.Title, &a.OrganizerUuid, &a.PriceUuid, &participantsStr, &start, &end, &a.Description, &a.Color, &a.Type, &a.PriceUuid)
+	err := row.Scan(&a.ID, &a.UUID, &a.Title, &a.OrganizerUuid, &a.PriceUuid, &participantsStr, &start, &end, &a.Description, &a.Color, &a.Type)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("meet not found")
@@ -111,12 +111,12 @@ func (repo *repository) GetByID(ctx context.Context, id string) (*Meet, error) {
 }
 
 func (repo *repository) GetByUUID(ctx context.Context, uuid string) (*Meet, error) {
-	query := `SELECT id, uuid, title, organizer_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, price_uuid FROM meets WHERE uuid = ?`
+	query := `SELECT id, uuid, title, organizer_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type FROM meets WHERE uuid = ?`
 	row := repo.db.QueryRowContext(ctx, query, uuid)
 	var a Meet
 	var participantsStr string
 	var start, end time.Time
-	err := row.Scan(&a.ID, &a.UUID, &a.Title, &a.OrganizerUuid, &a.PriceUuid, &participantsStr, &start, &end, &a.Description, &a.Color, &a.Type, &a.PriceUuid)
+	err := row.Scan(&a.ID, &a.UUID, &a.Title, &a.OrganizerUuid, &a.PriceUuid, &participantsStr, &start, &end, &a.Description, &a.Color, &a.Type)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("meet not found")
@@ -147,9 +147,9 @@ func (repo *repository) Update(ctx context.Context, meet *Meet) error {
 	return err
 }
 
-func (repo *repository) Delete(ctx context.Context, id string) error {
-	query := `DELETE FROM meets WHERE id = ?`
-	_, err := repo.db.ExecContext(ctx, query, id)
+func (repo *repository) Delete(ctx context.Context, uuid string) error {
+	query := `DELETE FROM meets WHERE uuid = ?`
+	_, err := repo.db.ExecContext(ctx, query, uuid)
 	return err
 }
 
@@ -176,7 +176,7 @@ func (repo *repository) QueryMeets(ctx context.Context, options *MeetQueryOption
 
 // buildQueryAndArgs constructs the SQL query and arguments based on options
 func (repo *repository) buildQueryAndArgs(options *MeetQueryOptions) (query string, args []any) {
-	query = `SELECT id, uuid, title, organizer_uuid, participant_uuids, start_time, end_time, description, color, type, price_uuid FROM meets WHERE organizer_uuid = ?`
+	query = `SELECT id, uuid, title, organizer_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type FROM meets WHERE organizer_uuid = ?`
 	args = []any{options.OrganizerUuid}
 
 	if options.From != nil {
@@ -214,7 +214,7 @@ func (repo *repository) processRows(rows *sql.Rows) ([]*Meet, error) {
 		var a Meet
 		var participantsStr string
 		var start, end time.Time
-		if err := rows.Scan(&a.ID, &a.UUID, &a.Title, &a.OrganizerUuid, &participantsStr, &start, &end, &a.Description, &a.Color, &a.Type, &a.PriceUuid); err != nil {
+		if err := rows.Scan(&a.ID, &a.UUID, &a.Title, &a.OrganizerUuid, &a.PriceUuid, &participantsStr, &start, &end, &a.Description, &a.Color, &a.Type); err != nil {
 			return nil, err
 		}
 		if err := json.Unmarshal([]byte(participantsStr), &a.ParticipantUuids); err != nil {

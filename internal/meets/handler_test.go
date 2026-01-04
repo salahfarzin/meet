@@ -27,8 +27,8 @@ func (m *MockRepoConflict) GetByID(ctx context.Context, id string) (*Meet, error
 func (m *MockRepoConflict) GetByUUID(ctx context.Context, uuid string) (*Meet, error) {
 	return nil, nil
 }
-func (m *MockRepoConflict) Update(ctx context.Context, meet *Meet) error { return nil }
-func (m *MockRepoConflict) Delete(ctx context.Context, id string) error  { return nil }
+func (m *MockRepoConflict) Update(ctx context.Context, meet *Meet) error  { return nil }
+func (m *MockRepoConflict) Delete(ctx context.Context, uuid string) error { return nil }
 func (m *MockRepoConflict) QueryMeets(ctx context.Context, options *MeetQueryOptions) ([]*Meet, error) {
 	return nil, nil
 }
@@ -40,7 +40,7 @@ func newServiceWithConflict(conflict bool) Service {
 	return &service{repo: &MockRepoConflict{HasConflictResult: conflict}}
 }
 
-func TestServiceCreateConflict(t *testing.T) {
+func TestHandlerCreateConflict(t *testing.T) {
 	svc := newServiceWithConflict(true)
 	meet := &Meet{
 		OrganizerUuid: "org1",
@@ -52,7 +52,7 @@ func TestServiceCreateConflict(t *testing.T) {
 	assert.Contains(t, err.Error(), "conflict")
 }
 
-func TestServiceCreateNoConflict(t *testing.T) {
+func TestHandlerCreateNoConflict(t *testing.T) {
 	svc := newServiceWithConflict(false)
 	meet := &Meet{
 		OrganizerUuid: "org1",
@@ -64,7 +64,7 @@ func TestServiceCreateNoConflict(t *testing.T) {
 	assert.NotNil(t, got)
 }
 
-func TestServiceUpdateConflict(t *testing.T) {
+func TestHandlerUpdateConflict(t *testing.T) {
 	svc := newServiceWithConflict(true)
 	meet := &Meet{
 		UUID:          "uuid1",
@@ -77,7 +77,7 @@ func TestServiceUpdateConflict(t *testing.T) {
 	assert.Contains(t, err.Error(), "conflict")
 }
 
-func TestServiceUpdateNoConflict(t *testing.T) {
+func TestHandlerUpdateNoConflict(t *testing.T) {
 	svc := newServiceWithConflict(false)
 	meet := &Meet{
 		UUID:          "uuid1",
@@ -127,6 +127,13 @@ func (m *MockService) GetByID(ctx context.Context, id string) (*Meet, error) {
 }
 func (m *MockService) GetByUUID(ctx context.Context, uuid string) (*Meet, error) {
 	return &Meet{UUID: uuid, Title: "Dentist"}, nil
+}
+
+func (m *MockService) Delete(ctx context.Context, uuid string) error {
+	if uuid == "error" {
+		return errors.New("delete error")
+	}
+	return nil
 }
 
 func (m *MockService) QueryMeets(ctx context.Context, opts *MeetQueryOptions) ([]*Meet, error) {

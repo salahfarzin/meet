@@ -21,6 +21,7 @@ type Handler interface {
 	Create(ctx context.Context, req *pb.CreateRequest) (*pb.CreateResponse, error)
 	Update(ctx context.Context, req *pb.UpdateRequest) (*pb.UpdateResponse, error)
 	GetOne(ctx context.Context, req *pb.GetOneRequest) (*pb.GetOneResponse, error)
+	Delete(ctx context.Context, req *pb.DeleteRequest) (*pb.DeleteResponse, error)
 }
 
 type handler struct {
@@ -156,6 +157,21 @@ func (h *handler) GetOne(ctx context.Context, req *pb.GetOneRequest) (*pb.GetOne
 			Type:             pb.MeetType(meet.Type),
 		},
 	}, nil
+}
+
+// Delete implements proto.MeetServiceServer.
+func (h *handler) Delete(ctx context.Context, req *pb.DeleteRequest) (*pb.DeleteResponse, error) {
+	if req == nil || req.Uuid == "" {
+		return nil, status.Error(codes.InvalidArgument, "UUID is required")
+	}
+
+	err := h.service.Delete(ctx, req.Uuid)
+	if err != nil {
+		logger.FromContext(ctx).Error("failed to delete meet", zap.Error(err), zap.String("uuid", req.Uuid))
+		return nil, status.Error(codes.Internal, "Internal server error")
+	}
+
+	return &pb.DeleteResponse{}, nil
 }
 
 func (h *handler) GetAll(ctx context.Context, req *pb.GetAllRequest) (*pb.GetAllResponse, error) {
