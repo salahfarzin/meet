@@ -55,10 +55,10 @@ func (h *handler) Create(ctx context.Context, req *pb.CreateRequest) (*pb.Create
 		Type:             int32(req.Meet.Type),
 	})
 	if err != nil {
-		logger.FromContext(ctx).Error("service create error", zap.Error(err))
 		if err.Error() == "appointment conflict for this organizer and period" {
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
+		logger.FromContext(ctx).Error("failed to create meet", zap.Error(err))
 		return nil, status.Error(codes.Internal, "Internal server error")
 	}
 
@@ -70,8 +70,8 @@ func (h *handler) Create(ctx context.Context, req *pb.CreateRequest) (*pb.Create
 			PriceUuid:        meet.PriceUuid,
 			ParticipantUuids: meet.ParticipantUuids,
 			Title:            meet.Title,
-			Start:            meet.Start.String(),
-			End:              meet.End.String(),
+			Start:            meet.Start.Format(time.RFC3339),
+			End:              meet.End.Format(time.RFC3339),
 			Color:            meet.Color,
 			Description:      meet.Description,
 			Type:             pb.MeetType(meet.Type),
@@ -103,10 +103,11 @@ func (h *handler) Update(ctx context.Context, req *pb.UpdateRequest) (*pb.Update
 		Type:             int32(req.Meet.Type),
 	})
 	if err != nil {
-		logger.FromContext(ctx).Error("service update error", zap.Error(err))
 		if err.Error() == "appointment conflict for this organizer and period" {
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
+		// Log the internal error with trace context
+		logger.FromContext(ctx).Error("failed to update meet", zap.Error(err), zap.String("uuid", req.Uuid))
 		return nil, status.Error(codes.Internal, "Internal server error")
 	}
 
@@ -117,9 +118,40 @@ func (h *handler) Update(ctx context.Context, req *pb.UpdateRequest) (*pb.Update
 			PriceUuid:        meet.PriceUuid,
 			ParticipantUuids: meet.ParticipantUuids,
 			Title:            meet.Title,
-			Start:            meet.Start.String(),
-			End:              meet.End.String(),
+			Start:            meet.Start.Format(time.RFC3339),
+			End:              meet.End.Format(time.RFC3339),
 			Description:      meet.Description,
+			Color:            meet.Color,
+			Type:             pb.MeetType(meet.Type),
+		},
+	}, nil
+}
+
+// GetOne implements proto.MeetServiceServer.
+func (h *handler) GetOne(ctx context.Context, req *pb.GetOneRequest) (*pb.GetOneResponse, error) {
+	if req == nil || req.Uuid == "" {
+		return nil, status.Error(codes.InvalidArgument, "UUID is required")
+	}
+
+	meet, err := h.service.GetByUUID(ctx, req.Uuid)
+	if err != nil {
+		if err.Error() == "meet not found" {
+			return nil, status.Error(codes.NotFound, "meet not found")
+		}
+		logger.FromContext(ctx).Error("failed to fetch meet", zap.Error(err), zap.String("uuid", req.Uuid))
+		return nil, status.Error(codes.Internal, "Internal server error")
+	}
+
+	return &pb.GetOneResponse{
+		Meet: &pb.Meet{
+			Uuid:             meet.UUID,
+			OrganizerUuid:    meet.OrganizerUuid,
+			PriceUuid:        meet.PriceUuid,
+			ParticipantUuids: meet.ParticipantUuids,
+			Title:            meet.Title,
+			Description:      meet.Description,
+			Start:            meet.Start.Format(time.RFC3339),
+			End:              meet.End.Format(time.RFC3339),
 			Color:            meet.Color,
 			Type:             pb.MeetType(meet.Type),
 		},
@@ -150,7 +182,7 @@ func (h *handler) GetAll(ctx context.Context, req *pb.GetAllRequest) (*pb.GetAll
 
 	meetsList, err := h.service.QueryMeets(ctx, opts)
 	if err != nil {
-		logger.FromContext(ctx).Error("DB error", zap.Error(err))
+		logger.FromContext(ctx).Error("failed to query meets", zap.Error(err))
 		return nil, status.Error(codes.Internal, "Internal server error")
 	}
 	pbMeets := make([]*pb.Meet, 0, len(meetsList))
@@ -162,8 +194,8 @@ func (h *handler) GetAll(ctx context.Context, req *pb.GetAllRequest) (*pb.GetAll
 			ParticipantUuids: a.ParticipantUuids,
 			Title:            a.Title,
 			Description:      a.Description,
-			Start:            a.Start.String(),
-			End:              a.End.String(),
+			Start:            a.Start.Format(time.RFC3339),
+			End:              a.End.Format(time.RFC3339),
 			Color:            a.Color,
 			Type:             pb.MeetType(a.Type),
 		})

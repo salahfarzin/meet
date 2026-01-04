@@ -203,7 +203,7 @@ func TestRepository_Update(t *testing.T) {
 		PriceUuid:        &priceID,
 	}
 
-	mock.ExpectExec("UPDATE meets SET title=\\?, organizer_uuid=\\?, participants=\\?, start_time=\\?, end_time=\\?, description=\\?, color=\\?, type=\\?, price_uuid=\\? WHERE uuid=\\?").
+	mock.ExpectExec("UPDATE meets SET title=\\?, organizer_uuid=\\?, participant_uuids=\\?, start_time=\\?, end_time=\\?, description=\\?, color=\\?, type=\\?, price_uuid=\\? WHERE uuid=\\?").
 		WithArgs(meet.Title, meet.OrganizerUuid, `["p1","p3"]`, sqlmock.AnyArg(), sqlmock.AnyArg(), meet.Description, meet.Color, meet.Type, meet.PriceUuid, meet.UUID).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
@@ -265,7 +265,7 @@ func TestRepository_QueryMeets(t *testing.T) {
 
 	mock.ExpectQuery("SELECT id, uuid, title, organizer_uuid, participant_uuids, start_time, end_time, description, color, type, price_uuid FROM meets WHERE organizer_uuid = \\?").
 		WithArgs("org1", sqlmock.AnyArg(), sqlmock.AnyArg()).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "uuid", "title", "organizer_uuid", "participants", "start_time", "end_time", "description", "color", "type", "price_uuid"}).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "uuid", "title", "organizer_uuid", "participant_uuids", "start_time", "end_time", "description", "color", "type", "price_uuid"}).
 			AddRow(expectedMeets[0].ID, expectedMeets[0].UUID, expectedMeets[0].Title, expectedMeets[0].OrganizerUuid, `["p1"]`, expectedMeets[0].Start, expectedMeets[0].End, expectedMeets[0].Description, expectedMeets[0].Color, expectedMeets[0].Type, expectedMeets[0].PriceUuid))
 
 	result, err := repo.QueryMeets(context.Background(), opts)
@@ -392,7 +392,7 @@ func TestRepository_Update_Error(t *testing.T) {
 		Color:            "#000000",
 	}
 
-	mock.ExpectExec("UPDATE meets SET title=\\?, organizer_uuid=\\?, participants=\\?, start_time=\\?, end_time=\\?, description=\\?, color=\\?, type=\\?, price_uuid=\\? WHERE uuid=\\?").
+	mock.ExpectExec("UPDATE meets SET title=\\?, organizer_uuid=\\?, participant_uuids=\\?, start_time=\\?, end_time=\\?, description=\\?, color=\\?, type=\\?, price_uuid=\\? WHERE uuid=\\?").
 		WithArgs(meet.Title, meet.OrganizerUuid, `["p1","p3"]`, sqlmock.AnyArg(), sqlmock.AnyArg(), meet.Description, meet.Color, sqlmock.AnyArg(), sqlmock.AnyArg(), meet.UUID).
 		WillReturnError(errors.New("update error"))
 

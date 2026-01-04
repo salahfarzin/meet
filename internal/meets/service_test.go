@@ -12,6 +12,7 @@ import (
 type MockRepository struct {
 	CreateFunc        func(ctx context.Context, meet *Meet) error
 	GetByIDFunc       func(ctx context.Context, id string) (*Meet, error)
+	GetByUUIDFunc     func(ctx context.Context, uuid string) (*Meet, error)
 	UpdateFunc        func(ctx context.Context, meet *Meet) error
 	DeleteFunc        func(ctx context.Context, id string) error
 	QueryMeetsFunc    func(ctx context.Context, options *MeetQueryOptions) ([]*Meet, error)
@@ -31,6 +32,13 @@ func (m *MockRepository) GetByID(ctx context.Context, id string) (*Meet, error) 
 		return m.GetByIDFunc(ctx, id)
 	}
 	return &Meet{ID: id, Title: "Test Meet"}, nil
+}
+
+func (m *MockRepository) GetByUUID(ctx context.Context, uuid string) (*Meet, error) {
+	if m.GetByUUIDFunc != nil {
+		return m.GetByUUIDFunc(ctx, uuid)
+	}
+	return &Meet{UUID: uuid, Title: "Test Meet"}, nil
 }
 
 func (m *MockRepository) Update(ctx context.Context, meet *Meet) error {

@@ -17,17 +17,16 @@ import (
 	"github.com/salahfarzin/meet/router"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 type RESTServer struct {
-	Server *runtime.ServeMux
-	App    *App
+	App *App
 }
 
 func NewRESTServer(app *App) *RESTServer {
 	return &RESTServer{
-		Server: runtime.NewServeMux(),
-		App:    app,
+		App: app,
 	}
 }
 
@@ -43,6 +42,15 @@ func (s *RESTServer) Start(ctx context.Context) error {
 			default:
 				return runtime.DefaultHeaderMatcher(key)
 			}
+		}),
+		runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.JSONPb{
+			MarshalOptions: protojson.MarshalOptions{
+				UseProtoNames:   true, // Use snake_case from proto files
+				EmitUnpopulated: true, // Optional: includes fields with default values
+			},
+			UnmarshalOptions: protojson.UnmarshalOptions{
+				DiscardUnknown: true,
+			},
 		}),
 	)
 	opts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}

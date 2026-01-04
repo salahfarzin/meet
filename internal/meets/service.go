@@ -24,6 +24,7 @@ type Service interface {
 	Create(ctx context.Context, meet *Meet) (*Meet, error)
 	Update(ctx context.Context, meet *Meet) (*Meet, error)
 	GetByID(ctx context.Context, id string) (*Meet, error)
+	GetByUUID(ctx context.Context, uuid string) (*Meet, error)
 	QueryMeets(ctx context.Context, opts *MeetQueryOptions) ([]*Meet, error)
 	GetAvailability(ctx context.Context, organizerId string, from, to time.Time) (map[string]DateSlot, error)
 	ParseStartAndEndTimes(start, end string) (time.Time, time.Time, error)
@@ -40,6 +41,11 @@ func NewService(repo Repository) Service {
 // GetByID implements Service.
 func (s *service) GetByID(ctx context.Context, id string) (*Meet, error) {
 	return s.repo.GetByID(ctx, id)
+}
+
+// GetByUUID implements Service.
+func (s *service) GetByUUID(ctx context.Context, uuid string) (*Meet, error) {
+	return s.repo.GetByUUID(ctx, uuid)
 }
 
 func (s *service) Create(ctx context.Context, meet *Meet) (*Meet, error) {

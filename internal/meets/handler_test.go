@@ -24,8 +24,11 @@ func (m *MockRepoConflict) HasConflict(ctx context.Context, organizerUuid string
 
 func (m *MockRepoConflict) Create(ctx context.Context, meet *Meet) error          { return nil }
 func (m *MockRepoConflict) GetByID(ctx context.Context, id string) (*Meet, error) { return nil, nil }
-func (m *MockRepoConflict) Update(ctx context.Context, meet *Meet) error          { return nil }
-func (m *MockRepoConflict) Delete(ctx context.Context, id string) error           { return nil }
+func (m *MockRepoConflict) GetByUUID(ctx context.Context, uuid string) (*Meet, error) {
+	return nil, nil
+}
+func (m *MockRepoConflict) Update(ctx context.Context, meet *Meet) error { return nil }
+func (m *MockRepoConflict) Delete(ctx context.Context, id string) error  { return nil }
 func (m *MockRepoConflict) QueryMeets(ctx context.Context, options *MeetQueryOptions) ([]*Meet, error) {
 	return nil, nil
 }
@@ -121,6 +124,9 @@ func (m *MockService) Update(ctx context.Context, meet *Meet) (*Meet, error) {
 
 func (m *MockService) GetByID(ctx context.Context, id string) (*Meet, error) {
 	return &Meet{ID: id, Title: "Dentist"}, nil
+}
+func (m *MockService) GetByUUID(ctx context.Context, uuid string) (*Meet, error) {
+	return &Meet{UUID: uuid, Title: "Dentist"}, nil
 }
 
 func (m *MockService) QueryMeets(ctx context.Context, opts *MeetQueryOptions) ([]*Meet, error) {
