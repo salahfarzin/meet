@@ -1,0 +1,535 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Meets API",
+    "description": "API for managing meetings and appointments",
+    "version": "1.0",
+    "contact": {
+      "name": "Meets API Support",
+      "email": "support@meets.example.com"
+    }
+  },
+  "tags": [
+    {
+      "name": "MeetService"
+    }
+  ],
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/meets": {
+      "get": {
+        "operationId": "MeetService_GetAll",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/meetsGetAllResponse"
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "schema": {}
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {}
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "organizerId",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "MeetService"
+        ]
+      },
+      "post": {
+        "operationId": "MeetService_Create",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/meetsCreateResponse"
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "schema": {}
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {}
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "meet",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/meetsMeet"
+            }
+          }
+        ],
+        "tags": [
+          "MeetService"
+        ]
+      }
+    },
+    "/meets/{uuid}": {
+      "get": {
+        "operationId": "MeetService_GetOne",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/meetsGetOneResponse"
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "schema": {}
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {}
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "uuid",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "MeetService"
+        ]
+      },
+      "delete": {
+        "operationId": "MeetService_Delete",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/meetsDeleteResponse"
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "schema": {}
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {}
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "uuid",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "MeetService"
+        ]
+      },
+      "put": {
+        "operationId": "MeetService_Update",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/meetsUpdateResponse"
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "schema": {}
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {}
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "uuid",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "meet",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/meetsMeet"
+            }
+          }
+        ],
+        "tags": [
+          "MeetService"
+        ]
+      }
+    },
+    "/meets/{uuid}/availability": {
+      "get": {
+        "summary": "Get user availability for next 7 days",
+        "operationId": "MeetService_GetAvailability",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/meetsGetAvailabilityResponse"
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "schema": {}
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {}
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "uuid",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "from",
+            "description": "ISO8601 date string",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "to",
+            "description": "ISO8601 date string",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "priceUuid",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "MeetService"
+        ]
+      }
+    },
+    "/meets/{uuid}/types": {
+      "get": {
+        "summary": "Get all meet types for an organizer",
+        "operationId": "MeetService_GetMeetTypes",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/meetsGetMeetTypesResponse"
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "schema": {}
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {}
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "uuid",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "MeetService"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "commonResponseStatus": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "message": {
+          "type": "string"
+        }
+      }
+    },
+    "meetsCreateResponse": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "$ref": "#/definitions/commonResponseStatus"
+        },
+        "meet": {
+          "$ref": "#/definitions/meetsMeet"
+        }
+      }
+    },
+    "meetsDateSlot": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "times": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/meetsTimeSlot"
+          }
+        }
+      }
+    },
+    "meetsDeleteResponse": {
+      "type": "object"
+    },
+    "meetsGetAllResponse": {
+      "type": "object",
+      "properties": {
+        "meets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/meetsMeet"
+          }
+        }
+      }
+    },
+    "meetsGetAvailabilityResponse": {
+      "type": "object",
+      "properties": {
+        "dates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/meetsDateSlot"
+          }
+        }
+      }
+    },
+    "meetsGetMeetTypesResponse": {
+      "type": "object",
+      "properties": {
+        "types": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/meetsMeetType"
+          }
+        }
+      }
+    },
+    "meetsGetOneResponse": {
+      "type": "object",
+      "properties": {
+        "meet": {
+          "$ref": "#/definitions/meetsMeet"
+        }
+      }
+    },
+    "meetsMeet": {
+      "type": "object",
+      "properties": {
+        "uuid": {
+          "type": "string"
+        },
+        "organizerUuid": {
+          "type": "string"
+        },
+        "priceUuid": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "color": {
+          "type": "string"
+        },
+        "start": {
+          "type": "string"
+        },
+        "end": {
+          "type": "string"
+        },
+        "participantUuids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "type": {
+          "$ref": "#/definitions/meetsMeetType"
+        },
+        "bookedAt": {
+          "type": "string"
+        }
+      },
+      "title": "Meet message"
+    },
+    "meetsMeetType": {
+      "type": "integer",
+      "format": "int32",
+      "enum": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "default": 0
+    },
+    "meetsTimeSlot": {
+      "type": "object",
+      "properties": {
+        "uuid": {
+          "type": "string"
+        },
+        "start": {
+          "type": "string"
+        },
+        "end": {
+          "type": "string"
+        },
+        "duration": {
+          "type": "string"
+        },
+        "bookedAt": {
+          "type": "string"
+        }
+      }
+    },
+    "meetsUpdateResponse": {
+      "type": "object",
+      "properties": {
+        "meet": {
+          "$ref": "#/definitions/meetsMeet"
+        }
+      }
+    },
+    "protobufAny": {
+      "type": "object",
+      "properties": {
+        "@type": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": {}
+    },
+    "rpcStatus": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/protobufAny"
+          }
+        }
+      }
+    }
+  }
+}

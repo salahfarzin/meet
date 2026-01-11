@@ -12,11 +12,12 @@ import (
 type MockRepository struct {
 	CreateFunc        func(ctx context.Context, meet *Meet) error
 	GetByIDFunc       func(ctx context.Context, id string) (*Meet, error)
+	GetByUUIDFunc     func(ctx context.Context, uuid string) (*Meet, error)
 	UpdateFunc        func(ctx context.Context, meet *Meet) error
-	DeleteFunc        func(ctx context.Context, id string) error
+	DeleteFunc        func(ctx context.Context, uuid string) error
 	QueryMeetsFunc    func(ctx context.Context, options *MeetQueryOptions) ([]*Meet, error)
 	HasConflictFunc   func(ctx context.Context, organizerId string, start, end time.Time, excludeUUID ...string) (bool, error)
-	GenerateSlotsFunc func(ctx context.Context, organizerID string, from, to time.Time) ([]*Meet, error)
+	GenerateSlotsFunc func(ctx context.Context, organizerID string, from, to time.Time, priceUUID *string) ([]*Meet, error)
 }
 
 func (m *MockRepository) Create(ctx context.Context, meet *Meet) error {
@@ -33,6 +34,13 @@ func (m *MockRepository) GetByID(ctx context.Context, id string) (*Meet, error) 
 	return &Meet{ID: id, Title: "Test Meet"}, nil
 }
 
+func (m *MockRepository) GetByUUID(ctx context.Context, uuid string) (*Meet, error) {
+	if m.GetByUUIDFunc != nil {
+		return m.GetByUUIDFunc(ctx, uuid)
+	}
+	return &Meet{UUID: uuid, Title: "Test Meet"}, nil
+}
+
 func (m *MockRepository) Update(ctx context.Context, meet *Meet) error {
 	if m.UpdateFunc != nil {
 		return m.UpdateFunc(ctx, meet)
@@ -40,9 +48,9 @@ func (m *MockRepository) Update(ctx context.Context, meet *Meet) error {
 	return nil
 }
 
-func (m *MockRepository) Delete(ctx context.Context, id string) error {
+func (m *MockRepository) Delete(ctx context.Context, uuid string) error {
 	if m.DeleteFunc != nil {
-		return m.DeleteFunc(ctx, id)
+		return m.DeleteFunc(ctx, uuid)
 	}
 	return nil
 }
@@ -63,14 +71,14 @@ func (m *MockRepository) HasConflict(ctx context.Context, organizerId string, st
 	return false, nil
 }
 
-func (m *MockRepository) GenerateAvailableSlots(ctx context.Context, organizerID string, from, to time.Time) ([]*Meet, error) {
+func (m *MockRepository) GenerateAvailableSlots(ctx context.Context, organizerID string, from, to time.Time, priceUUID *string) ([]*Meet, error) {
 	if m.GenerateSlotsFunc != nil {
-		return m.GenerateSlotsFunc(ctx, organizerID, from, to)
+		return m.GenerateSlotsFunc(ctx, organizerID, from, to, priceUUID)
 	}
 	return []*Meet{}, nil
 }
 
-func TestService_GetByID(t *testing.T) {
+func TestServiceGetByID(t *testing.T) {
 	mockRepo := &MockRepository{}
 	svc := NewService(mockRepo)
 
@@ -82,7 +90,7 @@ func TestService_GetByID(t *testing.T) {
 	assert.Equal(t, "Test Meet", meet.Title)
 }
 
-func TestService_GetByID_Error(t *testing.T) {
+func TestServiceGetByIDError(t *testing.T) {
 	mockRepo := &MockRepository{
 		GetByIDFunc: func(ctx context.Context, id string) (*Meet, error) {
 			return nil, errors.New("not found")
@@ -97,11 +105,11 @@ func TestService_GetByID_Error(t *testing.T) {
 	assert.Contains(t, err.Error(), "not found")
 }
 
-func TestService_QueryMeets(t *testing.T) {
+func TestServiceQueryMeets(t *testing.T) {
 	mockRepo := &MockRepository{}
 	svc := NewService(mockRepo)
 
-	opts := &MeetQueryOptions{OrganizerID: "org1"}
+	opts := &MeetQueryOptions{OrganizerUuid: "org1"}
 	meets, err := svc.QueryMeets(context.Background(), opts)
 
 	assert.NoError(t, err)
@@ -109,7 +117,7 @@ func TestService_QueryMeets(t *testing.T) {
 	assert.Equal(t, "Meet 1", meets[0].Title)
 }
 
-func TestService_QueryMeets_Error(t *testing.T) {
+func TestServiceQueryMeetsError(t *testing.T) {
 	mockRepo := &MockRepository{
 		QueryMeetsFunc: func(ctx context.Context, options *MeetQueryOptions) ([]*Meet, error) {
 			return nil, errors.New("query error")
@@ -125,7 +133,7 @@ func TestService_QueryMeets_Error(t *testing.T) {
 	assert.Contains(t, err.Error(), "query error")
 }
 
-func TestService_ParseStartAndEndTimes_Valid(t *testing.T) {
+func TestServiceParseStartAndEndTimesValid(t *testing.T) {
 	mockRepo := &MockRepository{}
 	svc := NewService(mockRepo)
 
@@ -142,7 +150,7 @@ func TestService_ParseStartAndEndTimes_Valid(t *testing.T) {
 	assert.Equal(t, 11, end.Hour())
 }
 
-func TestService_ParseStartAndEndTimes_InvalidStart(t *testing.T) {
+func TestServiceParseStartAndEndTimesInvalidStart(t *testing.T) {
 	mockRepo := &MockRepository{}
 	svc := NewService(mockRepo)
 
@@ -157,7 +165,7 @@ func TestService_ParseStartAndEndTimes_InvalidStart(t *testing.T) {
 	assert.Contains(t, err.Error(), "invalid start time format")
 }
 
-func TestService_ParseStartAndEndTimes_InvalidEnd(t *testing.T) {
+func TestServiceParseStartAndEndTimesInvalidEnd(t *testing.T) {
 	mockRepo := &MockRepository{}
 	svc := NewService(mockRepo)
 
@@ -172,7 +180,7 @@ func TestService_ParseStartAndEndTimes_InvalidEnd(t *testing.T) {
 	assert.Contains(t, err.Error(), "invalid end time format")
 }
 
-func TestService_GetAvailability(t *testing.T) {
+func TestServiceGetAvailability(t *testing.T) {
 	now := time.Date(2023, 1, 1, 10, 0, 0, 0, time.UTC)
 	mockRepo := &MockRepository{
 		QueryMeetsFunc: func(ctx context.Context, options *MeetQueryOptions) ([]*Meet, error) {
@@ -195,7 +203,7 @@ func TestService_GetAvailability(t *testing.T) {
 	from := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
 	to := from.AddDate(0, 0, 1)
 
-	availability, err := svc.GetAvailability(context.Background(), "org1", from, to)
+	availability, err := svc.GetAvailability(context.Background(), "org1", from, to, nil)
 
 	assert.NoError(t, err)
 	assert.NotEmpty(t, availability)
@@ -208,7 +216,7 @@ func TestService_GetAvailability(t *testing.T) {
 	assert.Len(t, ds.Times, 2) // Should have both meetings on the same day
 }
 
-func TestService_GetAvailability_Error(t *testing.T) {
+func TestServiceGetAvailabilityError(t *testing.T) {
 	mockRepo := &MockRepository{
 		QueryMeetsFunc: func(ctx context.Context, options *MeetQueryOptions) ([]*Meet, error) {
 			return nil, errors.New("query error")
@@ -219,14 +227,14 @@ func TestService_GetAvailability_Error(t *testing.T) {
 	from := time.Now()
 	to := from.Add(time.Hour)
 
-	availability, err := svc.GetAvailability(context.Background(), "org1", from, to)
+	availability, err := svc.GetAvailability(context.Background(), "org1", from, to, nil)
 
 	assert.Error(t, err)
 	assert.Nil(t, availability)
 	assert.Contains(t, err.Error(), "query error")
 }
 
-func TestService_Create_Success(t *testing.T) {
+func TestServiceCreateSuccess(t *testing.T) {
 	mockRepo := &MockRepository{
 		HasConflictFunc: func(ctx context.Context, organizerId string, start, end time.Time, excludeUUID ...string) (bool, error) {
 			return false, nil
@@ -235,10 +243,10 @@ func TestService_Create_Success(t *testing.T) {
 	svc := NewService(mockRepo)
 
 	meet := &Meet{
-		Title:       "Test Meet",
-		OrganizerID: "org1",
-		Start:       time.Now(),
-		End:         time.Now().Add(time.Hour),
+		Title:         "Test Meet",
+		OrganizerUuid: "org1",
+		Start:         time.Now(),
+		End:           time.Now().Add(time.Hour),
 	}
 
 	result, err := svc.Create(context.Background(), meet)
@@ -249,7 +257,7 @@ func TestService_Create_Success(t *testing.T) {
 	assert.Equal(t, "Test Meet", result.Title)
 }
 
-func TestService_Create_Conflict(t *testing.T) {
+func TestServiceCreateConflict(t *testing.T) {
 	mockRepo := &MockRepository{
 		HasConflictFunc: func(ctx context.Context, organizerId string, start, end time.Time, excludeUUID ...string) (bool, error) {
 			return true, nil
@@ -258,10 +266,10 @@ func TestService_Create_Conflict(t *testing.T) {
 	svc := NewService(mockRepo)
 
 	meet := &Meet{
-		Title:       "Test Meet",
-		OrganizerID: "org1",
-		Start:       time.Now(),
-		End:         time.Now().Add(time.Hour),
+		Title:         "Test Meet",
+		OrganizerUuid: "org1",
+		Start:         time.Now(),
+		End:           time.Now().Add(time.Hour),
 	}
 
 	result, err := svc.Create(context.Background(), meet)
@@ -283,10 +291,10 @@ func TestService_Create_RepoError(t *testing.T) {
 	svc := NewService(mockRepo)
 
 	meet := &Meet{
-		Title:       "Test Meet",
-		OrganizerID: "org1",
-		Start:       time.Now(),
-		End:         time.Now().Add(time.Hour),
+		Title:         "Test Meet",
+		OrganizerUuid: "org1",
+		Start:         time.Now(),
+		End:           time.Now().Add(time.Hour),
 	}
 
 	result, err := svc.Create(context.Background(), meet)
@@ -296,7 +304,7 @@ func TestService_Create_RepoError(t *testing.T) {
 	assert.Contains(t, err.Error(), "repo create error")
 }
 
-func TestService_Update_Success(t *testing.T) {
+func TestServiceUpdateSuccess(t *testing.T) {
 	mockRepo := &MockRepository{
 		HasConflictFunc: func(ctx context.Context, organizerId string, start, end time.Time, excludeUUID ...string) (bool, error) {
 			return false, nil
@@ -305,11 +313,11 @@ func TestService_Update_Success(t *testing.T) {
 	svc := NewService(mockRepo)
 
 	meet := &Meet{
-		UUID:        "test-uuid",
-		Title:       "Updated Meet",
-		OrganizerID: "org1",
-		Start:       time.Now(),
-		End:         time.Now().Add(time.Hour),
+		UUID:          "test-uuid",
+		Title:         "Updated Meet",
+		OrganizerUuid: "org1",
+		Start:         time.Now(),
+		End:           time.Now().Add(time.Hour),
 	}
 
 	result, err := svc.Update(context.Background(), meet)
@@ -319,15 +327,15 @@ func TestService_Update_Success(t *testing.T) {
 	assert.Equal(t, "Updated Meet", result.Title)
 }
 
-func TestService_Update_NoUUID(t *testing.T) {
+func TestServiceUpdateNoUUID(t *testing.T) {
 	mockRepo := &MockRepository{}
 	svc := NewService(mockRepo)
 
 	meet := &Meet{
-		Title:       "Updated Meet",
-		OrganizerID: "org1",
-		Start:       time.Now(),
-		End:         time.Now().Add(time.Hour),
+		Title:         "Updated Meet",
+		OrganizerUuid: "org1",
+		Start:         time.Now(),
+		End:           time.Now().Add(time.Hour),
 	}
 
 	result, err := svc.Update(context.Background(), meet)
@@ -337,7 +345,7 @@ func TestService_Update_NoUUID(t *testing.T) {
 	assert.Contains(t, err.Error(), "UUID is required")
 }
 
-func TestService_Update_Conflict(t *testing.T) {
+func TestServiceUpdateConflict(t *testing.T) {
 	mockRepo := &MockRepository{
 		HasConflictFunc: func(ctx context.Context, organizerId string, start, end time.Time, excludeUUID ...string) (bool, error) {
 			return true, nil
@@ -346,11 +354,11 @@ func TestService_Update_Conflict(t *testing.T) {
 	svc := NewService(mockRepo)
 
 	meet := &Meet{
-		UUID:        "test-uuid",
-		Title:       "Updated Meet",
-		OrganizerID: "org1",
-		Start:       time.Now(),
-		End:         time.Now().Add(time.Hour),
+		UUID:          "test-uuid",
+		Title:         "Updated Meet",
+		OrganizerUuid: "org1",
+		Start:         time.Now(),
+		End:           time.Now().Add(time.Hour),
 	}
 
 	result, err := svc.Update(context.Background(), meet)
@@ -360,7 +368,7 @@ func TestService_Update_Conflict(t *testing.T) {
 	assert.Contains(t, err.Error(), "appointment conflict")
 }
 
-func TestService_Create_HasConflictError(t *testing.T) {
+func TestServiceCreateHasConflictError(t *testing.T) {
 	mockRepo := &MockRepository{
 		HasConflictFunc: func(ctx context.Context, organizerId string, start, end time.Time, excludeUUID ...string) (bool, error) {
 			return false, errors.New("conflict check error")
@@ -369,10 +377,10 @@ func TestService_Create_HasConflictError(t *testing.T) {
 	svc := NewService(mockRepo)
 
 	meet := &Meet{
-		Title:       "Test Meet",
-		OrganizerID: "org1",
-		Start:       time.Now(),
-		End:         time.Now().Add(time.Hour),
+		Title:         "Test Meet",
+		OrganizerUuid: "org1",
+		Start:         time.Now(),
+		End:           time.Now().Add(time.Hour),
 	}
 
 	result, err := svc.Create(context.Background(), meet)
@@ -382,7 +390,7 @@ func TestService_Create_HasConflictError(t *testing.T) {
 	assert.Contains(t, err.Error(), "conflict check error")
 }
 
-func TestService_Update_HasConflictError(t *testing.T) {
+func TestServiceUpdateHasConflictError(t *testing.T) {
 	mockRepo := &MockRepository{
 		HasConflictFunc: func(ctx context.Context, organizerId string, start, end time.Time, excludeUUID ...string) (bool, error) {
 			return false, errors.New("conflict check error")
@@ -391,11 +399,11 @@ func TestService_Update_HasConflictError(t *testing.T) {
 	svc := NewService(mockRepo)
 
 	meet := &Meet{
-		UUID:        "test-uuid",
-		Title:       "Updated Meet",
-		OrganizerID: "org1",
-		Start:       time.Now(),
-		End:         time.Now().Add(time.Hour),
+		UUID:          "test-uuid",
+		Title:         "Updated Meet",
+		OrganizerUuid: "org1",
+		Start:         time.Now(),
+		End:           time.Now().Add(time.Hour),
 	}
 
 	result, err := svc.Update(context.Background(), meet)
@@ -405,7 +413,7 @@ func TestService_Update_HasConflictError(t *testing.T) {
 	assert.Contains(t, err.Error(), "conflict check error")
 }
 
-func TestService_Update_RepoError(t *testing.T) {
+func TestServiceUpdateRepoError(t *testing.T) {
 	mockRepo := &MockRepository{
 		HasConflictFunc: func(ctx context.Context, organizerId string, start, end time.Time, excludeUUID ...string) (bool, error) {
 			return false, nil
@@ -417,11 +425,11 @@ func TestService_Update_RepoError(t *testing.T) {
 	svc := NewService(mockRepo)
 
 	meet := &Meet{
-		UUID:        "test-uuid",
-		Title:       "Updated Meet",
-		OrganizerID: "org1",
-		Start:       time.Now(),
-		End:         time.Now().Add(time.Hour),
+		UUID:          "test-uuid",
+		Title:         "Updated Meet",
+		OrganizerUuid: "org1",
+		Start:         time.Now(),
+		End:           time.Now().Add(time.Hour),
 	}
 
 	result, err := svc.Update(context.Background(), meet)
@@ -429,4 +437,54 @@ func TestService_Update_RepoError(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "repo update error")
+}
+
+func TestServiceGetByUUID(t *testing.T) {
+	mockRepo := &MockRepository{}
+	svc := NewService(mockRepo)
+
+	meet, err := svc.GetByUUID(context.Background(), "uuid-123")
+
+	assert.NoError(t, err)
+	assert.NotNil(t, meet)
+	assert.Equal(t, "uuid-123", meet.UUID)
+	assert.Equal(t, "Test Meet", meet.Title)
+}
+
+func TestServiceGetByUUIDError(t *testing.T) {
+	mockRepo := &MockRepository{
+		GetByUUIDFunc: func(ctx context.Context, uuid string) (*Meet, error) {
+			return nil, errors.New("not found")
+		},
+	}
+	svc := NewService(mockRepo)
+
+	meet, err := svc.GetByUUID(context.Background(), "uuid-123")
+
+	assert.Error(t, err)
+	assert.Nil(t, meet)
+	assert.Contains(t, err.Error(), "not found")
+}
+
+func TestServiceDelete(t *testing.T) {
+	mockRepo := &MockRepository{}
+	svc := NewService(mockRepo)
+
+	err := svc.Delete(context.Background(), "uuid-123")
+
+	assert.NoError(t, err)
+}
+
+func TestServiceDeleteError(t *testing.T) {
+	mockRepo := &MockRepository{
+		DeleteFunc: func(ctx context.Context, uuid string) error {
+			return errors.New("delete error")
+		},
+	}
+	svc := NewService(mockRepo)
+
+	err := svc.Delete(context.Background(), "uuid-123")
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "delete error")
 }

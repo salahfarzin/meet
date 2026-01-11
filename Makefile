@@ -5,23 +5,29 @@ GOOGLEAPIS_DIR := $(HOME)/go/src/googleapis
 
 .PHONY: generate-proto
 generate-proto:
-	protoc \
-		-I. -I$(GOOGLEAPIS_DIR) \
-		--proto_path=$(PROTO_DIR) \
-		--go_out=$(GO_OUT) \
-		--go-grpc_out=$(GO_OUT) \
-		--grpc-gateway_out=$(GO_OUT) \
-		$(PROTO_SRC)
+	cd $(PROTO_DIR) && buf generate
+	@if command -v ruby >/dev/null 2>&1; then \
+		echo "Converting Swagger JSON to YAML..."; \
+		for f in $$(find pkg/swagger/gen -name "*.json"); do \
+			ruby -e "require 'yaml'; require 'json'; puts YAML.dump(JSON.parse(ARGF.read))" < $$f > $${f%.json}.yaml; \
+		done; \
+		echo "Identifying main API spec..."; \
+		MAIN_SPEC=$$(grep -l "/meets" pkg/swagger/gen/meets/*.yaml | head -n 1); \
+		if [ -n "$$MAIN_SPEC" ]; then \
+			cp "$$MAIN_SPEC" pkg/swagger/gen/openapi.yaml; \
+			echo "Main spec copied to openapi.yaml"; \
+		fi \
+	fi
 
 .PHONY: migrate
 migrate:
 	@if [ ! -f .env ]; then echo "❌ .env file not found"; exit 1; fi
-	@set -a; source .env; set +a; migrate -path migrations -database "mysql://notification_user:root@tcp(127.0.0.1:3306)/notification_db" up
+	@set -a; source .env; set +a; migrate -path migrations -database "mysql://meet_user:root@tcp(127.0.0.1:3306)/meet_db" up
 
 .PHONY: migrate-down
 migrate-down:
 	@if [ ! -f .env ]; then echo "❌ .env file not found"; exit 1; fi
-	@set -a; source .env; set +a; migrate -path migrations -database "mysql://notification_user:root@tcp(127.0.0.1:3306)/notification_db" down
+	@set -a; source .env; set +a; migrate -path migrations -database "mysql://meet_user:root@tcp(127.0.0.1:3306)/meet_db" down
 
 .PHONY: migrate-create
 migrate-create:

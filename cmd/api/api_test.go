@@ -50,7 +50,6 @@ func TestNewRESTServer(t *testing.T) {
 	server := NewRESTServer(app)
 
 	assert.NotNil(t, server)
-	assert.NotNil(t, server.Server)
 	assert.Equal(t, app, server.App)
 }
 

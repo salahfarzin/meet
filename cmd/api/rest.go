@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"log"
 	"net/http"
 	"strconv"
@@ -12,20 +13,20 @@ import (
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/salahfarzin/meet/pkg/middlewares"
+	"github.com/salahfarzin/meet/pkg/swagger"
 	"github.com/salahfarzin/meet/router"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 type RESTServer struct {
-	Server *runtime.ServeMux
-	App    *App
+	App *App
 }
 
 func NewRESTServer(app *App) *RESTServer {
 	return &RESTServer{
-		Server: runtime.NewServeMux(),
-		App:    app,
+		App: app,
 	}
 }
 
@@ -41,6 +42,15 @@ func (s *RESTServer) Start(ctx context.Context) error {
 			default:
 				return runtime.DefaultHeaderMatcher(key)
 			}
+		}),
+		runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.JSONPb{
+			MarshalOptions: protojson.MarshalOptions{
+				UseProtoNames:   true, // Use snake_case from proto files
+				EmitUnpopulated: true, // Optional: includes fields with default values
+			},
+			UnmarshalOptions: protojson.UnmarshalOptions{
+				DiscardUnknown: true,
+			},
 		}),
 	)
 	opts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
@@ -95,6 +105,14 @@ func (s *RESTServer) Start(ctx context.Context) error {
 	}
 
 	http.Handle(prefix+"/", http.StripPrefix(prefix, handler))
+
+	// Serve openapi.yaml from embedded files
+	yamlFS, _ := fs.Sub(swagger.Gen, "gen")
+	http.Handle("/openapi.yaml", http.FileServer(http.FS(yamlFS)))
+
+	// Serve Documentation UI from embedded files
+	uiFS, _ := fs.Sub(swagger.UI, "assets")
+	http.Handle(prefix+"/docs/", http.StripPrefix(prefix+"/docs", http.FileServer(http.FS(uiFS))))
 
 	server := &http.Server{
 		Addr:         ":" + strconv.FormatInt(s.App.Configs.Port, 10),

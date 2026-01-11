@@ -15,6 +15,7 @@ type DateSlot struct {
 	Times []TimeSlot
 }
 type TimeSlot struct {
+	Uuid     string
 	Start    string
 	End      string
 	Duration string
@@ -24,9 +25,11 @@ type Service interface {
 	Create(ctx context.Context, meet *Meet) (*Meet, error)
 	Update(ctx context.Context, meet *Meet) (*Meet, error)
 	GetByID(ctx context.Context, id string) (*Meet, error)
+	GetByUUID(ctx context.Context, uuid string) (*Meet, error)
 	QueryMeets(ctx context.Context, opts *MeetQueryOptions) ([]*Meet, error)
-	GetAvailability(ctx context.Context, organizerId string, from, to time.Time) (map[string]DateSlot, error)
+	GetAvailability(ctx context.Context, organizerId string, from, to time.Time, priceUUID *string) (map[string]DateSlot, error)
 	ParseStartAndEndTimes(start, end string) (time.Time, time.Time, error)
+	Delete(ctx context.Context, uuid string) error
 }
 
 type service struct {
@@ -42,9 +45,14 @@ func (s *service) GetByID(ctx context.Context, id string) (*Meet, error) {
 	return s.repo.GetByID(ctx, id)
 }
 
+// GetByUUID implements Service.
+func (s *service) GetByUUID(ctx context.Context, meetUUID string) (*Meet, error) {
+	return s.repo.GetByUUID(ctx, meetUUID)
+}
+
 func (s *service) Create(ctx context.Context, meet *Meet) (*Meet, error) {
 	// Check for conflicts for this organizer and period
-	hasConflict, err := s.repo.HasConflict(ctx, meet.OrganizerID, meet.Start, meet.End)
+	hasConflict, err := s.repo.HasConflict(ctx, meet.OrganizerUuid, meet.Start, meet.End)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +74,7 @@ func (s *service) Update(ctx context.Context, meet *Meet) (*Meet, error) {
 		return nil, errors.New("UUID is required")
 	}
 	// Check for conflicts for this organizer and period, excluding this meet's UUID
-	hasConflict, err := s.repo.HasConflict(ctx, meet.OrganizerID, meet.Start, meet.End, meet.UUID)
+	hasConflict, err := s.repo.HasConflict(ctx, meet.OrganizerUuid, meet.Start, meet.End, meet.UUID)
 	if err != nil {
 		return nil, err
 	}
@@ -94,18 +102,24 @@ func (s *service) ParseStartAndEndTimes(start, end string) (startTime, endTime t
 	return startTime, endTime, nil
 }
 
-// GetAll implements MeetsService.
+// QueryMeets implements Service.
 func (s *service) QueryMeets(ctx context.Context, opts *MeetQueryOptions) ([]*Meet, error) {
 	return s.repo.QueryMeets(ctx, opts)
 }
 
-// GetAvailability returns available datetimes for a user between from and to
-func (s *service) GetAvailability(ctx context.Context, organizerId string, from, to time.Time) (map[string]DateSlot, error) {
+// Delete implements Service.
+func (s *service) Delete(ctx context.Context, meetUUID string) error {
+	return s.repo.Delete(ctx, meetUUID)
+}
+
+// GetAvailability returns available datetimes for a user between from and to, optionally filtered by price_uuid
+func (s *service) GetAvailability(ctx context.Context, organizerId string, from, to time.Time, priceUUID *string) (map[string]DateSlot, error) {
 	opts := &MeetQueryOptions{
-		OrganizerID:   organizerId,
+		OrganizerUuid: organizerId,
 		From:          &from,
 		To:            &to,
 		OnlyAvailable: func(b bool) *bool { return &b }(true),
+		PriceUuid:     priceUUID,
 	}
 	meets, err := s.repo.QueryMeets(ctx, opts)
 	if err != nil {
@@ -118,6 +132,7 @@ func (s *service) GetAvailability(ctx context.Context, organizerId string, from,
 		endStr := m.End.Format("15:04")
 		duration := m.End.Sub(m.Start)
 		slot := TimeSlot{
+			Uuid:     m.UUID,
 			Start:    startStr,
 			End:      endStr,
 			Duration: fmt.Sprintf("%dm", int(duration.Minutes())),

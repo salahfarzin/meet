@@ -3,9 +3,38 @@ syntax = "proto3";
 package meets;
 
 import "google/api/annotations.proto";
-import "proto/common.proto";
+import "common/common.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
 
-option go_package = "proto/meets;meets";
+option go_package = "github.com/salahfarzin/meet/proto/meets;meets";
+
+option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
+  info: {
+    title: "Meets API";
+    version: "1.0";
+    description: "API for managing meetings and appointments";
+    contact: {
+      name: "Meets API Support";
+      email: "support@meets.example.com";
+    };
+  };
+  schemes: HTTP;
+  schemes: HTTPS;
+  consumes: "application/json";
+  produces: "application/json";
+  responses: {
+    key: "404";
+    value: {
+      description: "Resource not found";
+    }
+  };
+  responses: {
+    key: "500";
+    value: {
+      description: "Internal server error";
+    }
+  };
+};
 
 enum MeetType {
   MEET_TYPE_UNSPECIFIED = 0;
@@ -14,20 +43,20 @@ enum MeetType {
   PHONE_CALL = 3;
   VIDEO_CALL = 4;
 }
+
 // Meet message
 message Meet {
   string uuid = 1;
-  string organizer_id = 2;
-  repeated string participants = 3;
+  string organizer_uuid = 2;
+  optional string price_uuid = 3;
   string title = 4;
   string description = 5;
   string color = 6;
   string start = 7;
   string end = 8;
-  MeetType type = 9;
-  double old_price = 10;
-  double discount = 11;
-  double price = 12;
+  repeated string participant_uuids = 9;
+  MeetType type = 10;
+  optional string booked_at = 11;
 }
 
 // Request & Response
@@ -46,6 +75,8 @@ message DeleteResponse {
 // Request & Response
 message GetAllRequest {
   string organizer_id = 1;
+  string from = 2;
+  string to = 3;
 }
 message GetAllResponse {
   repeated Meet meets = 1;
@@ -73,6 +104,7 @@ message GetAvailabilityRequest {
   string uuid = 1;
   string from = 2; // ISO8601 date string
   string to = 3;   // ISO8601 date string
+  optional string price_uuid = 4;
 }
 message DateSlot {
   string title = 1;
@@ -82,9 +114,11 @@ message DateSlot {
 }
 
 message TimeSlot {
-  string start = 1;
-  string end = 2;
-  string duration = 3;
+  string uuid = 1;
+  string start = 2;
+  string end = 3;
+  string duration = 4;
+  optional string booked_at = 5;
 }
 
 message GetAvailabilityResponse {
