@@ -92,6 +92,7 @@ type Meet struct {
 	End              string                 `protobuf:"bytes,8,opt,name=end,proto3" json:"end,omitempty"`
 	ParticipantUuids []string               `protobuf:"bytes,9,rep,name=participant_uuids,json=participantUuids,proto3" json:"participant_uuids,omitempty"`
 	Type             MeetType               `protobuf:"varint,10,opt,name=type,proto3,enum=meets.MeetType" json:"type,omitempty"`
+	BookedAt         *string                `protobuf:"bytes,11,opt,name=booked_at,json=bookedAt,proto3,oneof" json:"booked_at,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -194,6 +195,13 @@ func (x *Meet) GetType() MeetType {
 		return x.Type
 	}
 	return MeetType_MEET_TYPE_UNSPECIFIED
+}
+
+func (x *Meet) GetBookedAt() string {
+	if x != nil && x.BookedAt != nil {
+		return *x.BookedAt
+	}
+	return ""
 }
 
 // Request & Response
@@ -671,6 +679,7 @@ type GetAvailabilityRequest struct {
 	Uuid          string                 `protobuf:"bytes,1,opt,name=uuid,proto3" json:"uuid,omitempty"`
 	From          string                 `protobuf:"bytes,2,opt,name=from,proto3" json:"from,omitempty"` // ISO8601 date string
 	To            string                 `protobuf:"bytes,3,opt,name=to,proto3" json:"to,omitempty"`     // ISO8601 date string
+	PriceUuid     *string                `protobuf:"bytes,4,opt,name=price_uuid,json=priceUuid,proto3,oneof" json:"price_uuid,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -722,6 +731,13 @@ func (x *GetAvailabilityRequest) GetFrom() string {
 func (x *GetAvailabilityRequest) GetTo() string {
 	if x != nil {
 		return x.To
+	}
+	return ""
+}
+
+func (x *GetAvailabilityRequest) GetPriceUuid() string {
+	if x != nil && x.PriceUuid != nil {
+		return *x.PriceUuid
 	}
 	return ""
 }
@@ -796,9 +812,11 @@ func (x *DateSlot) GetTimes() []*TimeSlot {
 
 type TimeSlot struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Start         string                 `protobuf:"bytes,1,opt,name=start,proto3" json:"start,omitempty"`
-	End           string                 `protobuf:"bytes,2,opt,name=end,proto3" json:"end,omitempty"`
-	Duration      string                 `protobuf:"bytes,3,opt,name=duration,proto3" json:"duration,omitempty"`
+	Uuid          string                 `protobuf:"bytes,1,opt,name=uuid,proto3" json:"uuid,omitempty"`
+	Start         string                 `protobuf:"bytes,2,opt,name=start,proto3" json:"start,omitempty"`
+	End           string                 `protobuf:"bytes,3,opt,name=end,proto3" json:"end,omitempty"`
+	Duration      string                 `protobuf:"bytes,4,opt,name=duration,proto3" json:"duration,omitempty"`
+	BookedAt      *string                `protobuf:"bytes,5,opt,name=booked_at,json=bookedAt,proto3,oneof" json:"booked_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -833,6 +851,13 @@ func (*TimeSlot) Descriptor() ([]byte, []int) {
 	return file_meets_meets_proto_rawDescGZIP(), []int{13}
 }
 
+func (x *TimeSlot) GetUuid() string {
+	if x != nil {
+		return x.Uuid
+	}
+	return ""
+}
+
 func (x *TimeSlot) GetStart() string {
 	if x != nil {
 		return x.Start
@@ -850,6 +875,13 @@ func (x *TimeSlot) GetEnd() string {
 func (x *TimeSlot) GetDuration() string {
 	if x != nil {
 		return x.Duration
+	}
+	return ""
+}
+
+func (x *TimeSlot) GetBookedAt() string {
+	if x != nil && x.BookedAt != nil {
+		return *x.BookedAt
 	}
 	return ""
 }
@@ -991,7 +1023,7 @@ var File_meets_meets_proto protoreflect.FileDescriptor
 
 const file_meets_meets_proto_rawDesc = "" +
 	"\n" +
-	"\x11meets/meets.proto\x12\x05meets\x1a\x1cgoogle/api/annotations.proto\x1a\x13common/common.proto\x1a.protoc-gen-openapiv2/options/annotations.proto\"\xbc\x02\n" +
+	"\x11meets/meets.proto\x12\x05meets\x1a\x1cgoogle/api/annotations.proto\x1a\x13common/common.proto\x1a.protoc-gen-openapiv2/options/annotations.proto\"\xec\x02\n" +
 	"\x04Meet\x12\x12\n" +
 	"\x04uuid\x18\x01 \x01(\tR\x04uuid\x12%\n" +
 	"\x0eorganizer_uuid\x18\x02 \x01(\tR\rorganizerUuid\x12\"\n" +
@@ -1004,8 +1036,11 @@ const file_meets_meets_proto_rawDesc = "" +
 	"\x03end\x18\b \x01(\tR\x03end\x12+\n" +
 	"\x11participant_uuids\x18\t \x03(\tR\x10participantUuids\x12#\n" +
 	"\x04type\x18\n" +
-	" \x01(\x0e2\x0f.meets.MeetTypeR\x04typeB\r\n" +
-	"\v_price_uuid\"#\n" +
+	" \x01(\x0e2\x0f.meets.MeetTypeR\x04type\x12 \n" +
+	"\tbooked_at\x18\v \x01(\tH\x01R\bbookedAt\x88\x01\x01B\r\n" +
+	"\v_price_uuidB\f\n" +
+	"\n" +
+	"_booked_at\"#\n" +
 	"\rGetOneRequest\x12\x12\n" +
 	"\x04uuid\x18\x01 \x01(\tR\x04uuid\"1\n" +
 	"\x0eGetOneResponse\x12\x1f\n" +
@@ -1028,20 +1063,27 @@ const file_meets_meets_proto_rawDesc = "" +
 	"\x04uuid\x18\x01 \x01(\tR\x04uuid\x12\x1f\n" +
 	"\x04meet\x18\x02 \x01(\v2\v.meets.MeetR\x04meet\"1\n" +
 	"\x0eUpdateResponse\x12\x1f\n" +
-	"\x04meet\x18\x01 \x01(\v2\v.meets.MeetR\x04meet\"P\n" +
+	"\x04meet\x18\x01 \x01(\v2\v.meets.MeetR\x04meet\"\x83\x01\n" +
 	"\x16GetAvailabilityRequest\x12\x12\n" +
 	"\x04uuid\x18\x01 \x01(\tR\x04uuid\x12\x12\n" +
 	"\x04from\x18\x02 \x01(\tR\x04from\x12\x0e\n" +
-	"\x02to\x18\x03 \x01(\tR\x02to\"s\n" +
+	"\x02to\x18\x03 \x01(\tR\x02to\x12\"\n" +
+	"\n" +
+	"price_uuid\x18\x04 \x01(\tH\x00R\tpriceUuid\x88\x01\x01B\r\n" +
+	"\v_price_uuid\"s\n" +
 	"\bDateSlot\x12\x14\n" +
 	"\x05title\x18\x01 \x01(\tR\x05title\x12\x14\n" +
 	"\x05label\x18\x02 \x01(\tR\x05label\x12\x14\n" +
 	"\x05value\x18\x03 \x01(\tR\x05value\x12%\n" +
-	"\x05times\x18\x04 \x03(\v2\x0f.meets.TimeSlotR\x05times\"N\n" +
-	"\bTimeSlot\x12\x14\n" +
-	"\x05start\x18\x01 \x01(\tR\x05start\x12\x10\n" +
-	"\x03end\x18\x02 \x01(\tR\x03end\x12\x1a\n" +
-	"\bduration\x18\x03 \x01(\tR\bduration\"@\n" +
+	"\x05times\x18\x04 \x03(\v2\x0f.meets.TimeSlotR\x05times\"\x92\x01\n" +
+	"\bTimeSlot\x12\x12\n" +
+	"\x04uuid\x18\x01 \x01(\tR\x04uuid\x12\x14\n" +
+	"\x05start\x18\x02 \x01(\tR\x05start\x12\x10\n" +
+	"\x03end\x18\x03 \x01(\tR\x03end\x12\x1a\n" +
+	"\bduration\x18\x04 \x01(\tR\bduration\x12 \n" +
+	"\tbooked_at\x18\x05 \x01(\tH\x00R\bbookedAt\x88\x01\x01B\f\n" +
+	"\n" +
+	"_booked_at\"@\n" +
 	"\x17GetAvailabilityResponse\x12%\n" +
 	"\x05dates\x18\x01 \x03(\v2\x0f.meets.DateSlotR\x05dates\")\n" +
 	"\x13GetMeetTypesRequest\x12\x12\n" +
@@ -1145,6 +1187,8 @@ func file_meets_meets_proto_init() {
 		return
 	}
 	file_meets_meets_proto_msgTypes[0].OneofWrappers = []any{}
+	file_meets_meets_proto_msgTypes[11].OneofWrappers = []any{}
+	file_meets_meets_proto_msgTypes[13].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

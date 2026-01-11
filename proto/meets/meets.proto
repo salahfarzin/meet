@@ -56,6 +56,7 @@ message Meet {
   string end = 8;
   repeated string participant_uuids = 9;
   MeetType type = 10;
+  optional string booked_at = 11;
 }
 
 // Request & Response
@@ -103,6 +104,7 @@ message GetAvailabilityRequest {
   string uuid = 1;
   string from = 2; // ISO8601 date string
   string to = 3;   // ISO8601 date string
+  optional string price_uuid = 4;
 }
 message DateSlot {
   string title = 1;
@@ -112,9 +114,11 @@ message DateSlot {
 }
 
 message TimeSlot {
-  string start = 1;
-  string end = 2;
-  string duration = 3;
+  string uuid = 1;
+  string start = 2;
+  string end = 3;
+  string duration = 4;
+  optional string booked_at = 5;
 }
 
 message GetAvailabilityResponse {

@@ -277,6 +277,12 @@
             "in": "query",
             "required": false,
             "type": "string"
+          },
+          {
+            "name": "priceUuid",
+            "in": "query",
+            "required": false,
+            "type": "string"
           }
         ],
         "tags": [
@@ -450,6 +456,9 @@
         },
         "type": {
           "$ref": "#/definitions/meetsMeetType"
+        },
+        "bookedAt": {
+          "type": "string"
         }
       },
       "title": "Meet message"
@@ -469,6 +478,9 @@
     "meetsTimeSlot": {
       "type": "object",
       "properties": {
+        "uuid": {
+          "type": "string"
+        },
         "start": {
           "type": "string"
         },
@@ -476,6 +488,9 @@
           "type": "string"
         },
         "duration": {
+          "type": "string"
+        },
+        "bookedAt": {
           "type": "string"
         }
       }

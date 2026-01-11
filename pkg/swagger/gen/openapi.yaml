@@ -187,6 +187,10 @@ paths:
         in: query
         required: false
         type: string
+      - name: priceUuid
+        in: query
+        required: false
+        type: string
       tags:
       - MeetService
   "/meets/{uuid}/types":
@@ -300,6 +304,8 @@ definitions:
           type: string
       type:
         "$ref": "#/definitions/meetsMeetType"
+      bookedAt:
+        type: string
     title: Meet message
   meetsMeetType:
     type: integer
@@ -314,11 +320,15 @@ definitions:
   meetsTimeSlot:
     type: object
     properties:
+      uuid:
+        type: string
       start:
         type: string
       end:
         type: string
       duration:
+        type: string
+      bookedAt:
         type: string
   meetsUpdateResponse:
     type: object

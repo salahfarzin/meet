@@ -17,7 +17,7 @@ type MockRepository struct {
 	DeleteFunc        func(ctx context.Context, uuid string) error
 	QueryMeetsFunc    func(ctx context.Context, options *MeetQueryOptions) ([]*Meet, error)
 	HasConflictFunc   func(ctx context.Context, organizerId string, start, end time.Time, excludeUUID ...string) (bool, error)
-	GenerateSlotsFunc func(ctx context.Context, organizerID string, from, to time.Time) ([]*Meet, error)
+	GenerateSlotsFunc func(ctx context.Context, organizerID string, from, to time.Time, priceUUID *string) ([]*Meet, error)
 }
 
 func (m *MockRepository) Create(ctx context.Context, meet *Meet) error {
@@ -71,9 +71,9 @@ func (m *MockRepository) HasConflict(ctx context.Context, organizerId string, st
 	return false, nil
 }
 
-func (m *MockRepository) GenerateAvailableSlots(ctx context.Context, organizerID string, from, to time.Time) ([]*Meet, error) {
+func (m *MockRepository) GenerateAvailableSlots(ctx context.Context, organizerID string, from, to time.Time, priceUUID *string) ([]*Meet, error) {
 	if m.GenerateSlotsFunc != nil {
-		return m.GenerateSlotsFunc(ctx, organizerID, from, to)
+		return m.GenerateSlotsFunc(ctx, organizerID, from, to, priceUUID)
 	}
 	return []*Meet{}, nil
 }
@@ -203,7 +203,7 @@ func TestServiceGetAvailability(t *testing.T) {
 	from := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
 	to := from.AddDate(0, 0, 1)
 
-	availability, err := svc.GetAvailability(context.Background(), "org1", from, to)
+	availability, err := svc.GetAvailability(context.Background(), "org1", from, to, nil)
 
 	assert.NoError(t, err)
 	assert.NotEmpty(t, availability)
@@ -227,7 +227,7 @@ func TestServiceGetAvailabilityError(t *testing.T) {
 	from := time.Now()
 	to := from.Add(time.Hour)
 
-	availability, err := svc.GetAvailability(context.Background(), "org1", from, to)
+	availability, err := svc.GetAvailability(context.Background(), "org1", from, to, nil)
 
 	assert.Error(t, err)
 	assert.Nil(t, availability)
@@ -437,4 +437,54 @@ func TestServiceUpdateRepoError(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "repo update error")
+}
+
+func TestServiceGetByUUID(t *testing.T) {
+	mockRepo := &MockRepository{}
+	svc := NewService(mockRepo)
+
+	meet, err := svc.GetByUUID(context.Background(), "uuid-123")
+
+	assert.NoError(t, err)
+	assert.NotNil(t, meet)
+	assert.Equal(t, "uuid-123", meet.UUID)
+	assert.Equal(t, "Test Meet", meet.Title)
+}
+
+func TestServiceGetByUUIDError(t *testing.T) {
+	mockRepo := &MockRepository{
+		GetByUUIDFunc: func(ctx context.Context, uuid string) (*Meet, error) {
+			return nil, errors.New("not found")
+		},
+	}
+	svc := NewService(mockRepo)
+
+	meet, err := svc.GetByUUID(context.Background(), "uuid-123")
+
+	assert.Error(t, err)
+	assert.Nil(t, meet)
+	assert.Contains(t, err.Error(), "not found")
+}
+
+func TestServiceDelete(t *testing.T) {
+	mockRepo := &MockRepository{}
+	svc := NewService(mockRepo)
+
+	err := svc.Delete(context.Background(), "uuid-123")
+
+	assert.NoError(t, err)
+}
+
+func TestServiceDeleteError(t *testing.T) {
+	mockRepo := &MockRepository{
+		DeleteFunc: func(ctx context.Context, uuid string) error {
+			return errors.New("delete error")
+		},
+	}
+	svc := NewService(mockRepo)
+
+	err := svc.Delete(context.Background(), "uuid-123")
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "delete error")
 }

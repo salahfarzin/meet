@@ -155,6 +155,13 @@ func (h *handler) GetOne(ctx context.Context, req *pb.GetOneRequest) (*pb.GetOne
 			End:              meet.End.Format(time.RFC3339),
 			Color:            meet.Color,
 			Type:             pb.MeetType(meet.Type),
+			BookedAt: func() *string {
+				if meet.BookedAt == nil {
+					return nil
+				}
+				s := meet.BookedAt.Format(time.RFC3339)
+				return &s
+			}(),
 		},
 	}, nil
 }
@@ -214,6 +221,13 @@ func (h *handler) GetAll(ctx context.Context, req *pb.GetAllRequest) (*pb.GetAll
 			End:              a.End.Format(time.RFC3339),
 			Color:            a.Color,
 			Type:             pb.MeetType(a.Type),
+			BookedAt: func() *string {
+				if a.BookedAt == nil {
+					return nil
+				}
+				s := a.BookedAt.Format(time.RFC3339)
+				return &s
+			}(),
 		})
 	}
 	return &pb.GetAllResponse{Meets: pbMeets}, nil
@@ -225,7 +239,7 @@ func (h *handler) GetAvailability(ctx context.Context, req *pb.GetAvailabilityRe
 		return nil, status.Error(codes.InvalidArgument, "uuid is required")
 	}
 
-	organizerID := retrieveOrganizerUuid(ctx, req.Uuid)
+	organizerID := req.Uuid
 
 	var from, to time.Time
 	now := time.Now().UTC()
@@ -240,7 +254,8 @@ func (h *handler) GetAvailability(ctx context.Context, req *pb.GetAvailabilityRe
 		to, _ = time.Parse("2006-01-02", req.To)
 	}
 
-	datesMap, err := h.service.GetAvailability(ctx, organizerID, from, to)
+	priceUUID := req.PriceUuid
+	datesMap, err := h.service.GetAvailability(ctx, organizerID, from, to, priceUUID)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to fetch availability")
 	}
@@ -257,6 +272,7 @@ func (h *handler) GetAvailability(ctx context.Context, req *pb.GetAvailabilityRe
 		slots := make([]*pb.TimeSlot, 0)
 		for _, slot := range ds.Times {
 			slots = append(slots, &pb.TimeSlot{
+				Uuid:     slot.Uuid,
 				Start:    slot.Start,
 				End:      slot.End,
 				Duration: slot.Duration,

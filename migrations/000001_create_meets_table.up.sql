@@ -10,6 +10,7 @@ CREATE TABLE meets (
     end_time DATETIME NOT NULL,
     color VARCHAR(32) NULL,
     description TEXT NULL,
+    booked_at TIMESTAMP NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY unique_uuid (uuid)

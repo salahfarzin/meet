@@ -112,7 +112,7 @@ func (s *RESTServer) Start(ctx context.Context) error {
 
 	// Serve Documentation UI from embedded files
 	uiFS, _ := fs.Sub(swagger.UI, "assets")
-	http.Handle("/docs/", http.StripPrefix("/docs/", http.FileServer(http.FS(uiFS))))
+	http.Handle(prefix+"/docs/", http.StripPrefix(prefix+"/docs", http.FileServer(http.FS(uiFS))))
 
 	server := &http.Server{
 		Addr:         ":" + strconv.FormatInt(s.App.Configs.Port, 10),

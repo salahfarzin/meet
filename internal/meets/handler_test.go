@@ -32,7 +32,7 @@ func (m *MockRepoConflict) Delete(ctx context.Context, uuid string) error { retu
 func (m *MockRepoConflict) QueryMeets(ctx context.Context, options *MeetQueryOptions) ([]*Meet, error) {
 	return nil, nil
 }
-func (m *MockRepoConflict) GenerateAvailableSlots(ctx context.Context, organizerID string, from, to time.Time) ([]*Meet, error) {
+func (m *MockRepoConflict) GenerateAvailableSlots(ctx context.Context, organizerID string, from, to time.Time, priceUUID *string) ([]*Meet, error) {
 	return nil, nil
 }
 
@@ -126,7 +126,17 @@ func (m *MockService) GetByID(ctx context.Context, id string) (*Meet, error) {
 	return &Meet{ID: id, Title: "Dentist"}, nil
 }
 func (m *MockService) GetByUUID(ctx context.Context, uuid string) (*Meet, error) {
-	return &Meet{UUID: uuid, Title: "Dentist"}, nil
+	if uuid == "not-found" {
+		return nil, errors.New("meet not found")
+	}
+	if uuid == "internal-error" {
+		return nil, errors.New("internal error")
+	}
+	if uuid == "booked" {
+		now := time.Now()
+		return &Meet{UUID: uuid, Title: "Dentist", Start: time.Now(), End: time.Now().Add(time.Hour), BookedAt: &now}, nil
+	}
+	return &Meet{UUID: uuid, Title: "Dentist", Start: time.Now(), End: time.Now().Add(time.Hour)}, nil
 }
 
 func (m *MockService) Delete(ctx context.Context, uuid string) error {
@@ -167,7 +177,7 @@ func (m *MockService) QueryMeets(ctx context.Context, opts *MeetQueryOptions) ([
 	return []*Meet{{ID: "1", Title: "Dentist"}}, nil
 }
 
-func (m *MockService) GetAvailability(ctx context.Context, organizerId string, from, to time.Time) (map[string]DateSlot, error) {
+func (m *MockService) GetAvailability(ctx context.Context, organizerId string, from, to time.Time, priceUUID *string) (map[string]DateSlot, error) {
 	if organizerId == "error" {
 		return nil, errors.New("availability error")
 	}
@@ -667,4 +677,88 @@ func TestGetMeetTypes(t *testing.T) {
 	assert.NotNil(t, resp)
 	assert.Len(t, resp.Types, 5) // All meet types
 	assert.Contains(t, resp.Types, pb.MeetType_VIDEO_CALL)
+}
+
+func TestGetOneMeet(t *testing.T) {
+	h := NewHandler(NewMockService())
+	resp, err := h.GetOne(context.Background(), &pb.GetOneRequest{
+		Uuid: "test-uuid",
+	})
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Equal(t, "test-uuid", resp.Meet.Uuid)
+	assert.Equal(t, "Dentist", resp.Meet.Title)
+}
+
+func TestGetOneMeetNotFound(t *testing.T) {
+	h := NewHandler(NewMockService())
+	resp, err := h.GetOne(context.Background(), &pb.GetOneRequest{
+		Uuid: "not-found",
+	})
+	assert.Nil(t, resp)
+	st, ok := status.FromError(err)
+	assert.True(t, ok)
+	assert.Equal(t, codes.NotFound, st.Code())
+	assert.Contains(t, st.Message(), "meet not found")
+}
+
+func TestGetOneMeetInternalError(t *testing.T) {
+	h := NewHandler(NewMockService())
+	resp, err := h.GetOne(context.Background(), &pb.GetOneRequest{
+		Uuid: "internal-error",
+	})
+	assert.Nil(t, resp)
+	st, ok := status.FromError(err)
+	assert.True(t, ok)
+	assert.Equal(t, codes.Internal, st.Code())
+	assert.Contains(t, st.Message(), "Internal server error")
+}
+
+func TestGetOneMeetNoUUID(t *testing.T) {
+	h := NewHandler(NewMockService())
+	resp, err := h.GetOne(context.Background(), &pb.GetOneRequest{})
+	assert.Nil(t, resp)
+	st, ok := status.FromError(err)
+	assert.True(t, ok)
+	assert.Equal(t, codes.InvalidArgument, st.Code())
+}
+
+func TestDeleteMeet(t *testing.T) {
+	h := NewHandler(NewMockService())
+	resp, err := h.Delete(context.Background(), &pb.DeleteRequest{
+		Uuid: "test-uuid",
+	})
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+}
+
+func TestDeleteMeetError(t *testing.T) {
+	h := NewHandler(NewMockService())
+	resp, err := h.Delete(context.Background(), &pb.DeleteRequest{
+		Uuid: "error",
+	})
+	assert.Nil(t, resp)
+	st, ok := status.FromError(err)
+	assert.True(t, ok)
+	assert.Equal(t, codes.Internal, st.Code())
+	assert.Contains(t, st.Message(), "Internal server error")
+}
+
+func TestDeleteMeetNoUUID(t *testing.T) {
+	h := NewHandler(NewMockService())
+	resp, err := h.Delete(context.Background(), &pb.DeleteRequest{})
+	assert.Nil(t, resp)
+	st, ok := status.FromError(err)
+	assert.True(t, ok)
+	assert.Equal(t, codes.InvalidArgument, st.Code())
+}
+
+func TestGetOneMeetBookedAt(t *testing.T) {
+	h := NewHandler(NewMockService())
+	resp, err := h.GetOne(context.Background(), &pb.GetOneRequest{
+		Uuid: "booked",
+	})
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.NotNil(t, resp.Meet.BookedAt)
 }
