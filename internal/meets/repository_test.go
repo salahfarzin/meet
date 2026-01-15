@@ -218,7 +218,7 @@ func TestRepositoryGetByIDInvalidParticipants(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestRepository_Update(t *testing.T) {
+func TestRepositoryUpdate(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	assert.NoError(t, err)
 	defer db.Close()
@@ -249,7 +249,7 @@ func TestRepository_Update(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestRepository_Delete(t *testing.T) {
+func TestRepositoryDelete(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	assert.NoError(t, err)
 	defer db.Close()
@@ -378,7 +378,7 @@ func TestRepositoryGenerateAvailableSlotsWithPrice(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestRepositoryQueryMeets_Availability(t *testing.T) {
+func TestRepositoryQueryMeetsAvailability(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	assert.NoError(t, err)
 	defer db.Close()

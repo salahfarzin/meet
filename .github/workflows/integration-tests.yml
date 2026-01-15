@@ -79,12 +79,12 @@ jobs:
           DB_PASSWORD: root
           DB_NAME: meet_db_test
 
-      - name: Run integration tests
+      - name: Run E2E tests
         run: |
-          if [ -d "test/integration" ] && [ "$(ls -A test/integration 2>/dev/null)" ]; then
-            go test -v ./test/integration/...
+          if [ -d "test/e2e" ] && [ "$(ls -A test/e2e/*.go 2>/dev/null)" ]; then
+            go test -v ./test/e2e/...
           else
-            echo "⚠️  No integration tests found, skipping..."
+            echo "⚠️  No E2E tests found, skipping..."
           fi
         env:
           APP_URL: http://localhost:8080

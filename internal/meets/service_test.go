@@ -279,7 +279,7 @@ func TestServiceCreateConflict(t *testing.T) {
 	assert.Contains(t, err.Error(), "appointment conflict")
 }
 
-func TestService_Create_RepoError(t *testing.T) {
+func TestServiceCreateRepoError(t *testing.T) {
 	mockRepo := &MockRepository{
 		HasConflictFunc: func(ctx context.Context, organizerId string, start, end time.Time, excludeUUID ...string) (bool, error) {
 			return false, nil

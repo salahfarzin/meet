@@ -51,6 +51,69 @@ run: build
 test:
 	@go test -v ./...
 
+.PHONY: test-e2e
+test-e2e:
+	@echo "🧪 Running E2E tests..."
+	@if [ -z "$(APP_URL)" ]; then \
+		echo "⚠️  APP_URL not set, using default: http://localhost:8080"; \
+		APP_URL=http://localhost:8080 APP_ENV=test go test -v ./test/e2e/... -count=1; \
+	else \
+		APP_ENV=test go test -v ./test/e2e/... -count=1; \
+	fi
+
+.PHONY: test-e2e-with-app
+test-e2e-with-app:
+	@echo "🚀 Starting application in TEST mode..."
+	@go build -o bin/meet-api ./main.go
+	@APP_ENV=test ./bin/meet-api & echo $$! > /tmp/meet-api.pid
+	@echo "⏳ Waiting for server to be ready..."
+	@sleep 5
+	@echo "🧪 Running E2E tests..."
+	@APP_URL=http://localhost:8080 APP_ENV=test go test -v ./test/e2e/... -count=1 || (kill $$(cat /tmp/meet-api.pid) 2>/dev/null; rm -f /tmp/meet-api.pid; exit 1)
+	@echo "🛑 Stopping application..."
+	@kill $$(cat /tmp/meet-api.pid) 2>/dev/null || true
+	@rm -f /tmp/meet-api.pid
+	@echo "✅ E2E tests completed"
+
+.PHONY: test-e2e-docker
+test-e2e-docker:
+	@echo "🐳 Starting test environment with Docker..."
+	@docker-compose -f docker-compose.test.yml up -d
+	@echo "⏳ Waiting for services to be ready..."
+	@sleep 10
+	@echo "🧪 Running E2E tests against Docker..."
+	@APP_URL=http://localhost:8081 APP_ENV=test go test -v ./test/e2e/... -count=1 || (docker-compose -f docker-compose.test.yml down; exit 1)
+	@echo "🛑 Stopping Docker services..."
+	@docker-compose -f docker-compose.test.yml down
+	@echo "✅ E2E tests with Docker completed"
+
+.PHONY: test-e2e-docker-clean
+test-e2e-docker-clean:
+	@echo "🐳 Starting fresh test environment..."
+	@docker-compose -f docker-compose.test.yml down -v
+	@docker-compose -f docker-compose.test.yml up -d
+	@echo "⏳ Waiting for services to be ready..."
+	@sleep 10
+	@echo "🧪 Running E2E tests..."
+	@APP_URL=http://localhost:8081 APP_ENV=test go test -v ./test/e2e/... -count=1 || (docker-compose -f docker-compose.test.yml down -v; exit 1)
+	@echo "🛑 Cleaning up..."
+	@docker-compose -f docker-compose.test.yml down -v
+	@echo "✅ E2E tests completed and cleaned up"
+
+.PHONY: test-e2e-docker-up
+test-e2e-docker-up:
+	@echo "🐳 Starting test environment..."
+	@docker-compose -f docker-compose.test.yml up -d
+	@echo "✅ Test environment ready at http://localhost:8081"
+	@echo "💡 Run tests with: APP_URL=http://localhost:8081 make test-e2e"
+	@echo "💡 Stop with: make test-e2e-docker-down"
+
+.PHONY: test-e2e-docker-down
+test-e2e-docker-down:
+	@echo "🛑 Stopping test environment..."
+	@docker-compose -f docker-compose.test.yml down -v
+	@echo "✅ Test environment stopped"
+
 .PHONY: watch
 watch:
 	@~/go/bin/air -c air.conf
