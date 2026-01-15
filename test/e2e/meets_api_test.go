@@ -138,15 +138,15 @@ func TestMeetsAPI_CreateMeet(t *testing.T) {
 func TestMeetsAPI_GetOneMeet(t *testing.T) {
 	config := NewTestConfig()
 
-	// First, create a meet to retrieve
+	// First, create a meet to retrieve (use unique time slot)
 	now := time.Now().UTC()
 	createResp := config.DoRequest(t, APIRequest{
 		Method: http.MethodPost,
 		Path:   "/meets",
 		Body: map[string]interface{}{
 			"title": "Test Meet for Retrieval",
-			"start": now.Add(24 * time.Hour).Format(time.RFC3339),
-			"end":   now.Add(25 * time.Hour).Format(time.RFC3339),
+			"start": now.Add(48 * time.Hour).Format(time.RFC3339), // Different time from other tests
+			"end":   now.Add(49 * time.Hour).Format(time.RFC3339),
 		},
 		Headers: GetAuthHeaders(),
 	})
@@ -259,15 +259,15 @@ func TestMeetsAPI_GetAllMeets(t *testing.T) {
 func TestMeetsAPI_UpdateMeet(t *testing.T) {
 	config := NewTestConfig()
 
-	// First, create a meet to update
+	// First, create a meet to update (use unique time slot)
 	now := time.Now().UTC()
 	createResp := config.DoRequest(t, APIRequest{
 		Method: http.MethodPost,
 		Path:   "/meets",
 		Body: map[string]interface{}{
 			"title": "Original Title",
-			"start": now.Add(24 * time.Hour).Format(time.RFC3339),
-			"end":   now.Add(25 * time.Hour).Format(time.RFC3339),
+			"start": now.Add(96 * time.Hour).Format(time.RFC3339), // Different time from other tests
+			"end":   now.Add(97 * time.Hour).Format(time.RFC3339),
 		},
 		Headers: GetAuthHeaders(),
 	})
@@ -346,15 +346,15 @@ func TestMeetsAPI_UpdateMeet(t *testing.T) {
 func TestMeetsAPI_DeleteMeet(t *testing.T) {
 	config := NewTestConfig()
 
-	// First, create a meet to delete
+	// First, create a meet to delete (use unique time slot)
 	now := time.Now().UTC()
 	createResp := config.DoRequest(t, APIRequest{
 		Method: http.MethodPost,
 		Path:   "/meets",
 		Body: map[string]interface{}{
 			"title": "Meet to Delete",
-			"start": now.Add(24 * time.Hour).Format(time.RFC3339),
-			"end":   now.Add(25 * time.Hour).Format(time.RFC3339),
+			"start": now.Add(120 * time.Hour).Format(time.RFC3339), // Different time from other tests
+			"end":   now.Add(121 * time.Hour).Format(time.RFC3339),
 		},
 		Headers: GetAuthHeaders(),
 	})
@@ -405,8 +405,8 @@ func TestMeetsAPI_FullCRUDFlow(t *testing.T) {
 		Body: map[string]interface{}{
 			"title":       "Full CRUD Test Meet",
 			"description": "Testing complete CRUD flow",
-			"start":       now.Add(24 * time.Hour).Format(time.RFC3339),
-			"end":         now.Add(25 * time.Hour).Format(time.RFC3339),
+			"start":       now.Add(144 * time.Hour).Format(time.RFC3339), // Different time from other tests
+			"end":         now.Add(145 * time.Hour).Format(time.RFC3339),
 			"color":       "#FF5733",
 			"type":        4,
 		},
