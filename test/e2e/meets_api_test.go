@@ -17,7 +17,7 @@ type Meet struct {
 	Start            string   `json:"start"`
 	End              string   `json:"end"`
 	ParticipantUUIDs []string `json:"participant_uuids,omitempty"`
-	Type             int      `json:"type,omitempty"`
+	Type             string   `json:"type,omitempty"` // Changed to string to match API response
 	BookedAt         *string  `json:"booked_at,omitempty"`
 }
 
