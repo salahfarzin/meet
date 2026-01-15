@@ -45,9 +45,16 @@ jobs:
       - name: Create storage directories
         run: mkdir -p storage/logs
 
+      - name: Install golang-migrate
+        run: |
+          curl -L https://github.com/golang-migrate/migrate/releases/download/v4.16.2/migrate.linux-amd64.tar.gz | tar xvz
+          sudo mv migrate /usr/local/bin/migrate
+          sudo chmod +x /usr/local/bin/migrate
+          migrate -version
+
       - name: Run database migrations
         run: |
-          go run main.go migrate up
+          migrate -path migrations -database "mysql://$DB_USER:$DB_PASSWORD@tcp($DB_HOST:$DB_PORT)/$DB_NAME" up
         env:
           DB_HOST: 127.0.0.1
           DB_PORT: 3306
