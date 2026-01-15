@@ -80,7 +80,12 @@ jobs:
           DB_NAME: meet_db_test
 
       - name: Run integration tests
-        run: go test -v ./test/integration/...
+        run: |
+          if [ -d "test/integration" ] && [ "$(ls -A test/integration 2>/dev/null)" ]; then
+            go test -v ./test/integration/...
+          else
+            echo "⚠️  No integration tests found, skipping..."
+          fi
         env:
           APP_URL: http://localhost:8080
 
