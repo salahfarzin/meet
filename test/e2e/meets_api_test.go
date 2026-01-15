@@ -17,7 +17,7 @@ type Meet struct {
 	Start            string   `json:"start"`
 	End              string   `json:"end"`
 	ParticipantUUIDs []string `json:"participant_uuids,omitempty"`
-	Type             string   `json:"type,omitempty"` // Changed to string to match API response
+	Type             string   `json:"type,omitempty"` // API returns enum names like "VIDEO_CALL"
 	BookedAt         *string  `json:"booked_at,omitempty"`
 }
 
