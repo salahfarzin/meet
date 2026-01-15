@@ -42,6 +42,9 @@ jobs:
       - name: Download dependencies
         run: go mod download
 
+      - name: Create storage directories
+        run: mkdir -p storage/logs
+
       - name: Run database migrations
         run: |
           go run main.go migrate up
