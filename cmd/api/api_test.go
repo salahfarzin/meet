@@ -53,7 +53,7 @@ func TestNewRESTServer(t *testing.T) {
 	assert.Equal(t, app, server.App)
 }
 
-func TestRESTServer_Start_AuthFunc(t *testing.T) {
+func TestRESTServerStartAuthFunc(t *testing.T) {
 	// Create a test server for auth service
 	authServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") == "Bearer valid-token" {
@@ -152,7 +152,7 @@ func TestLoggingInterceptor(t *testing.T) {
 	assert.Equal(t, "response", resp)
 }
 
-func TestGRPCServer_Stop(t *testing.T) {
+func TestGRPCServerStop(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	cfg := &configs.Configs{
 		GRPCPort: 50051,
