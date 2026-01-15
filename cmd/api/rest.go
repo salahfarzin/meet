@@ -91,13 +91,25 @@ func (s *RESTServer) Start(ctx context.Context) error {
 	}
 
 	var handler http.Handler = mux
-	handler = middlewares.CreateStack(
-		middlewares.JSONHeader,
-		middlewares.CORSMiddleware(s.App.AllowedOrigins),
-		middlewares.LoggingMiddleware(s.App.Logger, s.App.Configs.Log.Level),
-		middlewares.AuthMiddleware(authFunc),
-		// add more middlewares here
-	)(handler)
+
+	// Skip authentication in test mode for E2E testing
+	if s.App.Configs.AppEnv == "test" {
+		log.Println("⚠️  Running in TEST mode - authentication is DISABLED")
+		handler = middlewares.CreateStack(
+			middlewares.JSONHeader,
+			middlewares.CORSMiddleware(s.App.AllowedOrigins),
+			middlewares.LoggingMiddleware(s.App.Logger, s.App.Configs.Log.Level),
+			middlewares.TestAuthMiddleware(), // Use test auth instead of real auth
+		)(handler)
+	} else {
+		handler = middlewares.CreateStack(
+			middlewares.JSONHeader,
+			middlewares.CORSMiddleware(s.App.AllowedOrigins),
+			middlewares.LoggingMiddleware(s.App.Logger, s.App.Configs.Log.Level),
+			middlewares.AuthMiddleware(authFunc),
+			// add more middlewares here
+		)(handler)
+	}
 
 	prefix := s.App.Configs.RestPrefix
 	if prefix == "" {

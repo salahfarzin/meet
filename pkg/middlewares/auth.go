@@ -107,3 +107,40 @@ func GetUserFromContext(ctx context.Context) User {
 
 	return User{}
 }
+
+// TestAuthMiddleware is a simplified auth middleware for E2E testing
+// It extracts user info from headers without calling an external auth service
+func TestAuthMiddleware() Middleware {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Extract user info from test headers
+			userID := r.Header.Get("X-User")
+			userUUID := r.Header.Get("X-User-Uuid")
+			rolesHeader := r.Header.Get("X-User-Roles")
+
+			// Parse roles
+			var roles []string
+			if rolesHeader != "" {
+				roles = strings.Split(rolesHeader, ",")
+			}
+
+			// Create test user
+			user := &User{
+				ID:    userID,
+				Uuid:  userUUID,
+				Email: userID + "@test.com",
+				Roles: roles,
+			}
+
+			// Set user in context for HTTP handlers
+			ctx := context.WithValue(r.Context(), userKey, user)
+
+			// Set headers for gRPC-Gateway to forward as metadata
+			r.Header.Set("x-user-id", user.ID)
+			r.Header.Set("x-user-uuid", user.Uuid)
+			r.Header.Set("x-user-roles", strings.Join(user.Roles, ","))
+
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}

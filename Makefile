@@ -56,20 +56,20 @@ test-e2e:
 	@echo "🧪 Running E2E tests..."
 	@if [ -z "$(APP_URL)" ]; then \
 		echo "⚠️  APP_URL not set, using default: http://localhost:8080"; \
-		APP_URL=http://localhost:8080 go test -v ./test/e2e/... -count=1; \
+		APP_URL=http://localhost:8080 APP_ENV=test go test -v ./test/e2e/... -count=1; \
 	else \
-		go test -v ./test/e2e/... -count=1; \
+		APP_ENV=test go test -v ./test/e2e/... -count=1; \
 	fi
 
 .PHONY: test-e2e-with-app
 test-e2e-with-app:
-	@echo "🚀 Starting application..."
+	@echo "🚀 Starting application in TEST mode..."
 	@go build -o bin/meet-api ./main.go
-	@./bin/meet-api & echo $$! > /tmp/meet-api.pid
+	@APP_ENV=test ./bin/meet-api & echo $$! > /tmp/meet-api.pid
 	@echo "⏳ Waiting for server to be ready..."
 	@sleep 5
 	@echo "🧪 Running E2E tests..."
-	@APP_URL=http://localhost:8080 go test -v ./test/e2e/... -count=1 || (kill $$(cat /tmp/meet-api.pid) 2>/dev/null; rm -f /tmp/meet-api.pid; exit 1)
+	@APP_URL=http://localhost:8080 APP_ENV=test go test -v ./test/e2e/... -count=1 || (kill $$(cat /tmp/meet-api.pid) 2>/dev/null; rm -f /tmp/meet-api.pid; exit 1)
 	@echo "🛑 Stopping application..."
 	@kill $$(cat /tmp/meet-api.pid) 2>/dev/null || true
 	@rm -f /tmp/meet-api.pid
