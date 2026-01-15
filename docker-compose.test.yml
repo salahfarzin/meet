@@ -1,0 +1,70 @@
+services:
+  # Test database - separate from production
+  mysql-test:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: meet_db_test
+      MYSQL_USER: meet_user
+      MYSQL_PASSWORD: root
+    ports:
+      - "3307:3306"  # Different port to avoid conflict
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - test-network
+    tmpfs:
+      - /var/lib/mysql  # Use tmpfs for faster tests (data not persisted)
+
+  # Run migrations on test database
+  migrate-test:
+    image: migrate/migrate
+    volumes:
+      - ./migrations:/migrations
+    command: ["-path", "/migrations", "-database", "mysql://meet_user:root@tcp(mysql-test:3306)/meet_db_test", "up"]
+    depends_on:
+      mysql-test:
+        condition: service_healthy
+    networks:
+      - test-network
+
+  # Application in test mode
+  app-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8081:8081"  # Different port to avoid conflict with production
+      - "50053:50053"
+    environment:
+      APP_ENV: test
+      APP_PORT: 8081
+      APP_GRPC_PORT: 50053
+      DB_HOST: mysql-test
+      DB_PORT: 3306
+      DB_USER: meet_user
+      DB_PASSWORD: root
+      DB_NAME: meet_db_test
+      LOG_LEVEL: debug
+      LOG_PATH: storage/logs
+    depends_on:
+      mysql-test:
+        condition: service_healthy
+      migrate-test:
+        condition: service_completed_successfully
+    volumes:
+      - ./storage/logs:/app/storage/logs
+    networks:
+      - test-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8081/api/v1/meets"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+networks:
+  test-network:
+    driver: bridge
