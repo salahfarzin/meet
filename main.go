@@ -22,7 +22,13 @@ func main() {
 	currentDate := time.Now().Format("2006-01-02")
 	loggerFile := "app-" + currentDate + ".log"
 
-	logger.Init(&zap.Config{OutputPaths: []string{filepath.Join(curPath, cfg.Log.Path, loggerFile)}, Level: zap.NewAtomicLevelAt(zap.DebugLevel)})
+	// Ensure log directory exists
+	logDir := filepath.Join(curPath, cfg.Log.Path)
+	if err := os.MkdirAll(logDir, 0755); err != nil {
+		log.Fatal("Failed to create log directory:", err)
+	}
+
+	logger.Init(&zap.Config{OutputPaths: []string{filepath.Join(logDir, loggerFile)}, Level: zap.NewAtomicLevelAt(zap.DebugLevel)})
 
 	dbConn, err := db.NewMySQLStorage(cfg)
 	if err != nil {
