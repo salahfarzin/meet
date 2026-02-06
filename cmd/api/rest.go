@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"io/fs"
 	"log"
 	"net/http"
@@ -12,9 +13,11 @@ import (
 	"time"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
-	"github.com/salahfarzin/meet/pkg/middlewares"
+	"github.com/salahfarzin/meet/internal/health"
 	"github.com/salahfarzin/meet/pkg/swagger"
 	"github.com/salahfarzin/meet/router"
+	"github.com/salahfarzin/utils/middlewares"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -116,15 +119,41 @@ func (s *RESTServer) Start(ctx context.Context) error {
 		prefix = "/api/v1"
 	}
 
+	// Health check endpoints (bypass authentication middleware)
+	healthHandler := health.NewHealthHandler(s.App.DB, s.App.Configs.Version)
+	http.HandleFunc(prefix+"/health", healthHandler.Health)
+	http.HandleFunc(prefix+"/live", healthHandler.Live)
+	http.HandleFunc(prefix+"/ready", healthHandler.Ready)
+
 	http.Handle(prefix+"/", http.StripPrefix(prefix, handler))
 
-	// Serve openapi.yaml from embedded files
+	// Serve openapi.yaml and postman_collection.json from embedded files
 	yamlFS, _ := fs.Sub(swagger.Gen, "gen")
 	http.Handle("/openapi.yaml", http.FileServer(http.FS(yamlFS)))
+	http.Handle("/postman_collection.json", http.FileServer(http.FS(yamlFS)))
 
 	// Serve Documentation UI from embedded files
 	uiFS, _ := fs.Sub(swagger.UI, "assets")
-	http.Handle(prefix+"/docs/", http.StripPrefix(prefix+"/docs", http.FileServer(http.FS(uiFS))))
+	docsTmpl, err := template.ParseFS(swagger.UI, "assets/index.html")
+	if err != nil {
+		log.Printf("failed to parse docs template: %v", err)
+	}
+
+	http.HandleFunc(prefix+"/docs/", func(w http.ResponseWriter, r *http.Request) {
+		path := strings.TrimPrefix(r.URL.Path, prefix+"/docs")
+		if (path == "/" || path == "" || path == "/index.html") && docsTmpl != nil {
+			data := map[string]string{
+				"PostmanCollection": "/postman_collection.json",
+				"OpenapiYaml":       "/openapi.yaml",
+			}
+			if err := docsTmpl.ExecuteTemplate(w, "index.html", data); err != nil {
+				log.Printf("docs template error: %v", err)
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			}
+			return
+		}
+		http.StripPrefix(prefix+"/docs", http.FileServer(http.FS(uiFS))).ServeHTTP(w, r)
+	})
 
 	server := &http.Server{
 		Addr:         ":" + strconv.FormatInt(s.App.Configs.Port, 10),

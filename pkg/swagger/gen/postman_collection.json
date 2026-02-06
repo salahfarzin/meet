@@ -1,0 +1,1961 @@
+{
+    "item": [
+        {
+            "name": "meets",
+            "description": "",
+            "item": [
+                {
+                    "id": "a7712500-baa8-46ee-af88-c915c2d3ee9f",
+                    "name": "Meet Service Get All",
+                    "request": {
+                        "name": "Meet Service Get All",
+                        "description": {},
+                        "url": {
+                            "path": [
+                                "meets"
+                            ],
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "query": [
+                                {
+                                    "disabled": false,
+                                    "description": {
+                                        "content": "",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "organizer_id",
+                                    "value": "<string>"
+                                },
+                                {
+                                    "disabled": false,
+                                    "description": {
+                                        "content": "",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "from",
+                                    "value": "<string>"
+                                },
+                                {
+                                    "disabled": false,
+                                    "description": {
+                                        "content": "",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "to",
+                                    "value": "<string>"
+                                }
+                            ],
+                            "variable": []
+                        },
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "method": "GET",
+                        "body": {},
+                        "auth": null
+                    },
+                    "response": [
+                        {
+                            "id": "40dfb42d-6470-4522-866b-c36041fae389",
+                            "name": "A successful response.",
+                            "originalRequest": {
+                                "url": {
+                                    "path": [
+                                        "meets"
+                                    ],
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "query": [
+                                        {
+                                            "disabled": false,
+                                            "description": {
+                                                "content": "",
+                                                "type": "text/plain"
+                                            },
+                                            "key": "organizer_id",
+                                            "value": "<string>"
+                                        },
+                                        {
+                                            "disabled": false,
+                                            "description": {
+                                                "content": "",
+                                                "type": "text/plain"
+                                            },
+                                            "key": "from",
+                                            "value": "<string>"
+                                        },
+                                        {
+                                            "disabled": false,
+                                            "description": {
+                                                "content": "",
+                                                "type": "text/plain"
+                                            },
+                                            "key": "to",
+                                            "value": "<string>"
+                                        }
+                                    ],
+                                    "variable": []
+                                },
+                                "header": [
+                                    {
+                                        "key": "Accept",
+                                        "value": "application/json"
+                                    }
+                                ],
+                                "method": "GET",
+                                "body": {}
+                            },
+                            "status": "OK",
+                            "code": 200,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"meets\": [\n    {\n      \"uuid\": \"<string>\",\n      \"organizer_uuid\": \"<string>\",\n      \"price_uuid\": \"<string>\",\n      \"title\": \"<string>\",\n      \"description\": \"<string>\",\n      \"color\": \"<string>\",\n      \"start\": \"<string>\",\n      \"end\": \"<string>\",\n      \"participant_uuids\": [\n        \"<string>\",\n        \"<string>\"\n      ],\n      \"type\": 0,\n      \"booked_at\": \"<string>\"\n    },\n    {\n      \"uuid\": \"<string>\",\n      \"organizer_uuid\": \"<string>\",\n      \"price_uuid\": \"<string>\",\n      \"title\": \"<string>\",\n      \"description\": \"<string>\",\n      \"color\": \"<string>\",\n      \"start\": \"<string>\",\n      \"end\": \"<string>\",\n      \"participant_uuids\": [\n        \"<string>\",\n        \"<string>\"\n      ],\n      \"type\": 0,\n      \"booked_at\": \"<string>\"\n    }\n  ]\n}",
+                            "cookie": [],
+                            "_postman_previewlanguage": "json"
+                        },
+                        {
+                            "id": "7f37679d-0962-4b94-916f-4aa37a61ac9a",
+                            "name": "Resource not found",
+                            "originalRequest": {
+                                "url": {
+                                    "path": [
+                                        "meets"
+                                    ],
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "query": [
+                                        {
+                                            "disabled": false,
+                                            "description": {
+                                                "content": "",
+                                                "type": "text/plain"
+                                            },
+                                            "key": "organizer_id",
+                                            "value": "<string>"
+                                        },
+                                        {
+                                            "disabled": false,
+                                            "description": {
+                                                "content": "",
+                                                "type": "text/plain"
+                                            },
+                                            "key": "from",
+                                            "value": "<string>"
+                                        },
+                                        {
+                                            "disabled": false,
+                                            "description": {
+                                                "content": "",
+                                                "type": "text/plain"
+                                            },
+                                            "key": "to",
+                                            "value": "<string>"
+                                        }
+                                    ],
+                                    "variable": []
+                                },
+                                "header": [
+                                    {
+                                        "key": "Accept",
+                                        "value": "application/json"
+                                    }
+                                ],
+                                "method": "GET",
+                                "body": {}
+                            },
+                            "status": "Not Found",
+                            "code": 404,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "",
+                            "cookie": [],
+                            "_postman_previewlanguage": "json"
+                        },
+                        {
+                            "id": "e754efe5-31bc-497a-b246-11cf5215cc76",
+                            "name": "Internal server error",
+                            "originalRequest": {
+                                "url": {
+                                    "path": [
+                                        "meets"
+                                    ],
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "query": [
+                                        {
+                                            "disabled": false,
+                                            "description": {
+                                                "content": "",
+                                                "type": "text/plain"
+                                            },
+                                            "key": "organizer_id",
+                                            "value": "<string>"
+                                        },
+                                        {
+                                            "disabled": false,
+                                            "description": {
+                                                "content": "",
+                                                "type": "text/plain"
+                                            },
+                                            "key": "from",
+                                            "value": "<string>"
+                                        },
+                                        {
+                                            "disabled": false,
+                                            "description": {
+                                                "content": "",
+                                                "type": "text/plain"
+                                            },
+                                            "key": "to",
+                                            "value": "<string>"
+                                        }
+                                    ],
+                                    "variable": []
+                                },
+                                "header": [
+                                    {
+                                        "key": "Accept",
+                                        "value": "application/json"
+                                    }
+                                ],
+                                "method": "GET",
+                                "body": {}
+                            },
+                            "status": "Internal Server Error",
+                            "code": 500,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "",
+                            "cookie": [],
+                            "_postman_previewlanguage": "json"
+                        },
+                        {
+                            "id": "60ae8afc-c994-4a45-9281-3052f4c98a69",
+                            "name": "An unexpected error response.",
+                            "originalRequest": {
+                                "url": {
+                                    "path": [
+                                        "meets"
+                                    ],
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "query": [
+                                        {
+                                            "disabled": false,
+                                            "description": {
+                                                "content": "",
+                                                "type": "text/plain"
+                                            },
+                                            "key": "organizer_id",
+                                            "value": "<string>"
+                                        },
+                                        {
+                                            "disabled": false,
+                                            "description": {
+                                                "content": "",
+                                                "type": "text/plain"
+                                            },
+                                            "key": "from",
+                                            "value": "<string>"
+                                        },
+                                        {
+                                            "disabled": false,
+                                            "description": {
+                                                "content": "",
+                                                "type": "text/plain"
+                                            },
+                                            "key": "to",
+                                            "value": "<string>"
+                                        }
+                                    ],
+                                    "variable": []
+                                },
+                                "header": [
+                                    {
+                                        "key": "Accept",
+                                        "value": "application/json"
+                                    }
+                                ],
+                                "method": "GET",
+                                "body": {}
+                            },
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"code\": \"<integer>\",\n  \"message\": \"<string>\",\n  \"details\": [\n    {\n      \"@type\": \"<string>\"\n    },\n    {\n      \"@type\": \"<string>\",\n      \"key_0\": 1579.7367438964516\n    }\n  ]\n}",
+                            "cookie": [],
+                            "_postman_previewlanguage": "json"
+                        }
+                    ],
+                    "event": [],
+                    "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                    }
+                },
+                {
+                    "id": "18225f0b-ed3e-4072-9401-89b5503ffa29",
+                    "name": "Meet Service Create",
+                    "request": {
+                        "name": "Meet Service Create",
+                        "description": {},
+                        "url": {
+                            "path": [
+                                "meets"
+                            ],
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "query": [],
+                            "variable": []
+                        },
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "method": "POST",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"uuid\": \"<string>\",\n  \"organizer_uuid\": \"<string>\",\n  \"price_uuid\": \"<string>\",\n  \"title\": \"<string>\",\n  \"description\": \"<string>\",\n  \"color\": \"<string>\",\n  \"start\": \"<string>\",\n  \"end\": \"<string>\",\n  \"participant_uuids\": [\n    \"<string>\",\n    \"<string>\"\n  ],\n  \"type\": 0,\n  \"booked_at\": \"<string>\"\n}",
+                            "options": {
+                                "raw": {
+                                    "headerFamily": "json",
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "auth": null
+                    },
+                    "response": [
+                        {
+                            "id": "e1b8f1a4-e1ea-4391-b417-989c00e05cbd",
+                            "name": "A successful response.",
+                            "originalRequest": {
+                                "url": {
+                                    "path": [
+                                        "meets"
+                                    ],
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "query": [],
+                                    "variable": []
+                                },
+                                "header": [
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json"
+                                    },
+                                    {
+                                        "key": "Accept",
+                                        "value": "application/json"
+                                    }
+                                ],
+                                "method": "POST",
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"uuid\": \"<string>\",\n  \"organizer_uuid\": \"<string>\",\n  \"price_uuid\": \"<string>\",\n  \"title\": \"<string>\",\n  \"description\": \"<string>\",\n  \"color\": \"<string>\",\n  \"start\": \"<string>\",\n  \"end\": \"<string>\",\n  \"participant_uuids\": [\n    \"<string>\",\n    \"<string>\"\n  ],\n  \"type\": 0,\n  \"booked_at\": \"<string>\"\n}",
+                                    "options": {
+                                        "raw": {
+                                            "headerFamily": "json",
+                                            "language": "json"
+                                        }
+                                    }
+                                }
+                            },
+                            "status": "OK",
+                            "code": 200,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"status\": {\n    \"code\": \"<integer>\",\n    \"message\": \"<string>\"\n  },\n  \"meet\": {\n    \"uuid\": \"<string>\",\n    \"organizer_uuid\": \"<string>\",\n    \"price_uuid\": \"<string>\",\n    \"title\": \"<string>\",\n    \"description\": \"<string>\",\n    \"color\": \"<string>\",\n    \"start\": \"<string>\",\n    \"end\": \"<string>\",\n    \"participant_uuids\": [\n      \"<string>\",\n      \"<string>\"\n    ],\n    \"type\": 0,\n    \"booked_at\": \"<string>\"\n  }\n}",
+                            "cookie": [],
+                            "_postman_previewlanguage": "json"
+                        },
+                        {
+                            "id": "c712a5f6-001f-47c3-a8bd-86aa3bde37db",
+                            "name": "Resource not found",
+                            "originalRequest": {
+                                "url": {
+                                    "path": [
+                                        "meets"
+                                    ],
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "query": [],
+                                    "variable": []
+                                },
+                                "header": [
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json"
+                                    },
+                                    {
+                                        "key": "Accept",
+                                        "value": "application/json"
+                                    }
+                                ],
+                                "method": "POST",
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"uuid\": \"<string>\",\n  \"organizer_uuid\": \"<string>\",\n  \"price_uuid\": \"<string>\",\n  \"title\": \"<string>\",\n  \"description\": \"<string>\",\n  \"color\": \"<string>\",\n  \"start\": \"<string>\",\n  \"end\": \"<string>\",\n  \"participant_uuids\": [\n    \"<string>\",\n    \"<string>\"\n  ],\n  \"type\": 0,\n  \"booked_at\": \"<string>\"\n}",
+                                    "options": {
+                                        "raw": {
+                                            "headerFamily": "json",
+                                            "language": "json"
+                                        }
+                                    }
+                                }
+                            },
+                            "status": "Not Found",
+                            "code": 404,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "",
+                            "cookie": [],
+                            "_postman_previewlanguage": "json"
+                        },
+                        {
+                            "id": "0bd45179-618e-4ea6-86df-0a0738f68755",
+                            "name": "Internal server error",
+                            "originalRequest": {
+                                "url": {
+                                    "path": [
+                                        "meets"
+                                    ],
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "query": [],
+                                    "variable": []
+                                },
+                                "header": [
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json"
+                                    },
+                                    {
+                                        "key": "Accept",
+                                        "value": "application/json"
+                                    }
+                                ],
+                                "method": "POST",
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"uuid\": \"<string>\",\n  \"organizer_uuid\": \"<string>\",\n  \"price_uuid\": \"<string>\",\n  \"title\": \"<string>\",\n  \"description\": \"<string>\",\n  \"color\": \"<string>\",\n  \"start\": \"<string>\",\n  \"end\": \"<string>\",\n  \"participant_uuids\": [\n    \"<string>\",\n    \"<string>\"\n  ],\n  \"type\": 0,\n  \"booked_at\": \"<string>\"\n}",
+                                    "options": {
+                                        "raw": {
+                                            "headerFamily": "json",
+                                            "language": "json"
+                                        }
+                                    }
+                                }
+                            },
+                            "status": "Internal Server Error",
+                            "code": 500,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "",
+                            "cookie": [],
+                            "_postman_previewlanguage": "json"
+                        },
+                        {
+                            "id": "17fb72d8-aca6-43cf-8109-ad77f162ba33",
+                            "name": "An unexpected error response.",
+                            "originalRequest": {
+                                "url": {
+                                    "path": [
+                                        "meets"
+                                    ],
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "query": [],
+                                    "variable": []
+                                },
+                                "header": [
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json"
+                                    },
+                                    {
+                                        "key": "Accept",
+                                        "value": "application/json"
+                                    }
+                                ],
+                                "method": "POST",
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"uuid\": \"<string>\",\n  \"organizer_uuid\": \"<string>\",\n  \"price_uuid\": \"<string>\",\n  \"title\": \"<string>\",\n  \"description\": \"<string>\",\n  \"color\": \"<string>\",\n  \"start\": \"<string>\",\n  \"end\": \"<string>\",\n  \"participant_uuids\": [\n    \"<string>\",\n    \"<string>\"\n  ],\n  \"type\": 0,\n  \"booked_at\": \"<string>\"\n}",
+                                    "options": {
+                                        "raw": {
+                                            "headerFamily": "json",
+                                            "language": "json"
+                                        }
+                                    }
+                                }
+                            },
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"code\": \"<integer>\",\n  \"message\": \"<string>\",\n  \"details\": [\n    {\n      \"@type\": \"<string>\"\n    },\n    {\n      \"@type\": \"<string>\",\n      \"key_0\": 1579.7367438964516\n    }\n  ]\n}",
+                            "cookie": [],
+                            "_postman_previewlanguage": "json"
+                        }
+                    ],
+                    "event": [],
+                    "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                    }
+                },
+                {
+                    "name": "{uuid}",
+                    "description": "",
+                    "item": [
+                        {
+                            "id": "82e9e475-19a2-4811-8637-8e83517f3087",
+                            "name": "Meet Service Get One",
+                            "request": {
+                                "name": "Meet Service Get One",
+                                "description": {},
+                                "url": {
+                                    "path": [
+                                        "meets",
+                                        ":uuid"
+                                    ],
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "query": [],
+                                    "variable": [
+                                        {
+                                            "type": "any",
+                                            "value": "<string>",
+                                            "key": "uuid",
+                                            "disabled": false,
+                                            "description": {
+                                                "content": "(Required) ",
+                                                "type": "text/plain"
+                                            }
+                                        }
+                                    ]
+                                },
+                                "header": [
+                                    {
+                                        "key": "Accept",
+                                        "value": "application/json"
+                                    }
+                                ],
+                                "method": "GET",
+                                "body": {},
+                                "auth": null
+                            },
+                            "response": [
+                                {
+                                    "id": "51e0b45e-1cc6-4779-a73d-8f5a6ad323bb",
+                                    "name": "A successful response.",
+                                    "originalRequest": {
+                                        "url": {
+                                            "path": [
+                                                "meets",
+                                                ":uuid"
+                                            ],
+                                            "host": [
+                                                "{{baseUrl}}"
+                                            ],
+                                            "query": [],
+                                            "variable": [
+                                                {
+                                                    "disabled": false,
+                                                    "description": {
+                                                        "content": "(Required) ",
+                                                        "type": "text/plain"
+                                                    },
+                                                    "type": "any",
+                                                    "value": "<string>",
+                                                    "key": "uuid"
+                                                }
+                                            ]
+                                        },
+                                        "header": [
+                                            {
+                                                "key": "Accept",
+                                                "value": "application/json"
+                                            }
+                                        ],
+                                        "method": "GET",
+                                        "body": {}
+                                    },
+                                    "status": "OK",
+                                    "code": 200,
+                                    "header": [
+                                        {
+                                            "key": "Content-Type",
+                                            "value": "application/json"
+                                        }
+                                    ],
+                                    "body": "{\n  \"meet\": {\n    \"uuid\": \"<string>\",\n    \"organizer_uuid\": \"<string>\",\n    \"price_uuid\": \"<string>\",\n    \"title\": \"<string>\",\n    \"description\": \"<string>\",\n    \"color\": \"<string>\",\n    \"start\": \"<string>\",\n    \"end\": \"<string>\",\n    \"participant_uuids\": [\n      \"<string>\",\n      \"<string>\"\n    ],\n    \"type\": 0,\n    \"booked_at\": \"<string>\"\n  }\n}",
+                                    "cookie": [],
+                                    "_postman_previewlanguage": "json"
+                                },
+                                {
+                                    "id": "3d44d796-72fc-4c1b-8ca6-229f6c0052fa",
+                                    "name": "Resource not found",
+                                    "originalRequest": {
+                                        "url": {
+                                            "path": [
+                                                "meets",
+                                                ":uuid"
+                                            ],
+                                            "host": [
+                                                "{{baseUrl}}"
+                                            ],
+                                            "query": [],
+                                            "variable": [
+                                                {
+                                                    "disabled": false,
+                                                    "description": {
+                                                        "content": "(Required) ",
+                                                        "type": "text/plain"
+                                                    },
+                                                    "type": "any",
+                                                    "value": "<string>",
+                                                    "key": "uuid"
+                                                }
+                                            ]
+                                        },
+                                        "header": [
+                                            {
+                                                "key": "Accept",
+                                                "value": "application/json"
+                                            }
+                                        ],
+                                        "method": "GET",
+                                        "body": {}
+                                    },
+                                    "status": "Not Found",
+                                    "code": 404,
+                                    "header": [
+                                        {
+                                            "key": "Content-Type",
+                                            "value": "application/json"
+                                        }
+                                    ],
+                                    "body": "",
+                                    "cookie": [],
+                                    "_postman_previewlanguage": "json"
+                                },
+                                {
+                                    "id": "995e105c-24c0-4f8c-a819-5829ff461320",
+                                    "name": "Internal server error",
+                                    "originalRequest": {
+                                        "url": {
+                                            "path": [
+                                                "meets",
+                                                ":uuid"
+                                            ],
+                                            "host": [
+                                                "{{baseUrl}}"
+                                            ],
+                                            "query": [],
+                                            "variable": [
+                                                {
+                                                    "disabled": false,
+                                                    "description": {
+                                                        "content": "(Required) ",
+                                                        "type": "text/plain"
+                                                    },
+                                                    "type": "any",
+                                                    "value": "<string>",
+                                                    "key": "uuid"
+                                                }
+                                            ]
+                                        },
+                                        "header": [
+                                            {
+                                                "key": "Accept",
+                                                "value": "application/json"
+                                            }
+                                        ],
+                                        "method": "GET",
+                                        "body": {}
+                                    },
+                                    "status": "Internal Server Error",
+                                    "code": 500,
+                                    "header": [
+                                        {
+                                            "key": "Content-Type",
+                                            "value": "application/json"
+                                        }
+                                    ],
+                                    "body": "",
+                                    "cookie": [],
+                                    "_postman_previewlanguage": "json"
+                                },
+                                {
+                                    "id": "d0eeb569-caa6-486f-8744-280467844617",
+                                    "name": "An unexpected error response.",
+                                    "originalRequest": {
+                                        "url": {
+                                            "path": [
+                                                "meets",
+                                                ":uuid"
+                                            ],
+                                            "host": [
+                                                "{{baseUrl}}"
+                                            ],
+                                            "query": [],
+                                            "variable": [
+                                                {
+                                                    "disabled": false,
+                                                    "description": {
+                                                        "content": "(Required) ",
+                                                        "type": "text/plain"
+                                                    },
+                                                    "type": "any",
+                                                    "value": "<string>",
+                                                    "key": "uuid"
+                                                }
+                                            ]
+                                        },
+                                        "header": [
+                                            {
+                                                "key": "Accept",
+                                                "value": "application/json"
+                                            }
+                                        ],
+                                        "method": "GET",
+                                        "body": {}
+                                    },
+                                    "header": [
+                                        {
+                                            "key": "Content-Type",
+                                            "value": "application/json"
+                                        }
+                                    ],
+                                    "body": "{\n  \"code\": \"<integer>\",\n  \"message\": \"<string>\",\n  \"details\": [\n    {\n      \"@type\": \"<string>\"\n    },\n    {\n      \"@type\": \"<string>\",\n      \"key_0\": 1579.7367438964516\n    }\n  ]\n}",
+                                    "cookie": [],
+                                    "_postman_previewlanguage": "json"
+                                }
+                            ],
+                            "event": [],
+                            "protocolProfileBehavior": {
+                                "disableBodyPruning": true
+                            }
+                        },
+                        {
+                            "id": "9424e67d-9aaa-4902-9fdf-7c1ae584b8af",
+                            "name": "Meet Service Delete",
+                            "request": {
+                                "name": "Meet Service Delete",
+                                "description": {},
+                                "url": {
+                                    "path": [
+                                        "meets",
+                                        ":uuid"
+                                    ],
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "query": [],
+                                    "variable": [
+                                        {
+                                            "type": "any",
+                                            "value": "<string>",
+                                            "key": "uuid",
+                                            "disabled": false,
+                                            "description": {
+                                                "content": "(Required) ",
+                                                "type": "text/plain"
+                                            }
+                                        }
+                                    ]
+                                },
+                                "header": [
+                                    {
+                                        "key": "Accept",
+                                        "value": "application/json"
+                                    }
+                                ],
+                                "method": "DELETE",
+                                "body": {},
+                                "auth": null
+                            },
+                            "response": [
+                                {
+                                    "id": "05709294-144e-43cc-8a7a-27a47b2c93a9",
+                                    "name": "A successful response.",
+                                    "originalRequest": {
+                                        "url": {
+                                            "path": [
+                                                "meets",
+                                                ":uuid"
+                                            ],
+                                            "host": [
+                                                "{{baseUrl}}"
+                                            ],
+                                            "query": [],
+                                            "variable": [
+                                                {
+                                                    "disabled": false,
+                                                    "description": {
+                                                        "content": "(Required) ",
+                                                        "type": "text/plain"
+                                                    },
+                                                    "type": "any",
+                                                    "value": "<string>",
+                                                    "key": "uuid"
+                                                }
+                                            ]
+                                        },
+                                        "header": [
+                                            {
+                                                "key": "Accept",
+                                                "value": "application/json"
+                                            }
+                                        ],
+                                        "method": "DELETE",
+                                        "body": {}
+                                    },
+                                    "status": "OK",
+                                    "code": 200,
+                                    "header": [
+                                        {
+                                            "key": "Content-Type",
+                                            "value": "application/json"
+                                        }
+                                    ],
+                                    "body": "{}",
+                                    "cookie": [],
+                                    "_postman_previewlanguage": "json"
+                                },
+                                {
+                                    "id": "fb9dd3b8-11d8-439f-8cd7-7f77aa09307e",
+                                    "name": "Resource not found",
+                                    "originalRequest": {
+                                        "url": {
+                                            "path": [
+                                                "meets",
+                                                ":uuid"
+                                            ],
+                                            "host": [
+                                                "{{baseUrl}}"
+                                            ],
+                                            "query": [],
+                                            "variable": [
+                                                {
+                                                    "disabled": false,
+                                                    "description": {
+                                                        "content": "(Required) ",
+                                                        "type": "text/plain"
+                                                    },
+                                                    "type": "any",
+                                                    "value": "<string>",
+                                                    "key": "uuid"
+                                                }
+                                            ]
+                                        },
+                                        "header": [
+                                            {
+                                                "key": "Accept",
+                                                "value": "application/json"
+                                            }
+                                        ],
+                                        "method": "DELETE",
+                                        "body": {}
+                                    },
+                                    "status": "Not Found",
+                                    "code": 404,
+                                    "header": [
+                                        {
+                                            "key": "Content-Type",
+                                            "value": "application/json"
+                                        }
+                                    ],
+                                    "body": "",
+                                    "cookie": [],
+                                    "_postman_previewlanguage": "json"
+                                },
+                                {
+                                    "id": "17f78a7f-ce03-4a6d-808e-54d906a5264e",
+                                    "name": "Internal server error",
+                                    "originalRequest": {
+                                        "url": {
+                                            "path": [
+                                                "meets",
+                                                ":uuid"
+                                            ],
+                                            "host": [
+                                                "{{baseUrl}}"
+                                            ],
+                                            "query": [],
+                                            "variable": [
+                                                {
+                                                    "disabled": false,
+                                                    "description": {
+                                                        "content": "(Required) ",
+                                                        "type": "text/plain"
+                                                    },
+                                                    "type": "any",
+                                                    "value": "<string>",
+                                                    "key": "uuid"
+                                                }
+                                            ]
+                                        },
+                                        "header": [
+                                            {
+                                                "key": "Accept",
+                                                "value": "application/json"
+                                            }
+                                        ],
+                                        "method": "DELETE",
+                                        "body": {}
+                                    },
+                                    "status": "Internal Server Error",
+                                    "code": 500,
+                                    "header": [
+                                        {
+                                            "key": "Content-Type",
+                                            "value": "application/json"
+                                        }
+                                    ],
+                                    "body": "",
+                                    "cookie": [],
+                                    "_postman_previewlanguage": "json"
+                                },
+                                {
+                                    "id": "5a2e740a-ef4d-4add-b10a-8257049b888a",
+                                    "name": "An unexpected error response.",
+                                    "originalRequest": {
+                                        "url": {
+                                            "path": [
+                                                "meets",
+                                                ":uuid"
+                                            ],
+                                            "host": [
+                                                "{{baseUrl}}"
+                                            ],
+                                            "query": [],
+                                            "variable": [
+                                                {
+                                                    "disabled": false,
+                                                    "description": {
+                                                        "content": "(Required) ",
+                                                        "type": "text/plain"
+                                                    },
+                                                    "type": "any",
+                                                    "value": "<string>",
+                                                    "key": "uuid"
+                                                }
+                                            ]
+                                        },
+                                        "header": [
+                                            {
+                                                "key": "Accept",
+                                                "value": "application/json"
+                                            }
+                                        ],
+                                        "method": "DELETE",
+                                        "body": {}
+                                    },
+                                    "header": [
+                                        {
+                                            "key": "Content-Type",
+                                            "value": "application/json"
+                                        }
+                                    ],
+                                    "body": "{\n  \"code\": \"<integer>\",\n  \"message\": \"<string>\",\n  \"details\": [\n    {\n      \"@type\": \"<string>\"\n    },\n    {\n      \"@type\": \"<string>\",\n      \"key_0\": 1579.7367438964516\n    }\n  ]\n}",
+                                    "cookie": [],
+                                    "_postman_previewlanguage": "json"
+                                }
+                            ],
+                            "event": [],
+                            "protocolProfileBehavior": {
+                                "disableBodyPruning": true
+                            }
+                        },
+                        {
+                            "id": "9ef97f54-2494-4a0e-a24f-1883509c3adc",
+                            "name": "Meet Service Update",
+                            "request": {
+                                "name": "Meet Service Update",
+                                "description": {},
+                                "url": {
+                                    "path": [
+                                        "meets",
+                                        ":uuid"
+                                    ],
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "query": [],
+                                    "variable": [
+                                        {
+                                            "type": "any",
+                                            "value": "<string>",
+                                            "key": "uuid",
+                                            "disabled": false,
+                                            "description": {
+                                                "content": "(Required) ",
+                                                "type": "text/plain"
+                                            }
+                                        }
+                                    ]
+                                },
+                                "header": [
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json"
+                                    },
+                                    {
+                                        "key": "Accept",
+                                        "value": "application/json"
+                                    }
+                                ],
+                                "method": "PUT",
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"uuid\": \"<string>\",\n  \"organizer_uuid\": \"<string>\",\n  \"price_uuid\": \"<string>\",\n  \"title\": \"<string>\",\n  \"description\": \"<string>\",\n  \"color\": \"<string>\",\n  \"start\": \"<string>\",\n  \"end\": \"<string>\",\n  \"participant_uuids\": [\n    \"<string>\",\n    \"<string>\"\n  ],\n  \"type\": 0,\n  \"booked_at\": \"<string>\"\n}",
+                                    "options": {
+                                        "raw": {
+                                            "headerFamily": "json",
+                                            "language": "json"
+                                        }
+                                    }
+                                },
+                                "auth": null
+                            },
+                            "response": [
+                                {
+                                    "id": "a2ba637f-a3ac-44da-89dc-0466423dbf89",
+                                    "name": "A successful response.",
+                                    "originalRequest": {
+                                        "url": {
+                                            "path": [
+                                                "meets",
+                                                ":uuid"
+                                            ],
+                                            "host": [
+                                                "{{baseUrl}}"
+                                            ],
+                                            "query": [],
+                                            "variable": [
+                                                {
+                                                    "disabled": false,
+                                                    "description": {
+                                                        "content": "(Required) ",
+                                                        "type": "text/plain"
+                                                    },
+                                                    "type": "any",
+                                                    "value": "<string>",
+                                                    "key": "uuid"
+                                                }
+                                            ]
+                                        },
+                                        "header": [
+                                            {
+                                                "key": "Content-Type",
+                                                "value": "application/json"
+                                            },
+                                            {
+                                                "key": "Accept",
+                                                "value": "application/json"
+                                            }
+                                        ],
+                                        "method": "PUT",
+                                        "body": {
+                                            "mode": "raw",
+                                            "raw": "{\n  \"uuid\": \"<string>\",\n  \"organizer_uuid\": \"<string>\",\n  \"price_uuid\": \"<string>\",\n  \"title\": \"<string>\",\n  \"description\": \"<string>\",\n  \"color\": \"<string>\",\n  \"start\": \"<string>\",\n  \"end\": \"<string>\",\n  \"participant_uuids\": [\n    \"<string>\",\n    \"<string>\"\n  ],\n  \"type\": 0,\n  \"booked_at\": \"<string>\"\n}",
+                                            "options": {
+                                                "raw": {
+                                                    "headerFamily": "json",
+                                                    "language": "json"
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "status": "OK",
+                                    "code": 200,
+                                    "header": [
+                                        {
+                                            "key": "Content-Type",
+                                            "value": "application/json"
+                                        }
+                                    ],
+                                    "body": "{\n  \"meet\": {\n    \"uuid\": \"<string>\",\n    \"organizer_uuid\": \"<string>\",\n    \"price_uuid\": \"<string>\",\n    \"title\": \"<string>\",\n    \"description\": \"<string>\",\n    \"color\": \"<string>\",\n    \"start\": \"<string>\",\n    \"end\": \"<string>\",\n    \"participant_uuids\": [\n      \"<string>\",\n      \"<string>\"\n    ],\n    \"type\": 0,\n    \"booked_at\": \"<string>\"\n  }\n}",
+                                    "cookie": [],
+                                    "_postman_previewlanguage": "json"
+                                },
+                                {
+                                    "id": "6cebbd60-0cb9-4c96-8796-473113a35ee2",
+                                    "name": "Resource not found",
+                                    "originalRequest": {
+                                        "url": {
+                                            "path": [
+                                                "meets",
+                                                ":uuid"
+                                            ],
+                                            "host": [
+                                                "{{baseUrl}}"
+                                            ],
+                                            "query": [],
+                                            "variable": [
+                                                {
+                                                    "disabled": false,
+                                                    "description": {
+                                                        "content": "(Required) ",
+                                                        "type": "text/plain"
+                                                    },
+                                                    "type": "any",
+                                                    "value": "<string>",
+                                                    "key": "uuid"
+                                                }
+                                            ]
+                                        },
+                                        "header": [
+                                            {
+                                                "key": "Content-Type",
+                                                "value": "application/json"
+                                            },
+                                            {
+                                                "key": "Accept",
+                                                "value": "application/json"
+                                            }
+                                        ],
+                                        "method": "PUT",
+                                        "body": {
+                                            "mode": "raw",
+                                            "raw": "{\n  \"uuid\": \"<string>\",\n  \"organizer_uuid\": \"<string>\",\n  \"price_uuid\": \"<string>\",\n  \"title\": \"<string>\",\n  \"description\": \"<string>\",\n  \"color\": \"<string>\",\n  \"start\": \"<string>\",\n  \"end\": \"<string>\",\n  \"participant_uuids\": [\n    \"<string>\",\n    \"<string>\"\n  ],\n  \"type\": 0,\n  \"booked_at\": \"<string>\"\n}",
+                                            "options": {
+                                                "raw": {
+                                                    "headerFamily": "json",
+                                                    "language": "json"
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "status": "Not Found",
+                                    "code": 404,
+                                    "header": [
+                                        {
+                                            "key": "Content-Type",
+                                            "value": "application/json"
+                                        }
+                                    ],
+                                    "body": "",
+                                    "cookie": [],
+                                    "_postman_previewlanguage": "json"
+                                },
+                                {
+                                    "id": "e84882bc-f90a-4a3d-b797-87108def4713",
+                                    "name": "Internal server error",
+                                    "originalRequest": {
+                                        "url": {
+                                            "path": [
+                                                "meets",
+                                                ":uuid"
+                                            ],
+                                            "host": [
+                                                "{{baseUrl}}"
+                                            ],
+                                            "query": [],
+                                            "variable": [
+                                                {
+                                                    "disabled": false,
+                                                    "description": {
+                                                        "content": "(Required) ",
+                                                        "type": "text/plain"
+                                                    },
+                                                    "type": "any",
+                                                    "value": "<string>",
+                                                    "key": "uuid"
+                                                }
+                                            ]
+                                        },
+                                        "header": [
+                                            {
+                                                "key": "Content-Type",
+                                                "value": "application/json"
+                                            },
+                                            {
+                                                "key": "Accept",
+                                                "value": "application/json"
+                                            }
+                                        ],
+                                        "method": "PUT",
+                                        "body": {
+                                            "mode": "raw",
+                                            "raw": "{\n  \"uuid\": \"<string>\",\n  \"organizer_uuid\": \"<string>\",\n  \"price_uuid\": \"<string>\",\n  \"title\": \"<string>\",\n  \"description\": \"<string>\",\n  \"color\": \"<string>\",\n  \"start\": \"<string>\",\n  \"end\": \"<string>\",\n  \"participant_uuids\": [\n    \"<string>\",\n    \"<string>\"\n  ],\n  \"type\": 0,\n  \"booked_at\": \"<string>\"\n}",
+                                            "options": {
+                                                "raw": {
+                                                    "headerFamily": "json",
+                                                    "language": "json"
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "status": "Internal Server Error",
+                                    "code": 500,
+                                    "header": [
+                                        {
+                                            "key": "Content-Type",
+                                            "value": "application/json"
+                                        }
+                                    ],
+                                    "body": "",
+                                    "cookie": [],
+                                    "_postman_previewlanguage": "json"
+                                },
+                                {
+                                    "id": "aa8ac723-ca91-4715-8f8b-407b4d28ebab",
+                                    "name": "An unexpected error response.",
+                                    "originalRequest": {
+                                        "url": {
+                                            "path": [
+                                                "meets",
+                                                ":uuid"
+                                            ],
+                                            "host": [
+                                                "{{baseUrl}}"
+                                            ],
+                                            "query": [],
+                                            "variable": [
+                                                {
+                                                    "disabled": false,
+                                                    "description": {
+                                                        "content": "(Required) ",
+                                                        "type": "text/plain"
+                                                    },
+                                                    "type": "any",
+                                                    "value": "<string>",
+                                                    "key": "uuid"
+                                                }
+                                            ]
+                                        },
+                                        "header": [
+                                            {
+                                                "key": "Content-Type",
+                                                "value": "application/json"
+                                            },
+                                            {
+                                                "key": "Accept",
+                                                "value": "application/json"
+                                            }
+                                        ],
+                                        "method": "PUT",
+                                        "body": {
+                                            "mode": "raw",
+                                            "raw": "{\n  \"uuid\": \"<string>\",\n  \"organizer_uuid\": \"<string>\",\n  \"price_uuid\": \"<string>\",\n  \"title\": \"<string>\",\n  \"description\": \"<string>\",\n  \"color\": \"<string>\",\n  \"start\": \"<string>\",\n  \"end\": \"<string>\",\n  \"participant_uuids\": [\n    \"<string>\",\n    \"<string>\"\n  ],\n  \"type\": 0,\n  \"booked_at\": \"<string>\"\n}",
+                                            "options": {
+                                                "raw": {
+                                                    "headerFamily": "json",
+                                                    "language": "json"
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "header": [
+                                        {
+                                            "key": "Content-Type",
+                                            "value": "application/json"
+                                        }
+                                    ],
+                                    "body": "{\n  \"code\": \"<integer>\",\n  \"message\": \"<string>\",\n  \"details\": [\n    {\n      \"@type\": \"<string>\"\n    },\n    {\n      \"@type\": \"<string>\",\n      \"key_0\": 1579.7367438964516\n    }\n  ]\n}",
+                                    "cookie": [],
+                                    "_postman_previewlanguage": "json"
+                                }
+                            ],
+                            "event": [],
+                            "protocolProfileBehavior": {
+                                "disableBodyPruning": true
+                            }
+                        },
+                        {
+                            "name": "availability",
+                            "description": "",
+                            "item": [
+                                {
+                                    "id": "14812d44-8fc2-4c19-9ddf-d836114d462e",
+                                    "name": "Get user availability for next 7 days",
+                                    "request": {
+                                        "name": "Get user availability for next 7 days",
+                                        "description": {},
+                                        "url": {
+                                            "path": [
+                                                "meets",
+                                                ":uuid",
+                                                "availability"
+                                            ],
+                                            "host": [
+                                                "{{baseUrl}}"
+                                            ],
+                                            "query": [
+                                                {
+                                                    "disabled": false,
+                                                    "description": {
+                                                        "content": "ISO8601 date string",
+                                                        "type": "text/plain"
+                                                    },
+                                                    "key": "from",
+                                                    "value": "<string>"
+                                                },
+                                                {
+                                                    "disabled": false,
+                                                    "description": {
+                                                        "content": "ISO8601 date string",
+                                                        "type": "text/plain"
+                                                    },
+                                                    "key": "to",
+                                                    "value": "<string>"
+                                                },
+                                                {
+                                                    "disabled": false,
+                                                    "description": {
+                                                        "content": "",
+                                                        "type": "text/plain"
+                                                    },
+                                                    "key": "price_uuid",
+                                                    "value": "<string>"
+                                                }
+                                            ],
+                                            "variable": [
+                                                {
+                                                    "type": "any",
+                                                    "value": "<string>",
+                                                    "key": "uuid",
+                                                    "disabled": false,
+                                                    "description": {
+                                                        "content": "(Required) ",
+                                                        "type": "text/plain"
+                                                    }
+                                                }
+                                            ]
+                                        },
+                                        "header": [
+                                            {
+                                                "key": "Accept",
+                                                "value": "application/json"
+                                            }
+                                        ],
+                                        "method": "GET",
+                                        "body": {},
+                                        "auth": null
+                                    },
+                                    "response": [
+                                        {
+                                            "id": "4a3a5dc4-f17c-479b-9c56-76130af284a3",
+                                            "name": "A successful response.",
+                                            "originalRequest": {
+                                                "url": {
+                                                    "path": [
+                                                        "meets",
+                                                        ":uuid",
+                                                        "availability"
+                                                    ],
+                                                    "host": [
+                                                        "{{baseUrl}}"
+                                                    ],
+                                                    "query": [
+                                                        {
+                                                            "disabled": false,
+                                                            "description": {
+                                                                "content": "ISO8601 date string",
+                                                                "type": "text/plain"
+                                                            },
+                                                            "key": "from",
+                                                            "value": "<string>"
+                                                        },
+                                                        {
+                                                            "disabled": false,
+                                                            "description": {
+                                                                "content": "ISO8601 date string",
+                                                                "type": "text/plain"
+                                                            },
+                                                            "key": "to",
+                                                            "value": "<string>"
+                                                        },
+                                                        {
+                                                            "disabled": false,
+                                                            "description": {
+                                                                "content": "",
+                                                                "type": "text/plain"
+                                                            },
+                                                            "key": "price_uuid",
+                                                            "value": "<string>"
+                                                        }
+                                                    ],
+                                                    "variable": [
+                                                        {
+                                                            "disabled": false,
+                                                            "description": {
+                                                                "content": "(Required) ",
+                                                                "type": "text/plain"
+                                                            },
+                                                            "type": "any",
+                                                            "value": "<string>",
+                                                            "key": "uuid"
+                                                        }
+                                                    ]
+                                                },
+                                                "header": [
+                                                    {
+                                                        "key": "Accept",
+                                                        "value": "application/json"
+                                                    }
+                                                ],
+                                                "method": "GET",
+                                                "body": {}
+                                            },
+                                            "status": "OK",
+                                            "code": 200,
+                                            "header": [
+                                                {
+                                                    "key": "Content-Type",
+                                                    "value": "application/json"
+                                                }
+                                            ],
+                                            "body": "{\n  \"dates\": [\n    {\n      \"title\": \"<string>\",\n      \"label\": \"<string>\",\n      \"value\": \"<string>\",\n      \"times\": [\n        {\n          \"uuid\": \"<string>\",\n          \"start\": \"<string>\",\n          \"end\": \"<string>\",\n          \"duration\": \"<string>\",\n          \"booked_at\": \"<string>\"\n        },\n        {\n          \"uuid\": \"<string>\",\n          \"start\": \"<string>\",\n          \"end\": \"<string>\",\n          \"duration\": \"<string>\",\n          \"booked_at\": \"<string>\"\n        }\n      ]\n    },\n    {\n      \"title\": \"<string>\",\n      \"label\": \"<string>\",\n      \"value\": \"<string>\",\n      \"times\": [\n        {\n          \"uuid\": \"<string>\",\n          \"start\": \"<string>\",\n          \"end\": \"<string>\",\n          \"duration\": \"<string>\",\n          \"booked_at\": \"<string>\"\n        },\n        {\n          \"uuid\": \"<string>\",\n          \"start\": \"<string>\",\n          \"end\": \"<string>\",\n          \"duration\": \"<string>\",\n          \"booked_at\": \"<string>\"\n        }\n      ]\n    }\n  ]\n}",
+                                            "cookie": [],
+                                            "_postman_previewlanguage": "json"
+                                        },
+                                        {
+                                            "id": "3b5fff11-8b67-4179-b53e-77fdf98ce5d0",
+                                            "name": "Resource not found",
+                                            "originalRequest": {
+                                                "url": {
+                                                    "path": [
+                                                        "meets",
+                                                        ":uuid",
+                                                        "availability"
+                                                    ],
+                                                    "host": [
+                                                        "{{baseUrl}}"
+                                                    ],
+                                                    "query": [
+                                                        {
+                                                            "disabled": false,
+                                                            "description": {
+                                                                "content": "ISO8601 date string",
+                                                                "type": "text/plain"
+                                                            },
+                                                            "key": "from",
+                                                            "value": "<string>"
+                                                        },
+                                                        {
+                                                            "disabled": false,
+                                                            "description": {
+                                                                "content": "ISO8601 date string",
+                                                                "type": "text/plain"
+                                                            },
+                                                            "key": "to",
+                                                            "value": "<string>"
+                                                        },
+                                                        {
+                                                            "disabled": false,
+                                                            "description": {
+                                                                "content": "",
+                                                                "type": "text/plain"
+                                                            },
+                                                            "key": "price_uuid",
+                                                            "value": "<string>"
+                                                        }
+                                                    ],
+                                                    "variable": [
+                                                        {
+                                                            "disabled": false,
+                                                            "description": {
+                                                                "content": "(Required) ",
+                                                                "type": "text/plain"
+                                                            },
+                                                            "type": "any",
+                                                            "value": "<string>",
+                                                            "key": "uuid"
+                                                        }
+                                                    ]
+                                                },
+                                                "header": [
+                                                    {
+                                                        "key": "Accept",
+                                                        "value": "application/json"
+                                                    }
+                                                ],
+                                                "method": "GET",
+                                                "body": {}
+                                            },
+                                            "status": "Not Found",
+                                            "code": 404,
+                                            "header": [
+                                                {
+                                                    "key": "Content-Type",
+                                                    "value": "application/json"
+                                                }
+                                            ],
+                                            "body": "",
+                                            "cookie": [],
+                                            "_postman_previewlanguage": "json"
+                                        },
+                                        {
+                                            "id": "588e27fc-072d-419c-b960-19c7db430099",
+                                            "name": "Internal server error",
+                                            "originalRequest": {
+                                                "url": {
+                                                    "path": [
+                                                        "meets",
+                                                        ":uuid",
+                                                        "availability"
+                                                    ],
+                                                    "host": [
+                                                        "{{baseUrl}}"
+                                                    ],
+                                                    "query": [
+                                                        {
+                                                            "disabled": false,
+                                                            "description": {
+                                                                "content": "ISO8601 date string",
+                                                                "type": "text/plain"
+                                                            },
+                                                            "key": "from",
+                                                            "value": "<string>"
+                                                        },
+                                                        {
+                                                            "disabled": false,
+                                                            "description": {
+                                                                "content": "ISO8601 date string",
+                                                                "type": "text/plain"
+                                                            },
+                                                            "key": "to",
+                                                            "value": "<string>"
+                                                        },
+                                                        {
+                                                            "disabled": false,
+                                                            "description": {
+                                                                "content": "",
+                                                                "type": "text/plain"
+                                                            },
+                                                            "key": "price_uuid",
+                                                            "value": "<string>"
+                                                        }
+                                                    ],
+                                                    "variable": [
+                                                        {
+                                                            "disabled": false,
+                                                            "description": {
+                                                                "content": "(Required) ",
+                                                                "type": "text/plain"
+                                                            },
+                                                            "type": "any",
+                                                            "value": "<string>",
+                                                            "key": "uuid"
+                                                        }
+                                                    ]
+                                                },
+                                                "header": [
+                                                    {
+                                                        "key": "Accept",
+                                                        "value": "application/json"
+                                                    }
+                                                ],
+                                                "method": "GET",
+                                                "body": {}
+                                            },
+                                            "status": "Internal Server Error",
+                                            "code": 500,
+                                            "header": [
+                                                {
+                                                    "key": "Content-Type",
+                                                    "value": "application/json"
+                                                }
+                                            ],
+                                            "body": "",
+                                            "cookie": [],
+                                            "_postman_previewlanguage": "json"
+                                        },
+                                        {
+                                            "id": "f4208ad9-0d11-497b-8eae-92b5e101eced",
+                                            "name": "An unexpected error response.",
+                                            "originalRequest": {
+                                                "url": {
+                                                    "path": [
+                                                        "meets",
+                                                        ":uuid",
+                                                        "availability"
+                                                    ],
+                                                    "host": [
+                                                        "{{baseUrl}}"
+                                                    ],
+                                                    "query": [
+                                                        {
+                                                            "disabled": false,
+                                                            "description": {
+                                                                "content": "ISO8601 date string",
+                                                                "type": "text/plain"
+                                                            },
+                                                            "key": "from",
+                                                            "value": "<string>"
+                                                        },
+                                                        {
+                                                            "disabled": false,
+                                                            "description": {
+                                                                "content": "ISO8601 date string",
+                                                                "type": "text/plain"
+                                                            },
+                                                            "key": "to",
+                                                            "value": "<string>"
+                                                        },
+                                                        {
+                                                            "disabled": false,
+                                                            "description": {
+                                                                "content": "",
+                                                                "type": "text/plain"
+                                                            },
+                                                            "key": "price_uuid",
+                                                            "value": "<string>"
+                                                        }
+                                                    ],
+                                                    "variable": [
+                                                        {
+                                                            "disabled": false,
+                                                            "description": {
+                                                                "content": "(Required) ",
+                                                                "type": "text/plain"
+                                                            },
+                                                            "type": "any",
+                                                            "value": "<string>",
+                                                            "key": "uuid"
+                                                        }
+                                                    ]
+                                                },
+                                                "header": [
+                                                    {
+                                                        "key": "Accept",
+                                                        "value": "application/json"
+                                                    }
+                                                ],
+                                                "method": "GET",
+                                                "body": {}
+                                            },
+                                            "header": [
+                                                {
+                                                    "key": "Content-Type",
+                                                    "value": "application/json"
+                                                }
+                                            ],
+                                            "body": "{\n  \"code\": \"<integer>\",\n  \"message\": \"<string>\",\n  \"details\": [\n    {\n      \"@type\": \"<string>\"\n    },\n    {\n      \"@type\": \"<string>\",\n      \"key_0\": 1579.7367438964516\n    }\n  ]\n}",
+                                            "cookie": [],
+                                            "_postman_previewlanguage": "json"
+                                        }
+                                    ],
+                                    "event": [],
+                                    "protocolProfileBehavior": {
+                                        "disableBodyPruning": true
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "name": "types",
+                            "description": "",
+                            "item": [
+                                {
+                                    "id": "70f1dfd2-f310-4520-931f-73dc4b44a1c6",
+                                    "name": "Get all meet types for an organizer",
+                                    "request": {
+                                        "name": "Get all meet types for an organizer",
+                                        "description": {},
+                                        "url": {
+                                            "path": [
+                                                "meets",
+                                                ":uuid",
+                                                "types"
+                                            ],
+                                            "host": [
+                                                "{{baseUrl}}"
+                                            ],
+                                            "query": [],
+                                            "variable": [
+                                                {
+                                                    "type": "any",
+                                                    "value": "<string>",
+                                                    "key": "uuid",
+                                                    "disabled": false,
+                                                    "description": {
+                                                        "content": "(Required) ",
+                                                        "type": "text/plain"
+                                                    }
+                                                }
+                                            ]
+                                        },
+                                        "header": [
+                                            {
+                                                "key": "Accept",
+                                                "value": "application/json"
+                                            }
+                                        ],
+                                        "method": "GET",
+                                        "body": {},
+                                        "auth": null
+                                    },
+                                    "response": [
+                                        {
+                                            "id": "43edc261-0716-4c5a-ae6a-286945df0a48",
+                                            "name": "A successful response.",
+                                            "originalRequest": {
+                                                "url": {
+                                                    "path": [
+                                                        "meets",
+                                                        ":uuid",
+                                                        "types"
+                                                    ],
+                                                    "host": [
+                                                        "{{baseUrl}}"
+                                                    ],
+                                                    "query": [],
+                                                    "variable": [
+                                                        {
+                                                            "disabled": false,
+                                                            "description": {
+                                                                "content": "(Required) ",
+                                                                "type": "text/plain"
+                                                            },
+                                                            "type": "any",
+                                                            "value": "<string>",
+                                                            "key": "uuid"
+                                                        }
+                                                    ]
+                                                },
+                                                "header": [
+                                                    {
+                                                        "key": "Accept",
+                                                        "value": "application/json"
+                                                    }
+                                                ],
+                                                "method": "GET",
+                                                "body": {}
+                                            },
+                                            "status": "OK",
+                                            "code": 200,
+                                            "header": [
+                                                {
+                                                    "key": "Content-Type",
+                                                    "value": "application/json"
+                                                }
+                                            ],
+                                            "body": "{\n  \"types\": [\n    0,\n    0\n  ]\n}",
+                                            "cookie": [],
+                                            "_postman_previewlanguage": "json"
+                                        },
+                                        {
+                                            "id": "5f578800-e11b-40ba-93d6-43fcfa54951c",
+                                            "name": "Resource not found",
+                                            "originalRequest": {
+                                                "url": {
+                                                    "path": [
+                                                        "meets",
+                                                        ":uuid",
+                                                        "types"
+                                                    ],
+                                                    "host": [
+                                                        "{{baseUrl}}"
+                                                    ],
+                                                    "query": [],
+                                                    "variable": [
+                                                        {
+                                                            "disabled": false,
+                                                            "description": {
+                                                                "content": "(Required) ",
+                                                                "type": "text/plain"
+                                                            },
+                                                            "type": "any",
+                                                            "value": "<string>",
+                                                            "key": "uuid"
+                                                        }
+                                                    ]
+                                                },
+                                                "header": [
+                                                    {
+                                                        "key": "Accept",
+                                                        "value": "application/json"
+                                                    }
+                                                ],
+                                                "method": "GET",
+                                                "body": {}
+                                            },
+                                            "status": "Not Found",
+                                            "code": 404,
+                                            "header": [
+                                                {
+                                                    "key": "Content-Type",
+                                                    "value": "application/json"
+                                                }
+                                            ],
+                                            "body": "",
+                                            "cookie": [],
+                                            "_postman_previewlanguage": "json"
+                                        },
+                                        {
+                                            "id": "e65ea204-8858-4f38-a4a6-f1d27622a097",
+                                            "name": "Internal server error",
+                                            "originalRequest": {
+                                                "url": {
+                                                    "path": [
+                                                        "meets",
+                                                        ":uuid",
+                                                        "types"
+                                                    ],
+                                                    "host": [
+                                                        "{{baseUrl}}"
+                                                    ],
+                                                    "query": [],
+                                                    "variable": [
+                                                        {
+                                                            "disabled": false,
+                                                            "description": {
+                                                                "content": "(Required) ",
+                                                                "type": "text/plain"
+                                                            },
+                                                            "type": "any",
+                                                            "value": "<string>",
+                                                            "key": "uuid"
+                                                        }
+                                                    ]
+                                                },
+                                                "header": [
+                                                    {
+                                                        "key": "Accept",
+                                                        "value": "application/json"
+                                                    }
+                                                ],
+                                                "method": "GET",
+                                                "body": {}
+                                            },
+                                            "status": "Internal Server Error",
+                                            "code": 500,
+                                            "header": [
+                                                {
+                                                    "key": "Content-Type",
+                                                    "value": "application/json"
+                                                }
+                                            ],
+                                            "body": "",
+                                            "cookie": [],
+                                            "_postman_previewlanguage": "json"
+                                        },
+                                        {
+                                            "id": "19c6ddf1-15ea-4428-9d5d-e58e0f860575",
+                                            "name": "An unexpected error response.",
+                                            "originalRequest": {
+                                                "url": {
+                                                    "path": [
+                                                        "meets",
+                                                        ":uuid",
+                                                        "types"
+                                                    ],
+                                                    "host": [
+                                                        "{{baseUrl}}"
+                                                    ],
+                                                    "query": [],
+                                                    "variable": [
+                                                        {
+                                                            "disabled": false,
+                                                            "description": {
+                                                                "content": "(Required) ",
+                                                                "type": "text/plain"
+                                                            },
+                                                            "type": "any",
+                                                            "value": "<string>",
+                                                            "key": "uuid"
+                                                        }
+                                                    ]
+                                                },
+                                                "header": [
+                                                    {
+                                                        "key": "Accept",
+                                                        "value": "application/json"
+                                                    }
+                                                ],
+                                                "method": "GET",
+                                                "body": {}
+                                            },
+                                            "header": [
+                                                {
+                                                    "key": "Content-Type",
+                                                    "value": "application/json"
+                                                }
+                                            ],
+                                            "body": "{\n  \"code\": \"<integer>\",\n  \"message\": \"<string>\",\n  \"details\": [\n    {\n      \"@type\": \"<string>\"\n    },\n    {\n      \"@type\": \"<string>\",\n      \"key_0\": 1579.7367438964516\n    }\n  ]\n}",
+                                            "cookie": [],
+                                            "_postman_previewlanguage": "json"
+                                        }
+                                    ],
+                                    "event": [],
+                                    "protocolProfileBehavior": {
+                                        "disableBodyPruning": true
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    ],
+    "event": [],
+    "variable": [
+        {
+            "key": "baseUrl",
+            "value": "/"
+        }
+    ],
+    "info": {
+        "_postman_id": "d9eba92c-d6ce-4f5f-a484-c2ca24a19445",
+        "name": "Meets API",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+        "description": {
+            "content": "API for managing meetings and appointments\n\nContact Support:\n Name: Meets API Support\n Email: support@meets.example.com",
+            "type": "text/plain"
+        }
+    }
+}

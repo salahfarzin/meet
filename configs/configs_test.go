@@ -4,6 +4,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/salahfarzin/utils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -148,11 +149,11 @@ func TestGetEnv(t *testing.T) {
 	_ = os.Setenv("TEST_VAR", "test_value")
 	defer func() { _ = os.Unsetenv("TEST_VAR") }()
 
-	result := getEnv("TEST_VAR", "fallback")
+	result := utils.GetEnv("TEST_VAR", "fallback")
 	assert.Equal(t, "test_value", result)
 
 	// Test with non-existing env var
-	result = getEnv("NON_EXISTING_VAR", "fallback")
+	result = utils.GetEnv("NON_EXISTING_VAR", "fallback")
 	assert.Equal(t, "fallback", result)
 }
 
@@ -161,17 +162,17 @@ func TestGetEnvAsInt(t *testing.T) {
 	_ = os.Setenv("TEST_INT_VAR", "12345")
 	defer func() { _ = os.Unsetenv("TEST_INT_VAR") }()
 
-	result := getEnvAsInt("TEST_INT_VAR", 999)
+	result := utils.GetEnvAsInt("TEST_INT_VAR", 999)
 	assert.Equal(t, int64(12345), result)
 
 	// Test with invalid integer env var
 	_ = os.Setenv("TEST_INVALID_INT_VAR", "not_a_number")
 	defer func() { _ = os.Unsetenv("TEST_INVALID_INT_VAR") }()
 
-	result = getEnvAsInt("TEST_INVALID_INT_VAR", 999)
+	result = utils.GetEnvAsInt("TEST_INVALID_INT_VAR", 999)
 	assert.Equal(t, int64(999), result)
 
 	// Test with non-existing env var
-	result = getEnvAsInt("NON_EXISTING_INT_VAR", 777)
+	result = utils.GetEnvAsInt("NON_EXISTING_INT_VAR", 777)
 	assert.Equal(t, int64(777), result)
 }

@@ -174,7 +174,8 @@ func (m *MockService) QueryMeets(ctx context.Context, opts *MeetQueryOptions) ([
 	}
 
 	// No date filters
-	return []*Meet{{ID: "1", Title: "Dentist"}}, nil
+	now := time.Now()
+	return []*Meet{{ID: "1", Title: "Dentist", BookedAt: &now}}, nil
 }
 
 func (m *MockService) GetAvailability(ctx context.Context, organizerId string, from, to time.Time, priceUUID *string) (map[string]DateSlot, error) {
@@ -761,4 +762,17 @@ func TestGetOneMeetBookedAt(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
 	assert.NotNil(t, resp.Meet.BookedAt)
+}
+
+func TestGetAllMeetsNonProgrammer(t *testing.T) {
+	md := metadata.New(map[string]string{
+		"x-user-roles": "User",
+		"x-user-uuid":  "user1",
+	})
+	ctx := metadata.NewIncomingContext(context.Background(), md)
+	h := NewHandler(NewMockService())
+	// As a non-programmer, requesting any organizer ID should be overridden by own UUID
+	resp, err := h.GetAll(ctx, &pb.GetAllRequest{OrganizerId: "other-org"})
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
 }

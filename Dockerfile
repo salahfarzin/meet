@@ -28,8 +28,8 @@ RUN apk --no-cache add ca-certificates tzdata && \
     wget -O- https://github.com/golang-migrate/migrate/releases/download/v4.16.2/migrate.linux-amd64.tar.gz | tar xvz && \
     mv migrate /usr/local/bin/migrate && \
     chmod +x /usr/local/bin/migrate && \
-    addgroup -g 1001 -S appgroup && \
-    adduser -u 1001 -S appuser -G appgroup
+    addgroup -g 1000 -S appgroup && \
+    adduser -u 1000 -S appuser -G appgroup
 
 # Copy binary from builder
 COPY --from=builder /app/meet-service .
@@ -43,10 +43,10 @@ RUN mkdir -p /app/storage/logs && \
 
 USER appuser
 
-EXPOSE 8080 50051
+EXPOSE 8083 9093
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
+    CMD wget --no-verbose --tries=1 --spider http://localhost:8083/api/v1/health || exit 1
 
-    # Run the application
+# Run the application
 ENTRYPOINT ["/app/entrypoint.sh"]

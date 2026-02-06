@@ -23,7 +23,7 @@ type TestConfig struct {
 func NewTestConfig() *TestConfig {
 	baseURL := os.Getenv("APP_URL")
 	if baseURL == "" {
-		baseURL = "http://localhost:8080"
+		baseURL = "http://localhost:8083"
 	}
 
 	return &TestConfig{

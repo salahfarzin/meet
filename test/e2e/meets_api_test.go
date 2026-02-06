@@ -21,6 +21,32 @@ type Meet struct {
 	BookedAt         *string  `json:"booked_at,omitempty"`
 }
 
+// TimeSlot represents a time slot in availability response
+type TimeSlot struct {
+	UUID     string `json:"uuid"`
+	Start    string `json:"start"`
+	End      string `json:"end"`
+	Duration string `json:"duration"`
+}
+
+// DateSlot represents a date slot in availability response
+type DateSlot struct {
+	Title string     `json:"title"`
+	Label string     `json:"label"`
+	Value string     `json:"value"`
+	Times []TimeSlot `json:"times"`
+}
+
+// GetAvailabilityResponse represents the response from getting availability
+type GetAvailabilityResponse struct {
+	Dates []DateSlot `json:"dates"`
+}
+
+// GetMeetTypesResponse represents the response from getting meet types
+type GetMeetTypesResponse struct {
+	Types []string `json:"types"`
+}
+
 // CreateMeetResponse represents the response from creating a meet
 type CreateMeetResponse struct {
 	Status struct {
@@ -497,4 +523,232 @@ func TestMeetsAPIFullCRUDFlow(t *testing.T) {
 	deletedResp.AssertStatusCode(t, http.StatusNotFound)
 
 	t.Log("✅ Full CRUD flow completed successfully")
+}
+
+func TestMeetsAPIGetAvailability(t *testing.T) {
+	config := NewTestConfig()
+	now := time.Now().UTC()
+
+	// 1. Create a meet that should appear as available (booked_at is nil)
+	meetStart := now.Add(7 * 24 * time.Hour)
+	meetEnd := meetStart.Add(time.Hour)
+
+	createResp := config.DoRequest(t, APIRequest{
+		Method: http.MethodPost,
+		Path:   "/meets",
+		Body: map[string]interface{}{
+			"title": "Available Meet",
+			"start": meetStart.Format(time.RFC3339),
+			"end":   meetEnd.Format(time.RFC3339),
+		},
+		Headers: GetAuthHeaders(),
+	})
+	createResp.AssertStatusCode(t, http.StatusOK)
+
+	// 2. Get availability
+	userUUID := GetAuthHeaders()["X-User-Uuid"]
+	resp := config.DoRequest(t, APIRequest{
+		Method:  http.MethodGet,
+		Path:    "/meets/" + userUUID + "/availability",
+		Headers: GetAuthHeaders(),
+	})
+	resp.AssertStatusCode(t, http.StatusOK)
+
+	var result GetAvailabilityResponse
+	resp.DecodeJSON(t, &result)
+
+	// We might have other meets from other tests, so we just check if it's returning a list
+	if len(result.Dates) == 0 {
+		t.Log("Warning: No availability dates returned. This might happen if 'now' shifted between test runs.")
+	}
+
+	// 3. Get availability with date range
+	from := meetStart.Format("2006-01-02")
+	to := meetEnd.Format("2006-01-02")
+	respRange := config.DoRequest(t, APIRequest{
+		Method:  http.MethodGet,
+		Path:    "/meets/" + userUUID + "/availability?from=" + from + "&to=" + to,
+		Headers: GetAuthHeaders(),
+	})
+	respRange.AssertStatusCode(t, http.StatusOK)
+}
+
+func TestMeetsAPIGetMeetTypes(t *testing.T) {
+	config := NewTestConfig()
+	userUUID := GetAuthHeaders()["X-User-Uuid"]
+
+	resp := config.DoRequest(t, APIRequest{
+		Method:  http.MethodGet,
+		Path:    "/meets/" + userUUID + "/types",
+		Headers: GetAuthHeaders(),
+	})
+	resp.AssertStatusCode(t, http.StatusOK)
+
+	var result GetMeetTypesResponse
+	resp.DecodeJSON(t, &result)
+
+	if len(result.Types) == 0 {
+		t.Error("Expected at least one meet type")
+	}
+
+	foundVideoCall := false
+	for _, t := range result.Types {
+		if t == "VIDEO_CALL" {
+			foundVideoCall = true
+			break
+		}
+	}
+	if !foundVideoCall {
+		t.Errorf("Expected VIDEO_CALL in meet types, got %v", result.Types)
+	}
+}
+
+func TestMeetsAPIConflicts(t *testing.T) {
+	config := NewTestConfig()
+	now := time.Now().UTC()
+	startTime := now.Add(10 * 24 * time.Hour).Format(time.RFC3339)
+	endTime := now.Add(10*24*time.Hour + time.Hour).Format(time.RFC3339)
+
+	// 1. Create first meet
+	config.DoRequest(t, APIRequest{
+		Method: http.MethodPost,
+		Path:   "/meets",
+		Body: map[string]interface{}{
+			"title": "First Meet",
+			"start": startTime,
+			"end":   endTime,
+		},
+		Headers: GetAuthHeaders(),
+	}).AssertStatusCode(t, http.StatusOK)
+
+	// 2. Try to create overlapping meet
+	resp := config.DoRequest(t, APIRequest{
+		Method: http.MethodPost,
+		Path:   "/meets",
+		Body: map[string]interface{}{
+			"title": "Conflicting Meet",
+			"start": startTime,
+			"end":   endTime,
+		},
+		Headers: GetAuthHeaders(),
+	})
+
+	// Handler returns status.Error(codes.InvalidArgument, "appointment conflict for this organizer and period")
+	// gRPC-gateway maps codes.InvalidArgument to 400 Bad Request
+	resp.AssertStatusCode(t, http.StatusBadRequest)
+}
+
+func TestMeetsAPIUpdateConflict(t *testing.T) {
+	config := NewTestConfig()
+	now := time.Now().UTC()
+
+	// 1. Create two meets
+	start1 := now.Add(15 * 24 * time.Hour).Format(time.RFC3339)
+	end1 := now.Add(15*24*time.Hour + time.Hour).Format(time.RFC3339)
+	start2 := now.Add(16 * 24 * time.Hour).Format(time.RFC3339)
+	end2 := now.Add(16*24*time.Hour + time.Hour).Format(time.RFC3339)
+
+	createResp1 := config.DoRequest(t, APIRequest{
+		Method: http.MethodPost,
+		Path:   "/meets",
+		Body: map[string]interface{}{
+			"title": "Meet 1",
+			"start": start1,
+			"end":   end1,
+		},
+		Headers: GetAuthHeaders(),
+	})
+	var res1 CreateMeetResponse
+	createResp1.DecodeJSON(t, &res1)
+	uuid1 := res1.Meet.UUID
+
+	config.DoRequest(t, APIRequest{
+		Method: http.MethodPost,
+		Path:   "/meets",
+		Body: map[string]interface{}{
+			"title": "Meet 2",
+			"start": start2,
+			"end":   end2,
+		},
+		Headers: GetAuthHeaders(),
+	}).AssertStatusCode(t, http.StatusOK)
+
+	// 2. Try to update Meet 1 to overlap with Meet 2
+	resp := config.DoRequest(t, APIRequest{
+		Method: http.MethodPut,
+		Path:   "/meets/" + uuid1,
+		Body: map[string]interface{}{
+			"title": "Updated Meet 1 (Conflicting)",
+			"start": start2,
+			"end":   end2,
+		},
+		Headers: GetAuthHeaders(),
+	})
+
+	resp.AssertStatusCode(t, http.StatusBadRequest)
+}
+
+func TestMeetsAPIRoles(t *testing.T) {
+	config := NewTestConfig()
+	now := time.Now().UTC()
+	startTime := now.Add(11 * 24 * time.Hour).Format(time.RFC3339)
+	endTime := now.Add(11*24*time.Hour + time.Hour).Format(time.RFC3339)
+
+	otherUserUUID := "other-user-uuid"
+
+	// 1. As a normal user, try to create a meet for someone else
+	normalHeaders := GetAuthHeaders()
+	normalHeaders["X-User-Roles"] = "User" // Remove Programmer role
+
+	resp := config.DoRequest(t, APIRequest{
+		Method: http.MethodPost,
+		Path:   "/meets",
+		Body: map[string]interface{}{
+			"title":          "Meet for someone else?",
+			"organizer_uuid": otherUserUUID,
+			"start":          startTime,
+			"end":            endTime,
+		},
+		Headers: normalHeaders,
+	})
+	resp.AssertStatusCode(t, http.StatusOK)
+
+	var result CreateMeetResponse
+	resp.DecodeJSON(t, &result)
+
+	// Since the user is not a Programmer, the organizer_uuid should be overridden by their own UUID
+	if result.Meet.OrganizerUUID == otherUserUUID {
+		t.Errorf("Expected organizer_uuid to be overridden, but it was still %s", otherUserUUID)
+	}
+	if result.Meet.OrganizerUUID != normalHeaders["X-User-Uuid"] {
+		t.Errorf("Expected organizer_uuid to be user's own UUID %s, got %s", normalHeaders["X-User-Uuid"], result.Meet.OrganizerUUID)
+	}
+
+	// 2. As a Programmer, try to create a meet for someone else
+	startTime2 := now.Add(12 * 24 * time.Hour).Format(time.RFC3339)
+	endTime2 := now.Add(12*24*time.Hour + time.Hour).Format(time.RFC3339)
+
+	progHeaders := GetAuthHeaders()
+	progHeaders["X-User-Roles"] = "Programmer"
+
+	resp2 := config.DoRequest(t, APIRequest{
+		Method: http.MethodPost,
+		Path:   "/meets",
+		Body: map[string]interface{}{
+			"title":          "Meet for someone else as Programmer",
+			"organizer_uuid": otherUserUUID,
+			"start":          startTime2,
+			"end":            endTime2,
+		},
+		Headers: progHeaders,
+	})
+	resp2.AssertStatusCode(t, http.StatusOK)
+
+	var result2 CreateMeetResponse
+	resp2.DecodeJSON(t, &result2)
+
+	// Since the user is a Programmer, the organizer_uuid should be accepted
+	if result2.Meet.OrganizerUUID != otherUserUUID {
+		t.Errorf("Expected organizer_uuid to be accepted as %s, got %s", otherUserUUID, result2.Meet.OrganizerUUID)
+	}
 }

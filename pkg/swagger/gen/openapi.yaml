@@ -1,224 +1,223 @@
----
-swagger: '2.0'
+swagger: "2.0"
 info:
   title: Meets API
   description: API for managing meetings and appointments
-  version: '1.0'
+  version: "1.0"
   contact:
     name: Meets API Support
     email: support@meets.example.com
 tags:
-- name: MeetService
+  - name: MeetService
 schemes:
-- http
-- https
+  - http
+  - https
 consumes:
-- application/json
+  - application/json
 produces:
-- application/json
+  - application/json
 paths:
-  "/meets":
+  /meets:
     get:
       operationId: MeetService_GetAll
       responses:
-        '200':
+        "200":
           description: A successful response.
           schema:
-            "$ref": "#/definitions/meetsGetAllResponse"
-        '404':
+            $ref: '#/definitions/meetsGetAllResponse'
+        "404":
           description: Resource not found
           schema: {}
-        '500':
+        "500":
           description: Internal server error
           schema: {}
         default:
           description: An unexpected error response.
           schema:
-            "$ref": "#/definitions/rpcStatus"
+            $ref: '#/definitions/rpcStatus'
       parameters:
-      - name: organizerId
-        in: query
-        required: false
-        type: string
-      - name: from
-        in: query
-        required: false
-        type: string
-      - name: to
-        in: query
-        required: false
-        type: string
+        - name: organizer_id
+          in: query
+          required: false
+          type: string
+        - name: from
+          in: query
+          required: false
+          type: string
+        - name: to
+          in: query
+          required: false
+          type: string
       tags:
-      - MeetService
+        - MeetService
     post:
       operationId: MeetService_Create
       responses:
-        '200':
+        "200":
           description: A successful response.
           schema:
-            "$ref": "#/definitions/meetsCreateResponse"
-        '404':
+            $ref: '#/definitions/meetsCreateResponse'
+        "404":
           description: Resource not found
           schema: {}
-        '500':
+        "500":
           description: Internal server error
           schema: {}
         default:
           description: An unexpected error response.
           schema:
-            "$ref": "#/definitions/rpcStatus"
+            $ref: '#/definitions/rpcStatus'
       parameters:
-      - name: meet
-        in: body
-        required: true
-        schema:
-          "$ref": "#/definitions/meetsMeet"
+        - name: meet
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/meetsMeet'
       tags:
-      - MeetService
-  "/meets/{uuid}":
+        - MeetService
+  /meets/{uuid}:
     get:
       operationId: MeetService_GetOne
       responses:
-        '200':
+        "200":
           description: A successful response.
           schema:
-            "$ref": "#/definitions/meetsGetOneResponse"
-        '404':
+            $ref: '#/definitions/meetsGetOneResponse'
+        "404":
           description: Resource not found
           schema: {}
-        '500':
+        "500":
           description: Internal server error
           schema: {}
         default:
           description: An unexpected error response.
           schema:
-            "$ref": "#/definitions/rpcStatus"
+            $ref: '#/definitions/rpcStatus'
       parameters:
-      - name: uuid
-        in: path
-        required: true
-        type: string
+        - name: uuid
+          in: path
+          required: true
+          type: string
       tags:
-      - MeetService
+        - MeetService
     delete:
       operationId: MeetService_Delete
       responses:
-        '200':
+        "200":
           description: A successful response.
           schema:
-            "$ref": "#/definitions/meetsDeleteResponse"
-        '404':
+            $ref: '#/definitions/meetsDeleteResponse'
+        "404":
           description: Resource not found
           schema: {}
-        '500':
+        "500":
           description: Internal server error
           schema: {}
         default:
           description: An unexpected error response.
           schema:
-            "$ref": "#/definitions/rpcStatus"
+            $ref: '#/definitions/rpcStatus'
       parameters:
-      - name: uuid
-        in: path
-        required: true
-        type: string
+        - name: uuid
+          in: path
+          required: true
+          type: string
       tags:
-      - MeetService
+        - MeetService
     put:
       operationId: MeetService_Update
       responses:
-        '200':
+        "200":
           description: A successful response.
           schema:
-            "$ref": "#/definitions/meetsUpdateResponse"
-        '404':
+            $ref: '#/definitions/meetsUpdateResponse'
+        "404":
           description: Resource not found
           schema: {}
-        '500':
+        "500":
           description: Internal server error
           schema: {}
         default:
           description: An unexpected error response.
           schema:
-            "$ref": "#/definitions/rpcStatus"
+            $ref: '#/definitions/rpcStatus'
       parameters:
-      - name: uuid
-        in: path
-        required: true
-        type: string
-      - name: meet
-        in: body
-        required: true
-        schema:
-          "$ref": "#/definitions/meetsMeet"
+        - name: uuid
+          in: path
+          required: true
+          type: string
+        - name: meet
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/meetsMeet'
       tags:
-      - MeetService
-  "/meets/{uuid}/availability":
+        - MeetService
+  /meets/{uuid}/availability:
     get:
       summary: Get user availability for next 7 days
       operationId: MeetService_GetAvailability
       responses:
-        '200':
+        "200":
           description: A successful response.
           schema:
-            "$ref": "#/definitions/meetsGetAvailabilityResponse"
-        '404':
+            $ref: '#/definitions/meetsGetAvailabilityResponse'
+        "404":
           description: Resource not found
           schema: {}
-        '500':
+        "500":
           description: Internal server error
           schema: {}
         default:
           description: An unexpected error response.
           schema:
-            "$ref": "#/definitions/rpcStatus"
+            $ref: '#/definitions/rpcStatus'
       parameters:
-      - name: uuid
-        in: path
-        required: true
-        type: string
-      - name: from
-        description: ISO8601 date string
-        in: query
-        required: false
-        type: string
-      - name: to
-        description: ISO8601 date string
-        in: query
-        required: false
-        type: string
-      - name: priceUuid
-        in: query
-        required: false
-        type: string
+        - name: uuid
+          in: path
+          required: true
+          type: string
+        - name: from
+          description: ISO8601 date string
+          in: query
+          required: false
+          type: string
+        - name: to
+          description: ISO8601 date string
+          in: query
+          required: false
+          type: string
+        - name: price_uuid
+          in: query
+          required: false
+          type: string
       tags:
-      - MeetService
-  "/meets/{uuid}/types":
+        - MeetService
+  /meets/{uuid}/types:
     get:
       summary: Get all meet types for an organizer
       operationId: MeetService_GetMeetTypes
       responses:
-        '200':
+        "200":
           description: A successful response.
           schema:
-            "$ref": "#/definitions/meetsGetMeetTypesResponse"
-        '404':
+            $ref: '#/definitions/meetsGetMeetTypesResponse'
+        "404":
           description: Resource not found
           schema: {}
-        '500':
+        "500":
           description: Internal server error
           schema: {}
         default:
           description: An unexpected error response.
           schema:
-            "$ref": "#/definitions/rpcStatus"
+            $ref: '#/definitions/rpcStatus'
       parameters:
-      - name: uuid
-        in: path
-        required: true
-        type: string
+        - name: uuid
+          in: path
+          required: true
+          type: string
       tags:
-      - MeetService
+        - MeetService
 definitions:
   commonResponseStatus:
     type: object
@@ -232,9 +231,9 @@ definitions:
     type: object
     properties:
       status:
-        "$ref": "#/definitions/commonResponseStatus"
+        $ref: '#/definitions/commonResponseStatus'
       meet:
-        "$ref": "#/definitions/meetsMeet"
+        $ref: '#/definitions/meetsMeet'
   meetsDateSlot:
     type: object
     properties:
@@ -248,7 +247,7 @@ definitions:
         type: array
         items:
           type: object
-          "$ref": "#/definitions/meetsTimeSlot"
+          $ref: '#/definitions/meetsTimeSlot'
   meetsDeleteResponse:
     type: object
   meetsGetAllResponse:
@@ -258,7 +257,7 @@ definitions:
         type: array
         items:
           type: object
-          "$ref": "#/definitions/meetsMeet"
+          $ref: '#/definitions/meetsMeet'
   meetsGetAvailabilityResponse:
     type: object
     properties:
@@ -266,27 +265,27 @@ definitions:
         type: array
         items:
           type: object
-          "$ref": "#/definitions/meetsDateSlot"
+          $ref: '#/definitions/meetsDateSlot'
   meetsGetMeetTypesResponse:
     type: object
     properties:
       types:
         type: array
         items:
-          "$ref": "#/definitions/meetsMeetType"
+          $ref: '#/definitions/meetsMeetType'
   meetsGetOneResponse:
     type: object
     properties:
       meet:
-        "$ref": "#/definitions/meetsMeet"
+        $ref: '#/definitions/meetsMeet'
   meetsMeet:
     type: object
     properties:
       uuid:
         type: string
-      organizerUuid:
+      organizer_uuid:
         type: string
-      priceUuid:
+      price_uuid:
         type: string
       title:
         type: string
@@ -298,24 +297,24 @@ definitions:
         type: string
       end:
         type: string
-      participantUuids:
+      participant_uuids:
         type: array
         items:
           type: string
       type:
-        "$ref": "#/definitions/meetsMeetType"
-      bookedAt:
+        $ref: '#/definitions/meetsMeetType'
+      booked_at:
         type: string
     title: Meet message
   meetsMeetType:
     type: integer
     format: int32
     enum:
-    - 0
-    - 1
-    - 2
-    - 3
-    - 4
+      - 0
+      - 1
+      - 2
+      - 3
+      - 4
     default: 0
   meetsTimeSlot:
     type: object
@@ -328,17 +327,17 @@ definitions:
         type: string
       duration:
         type: string
-      bookedAt:
+      booked_at:
         type: string
   meetsUpdateResponse:
     type: object
     properties:
       meet:
-        "$ref": "#/definitions/meetsMeet"
+        $ref: '#/definitions/meetsMeet'
   protobufAny:
     type: object
     properties:
-      "@type":
+      '@type':
         type: string
     additionalProperties: {}
   rpcStatus:
@@ -353,4 +352,4 @@ definitions:
         type: array
         items:
           type: object
-          "$ref": "#/definitions/protobufAny"
+          $ref: '#/definitions/protobufAny'

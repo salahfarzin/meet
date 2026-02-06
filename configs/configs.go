@@ -2,11 +2,9 @@ package configs
 
 import (
 	"fmt"
-	"os"
-	"strconv"
-	"strings"
 
 	"github.com/joho/godotenv"
+	"github.com/salahfarzin/utils"
 )
 
 type Log struct {
@@ -23,6 +21,10 @@ type DBDriver struct {
 	MaxOpenConns    int    `env:"DB_MAX_OPEN_CONNS,required"`
 	MaxIdleConns    int    `env:"DB_MAX_IDLE_CONNS,required"`
 	ConnMaxLifetime int    `env:"DB_CONN_MAX_LIFETIME,required"`
+	SSLCA           string `env:"DB_SSL_CA"`
+	SSLCert         string `env:"DB_SSL_CERT"`
+	SSLKey          string `env:"DB_SSL_KEY"`
+	SSLVerify       bool   `env:"DB_SSL_VERIFY,default=false"`
 }
 
 type CORS struct {
@@ -50,67 +52,34 @@ func Init() *Configs {
 	_ = godotenv.Load()
 
 	return &Configs{
-		AppName:     getEnv("APP_NAME", "Meet Service"),
-		AppEnv:      getEnv("APP_ENV", "development"),
-		Version:     getEnv("APP_VERSION", "0.1.0"),
-		URL:         getEnv("APP_URL", "http://localhost"),
-		Port:        getEnvAsInt("APP_PORT", 8080),
-		GRPCPort:    getEnvAsInt("APP_GRPC_PORT", 50052),
-		RestPrefix:  getEnv("REST_PREFIX", "/api/v1"),
-		AuthService: getEnv("AUTH_SERVICE", "localhost:8082"),
+		AppName:     utils.GetEnv("APP_NAME", "Meet Service"),
+		AppEnv:      utils.GetEnv("APP_ENV", "development"),
+		Version:     utils.GetEnv("APP_VERSION", "0.1.0"),
+		URL:         utils.GetEnv("APP_URL", "http://localhost"),
+		Port:        utils.GetEnvAsInt("APP_PORT", 8080),
+		GRPCPort:    utils.GetEnvAsInt("APP_GRPC_PORT", 50052),
+		RestPrefix:  utils.GetEnv("REST_PREFIX", "/api/v1"),
+		AuthService: utils.GetEnv("AUTH_SERVICE", "localhost:8082"),
 		Log: Log{
-			Level: getEnv("LOG_LEVEL", "debug"),
-			Path:  getEnv("LOG_PATH", "./storage/logs"),
+			Level: utils.GetEnv("LOG_LEVEL", "debug"),
+			Path:  utils.GetEnv("LOG_PATH", "./storage/logs"),
 		},
 		DB: DBDriver{
-			Driver:          getEnv("DB_DRIVER", "mysql"),
-			User:            getEnv("DB_USER", "root"),
-			Password:        getEnv("DB_PASSWORD", "mypassword"),
-			Address:         fmt.Sprintf("%s:%s", getEnv("DB_HOST", "127.0.0.1"), getEnv("DB_PORT", "3306")),
-			Name:            getEnv("DB_NAME", "ecom"),
+			Driver:          utils.GetEnv("DB_DRIVER", "mysql"),
+			User:            utils.GetEnv("DB_USER", "root"),
+			Password:        utils.GetEnv("DB_PASSWORD", "mypassword"),
+			Address:         fmt.Sprintf("%s:%s", utils.GetEnv("DB_HOST", "127.0.0.1"), utils.GetEnv("DB_PORT", "3306")),
+			Name:            utils.GetEnv("DB_NAME", "ecom"),
 			MaxOpenConns:    25,
 			MaxIdleConns:    25,
 			ConnMaxLifetime: 5,
+			SSLCA:           utils.GetEnv("DB_ATTR_SSL_CA", ""),
+			SSLKey:          utils.GetEnv("DB_ATTR_SSL_KEY", ""),
+			SSLCert:         utils.GetEnv("DB_ATTR_SSL_CERT", ""),
+			SSLVerify:       utils.GetEnvAsBool("DB_ATTR_SSL_VERIFY_SERVER_CERT", false),
 		},
 		CORS: CORS{
-			AllowedOrigins: parseCORSOrigins(),
+			AllowedOrigins: utils.ParseCORSOrigins(),
 		},
 	}
-}
-
-// Gets the env by key or fallbacks
-func getEnv(key, fallback string) string {
-	if value, ok := os.LookupEnv(key); ok {
-		return value
-	}
-
-	return fallback
-}
-
-func getEnvAsInt(key string, fallback int64) int64 {
-	if value, ok := os.LookupEnv(key); ok {
-		i, err := strconv.ParseInt(value, 10, 64)
-		if err != nil {
-			return fallback
-		}
-
-		return i
-	}
-
-	return fallback
-}
-
-// parseCORSOrigins reads CORS allowed origins from environment variable
-// Expected format: CORS_ALLOWED_ORIGINS=http://localhost:5173,https://dashboard.psychometrist.local,https://api.psychometrist.local
-func parseCORSOrigins() []string {
-	originsStr := getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:5173")
-	return splitAndTrim(originsStr, ",")
-}
-
-func splitAndTrim(s, sep string) []string {
-	parts := strings.Split(s, sep)
-	for i, part := range parts {
-		parts[i] = strings.TrimSpace(part)
-	}
-	return parts
 }

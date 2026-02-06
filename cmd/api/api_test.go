@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/salahfarzin/meet/configs"
-	"github.com/salahfarzin/meet/pkg/middlewares"
+	"github.com/salahfarzin/utils/middlewares"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap/zaptest"
 	"google.golang.org/grpc"

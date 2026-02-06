@@ -5,19 +5,8 @@ GOOGLEAPIS_DIR := $(HOME)/go/src/googleapis
 
 .PHONY: generate-proto
 generate-proto:
+	@mkdir -p pkg/swagger/gen
 	cd $(PROTO_DIR) && buf generate
-	@if command -v ruby >/dev/null 2>&1; then \
-		echo "Converting Swagger JSON to YAML..."; \
-		for f in $$(find pkg/swagger/gen -name "*.json"); do \
-			ruby -e "require 'yaml'; require 'json'; puts YAML.dump(JSON.parse(ARGF.read))" < $$f > $${f%.json}.yaml; \
-		done; \
-		echo "Identifying main API spec..."; \
-		MAIN_SPEC=$$(grep -l "/meets" pkg/swagger/gen/meets/*.yaml | head -n 1); \
-		if [ -n "$$MAIN_SPEC" ]; then \
-			cp "$$MAIN_SPEC" pkg/swagger/gen/openapi.yaml; \
-			echo "Main spec copied to openapi.yaml"; \
-		fi \
-	fi
 
 .PHONY: migrate
 migrate:
@@ -36,8 +25,8 @@ migrate-create:
 
 .PHONY: build
 build:
-	make proto
-	@go build -o tmp/meets-api
+	$(MAKE) generate-proto
+	@go build -o bin/meet-api
 
 .PHONY: dev
 dev:
@@ -55,8 +44,8 @@ test:
 test-e2e:
 	@echo "🧪 Running E2E tests..."
 	@if [ -z "$(APP_URL)" ]; then \
-		echo "⚠️  APP_URL not set, using default: http://localhost:8080"; \
-		APP_URL=http://localhost:8080 APP_ENV=test go test -v ./test/e2e/... -count=1; \
+		echo "⚠️  APP_URL not set, using default: http://localhost:8083"; \
+		APP_URL=http://localhost:8083 APP_ENV=test go test -v ./test/e2e/... -count=1; \
 	else \
 		APP_ENV=test go test -v ./test/e2e/... -count=1; \
 	fi
@@ -64,12 +53,12 @@ test-e2e:
 .PHONY: test-e2e-with-app
 test-e2e-with-app:
 	@echo "🚀 Starting application in TEST mode..."
-	@go build -o bin/meet-api ./main.go
+	@$(MAKE) build
 	@APP_ENV=test ./bin/meet-api & echo $$! > /tmp/meet-api.pid
 	@echo "⏳ Waiting for server to be ready..."
 	@sleep 5
 	@echo "🧪 Running E2E tests..."
-	@APP_URL=http://localhost:8080 APP_ENV=test go test -v ./test/e2e/... -count=1 || (kill $$(cat /tmp/meet-api.pid) 2>/dev/null; rm -f /tmp/meet-api.pid; exit 1)
+	@APP_URL=http://localhost:8083 APP_ENV=test go test -v ./test/e2e/... -count=1 || (kill $$(cat /tmp/meet-api.pid) 2>/dev/null; rm -f /tmp/meet-api.pid; exit 1)
 	@echo "🛑 Stopping application..."
 	@kill $$(cat /tmp/meet-api.pid) 2>/dev/null || true
 	@rm -f /tmp/meet-api.pid

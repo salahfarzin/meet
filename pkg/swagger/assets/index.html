@@ -3,49 +3,76 @@
 
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Meets API Documentation</title>
-  <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@latest/swagger-ui.css">
   <style>
-    html {
-      box-sizing: border-box;
-      overflow-y: scroll;
-    }
-
-    *,
-    *:before,
-    *:after {
-      box-sizing: inherit;
-    }
-
     body {
       margin: 0;
-      background: #fafafa;
+      background-color: #0d1117;
+    }
+
+    .download-links {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .download-btn {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: white;
+      padding: 8px 16px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-size: 12px;
+      font-family: sans-serif;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .download-btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+      transform: translateY(-2px);
+    }
+
+    .download-btn svg {
+      width: 16px;
+      height: 16px;
     }
   </style>
 </head>
 
 <body>
-  <div id="swagger-ui"></div>
-  <script src="https://unpkg.com/swagger-ui-dist@latest/swagger-ui-bundle.js"></script>
-  <script src="https://unpkg.com/swagger-ui-dist@latest/swagger-ui-standalone-preset.js"></script>
-  <script>
-    window.onload = function () {
-      const ui = SwaggerUIBundle({
-        url: "/openapi.yaml",
-        dom_id: '#swagger-ui',
-        deepLinking: true,
-        presets: [
-          SwaggerUIBundle.presets.apis,
-          SwaggerUIStandalonePreset
-        ],
-        plugins: [
-          SwaggerUIBundle.plugins.DownloadUrl
-        ],
-        layout: "StandaloneLayout"
-      });
-      window.ui = ui;
-    };
-  </script>
+  <div class="download-links">
+    <a href="{{ .PostmanCollection }}" class="download-btn" download>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+        stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v4" />
+        <polyline points="7 10 12 15 17 10" />
+        <line x1="12" y1="15" x2="12" y2="3" />
+      </svg>
+      Postman Collection
+    </a>
+    <a href="{{ .OpenapiYaml }}" class="download-btn" download>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+        stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v4" />
+        <polyline points="7 10 12 15 17 10" />
+        <line x1="12" y1="15" x2="12" y2="3" />
+      </svg>
+      Bruno / OpenAPI
+    </a>
+  </div>
+  <script id="api-reference" data-url="{{ .OpenapiYaml }}" data-proxy-url="https://proxy.scalar.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"
+    onerror="this.onerror=null;this.src='scalar-api-reference.js'"></script>
 </body>
 
 </html>
