@@ -210,7 +210,7 @@ func (repo *repository) handleAvailabilityQuery(ctx context.Context, options *Me
 
 // processRows converts database rows to Meet objects
 func (repo *repository) processRows(rows *sql.Rows) ([]*Meet, error) {
-	var result []*Meet
+	result := make([]*Meet, 0)
 
 	for rows.Next() {
 		var a Meet
@@ -232,7 +232,7 @@ func (repo *repository) processRows(rows *sql.Rows) ([]*Meet, error) {
 
 // GenerateAvailableSlots returns all available slots for an organizer between from and to, optionally filtered by price_uuid
 func (repo *repository) GenerateAvailableSlots(ctx context.Context, organizerID string, from, to time.Time, priceUUID *string) ([]*Meet, error) {
-	var result []*Meet
+	result := make([]*Meet, 0)
 	query := `SELECT uuid, title, start_time, end_time FROM meets WHERE organizer_uuid = ? AND start_time BETWEEN ? AND ? AND booked_at IS NULL`
 	args := []any{organizerID, from, to}
 

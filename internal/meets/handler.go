@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/salahfarzin/logger"
-	"github.com/salahfarzin/meet/pkg/middlewares"
 	"github.com/salahfarzin/meet/proto/common"
 	pb "github.com/salahfarzin/meet/proto/meets"
+	"github.com/salahfarzin/utils/middlewares"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

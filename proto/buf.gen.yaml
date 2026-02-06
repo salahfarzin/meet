@@ -11,6 +11,9 @@ plugins:
     opt: paths=source_relative
   - name: openapiv2
     out: ../pkg/swagger/gen
-    opt: 
-      - json_names_for_fields=true
+    strategy: all
+    opt:
+      - logtostderr=true
+      - output_format=yaml
+      - json_names_for_fields=false
       - enums_as_ints=true

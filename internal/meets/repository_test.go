@@ -728,3 +728,150 @@ func TestRepositoryGetByUUIDInvalidParticipants(t *testing.T) {
 
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
+
+func TestRepositoryQueryMeetsAvailabilityDefaultDates(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer db.Close()
+
+	repo := NewRepository(db)
+	onlyAvailable := true
+
+	mock.ExpectQuery("SELECT uuid, title, start_time, end_time FROM meets WHERE organizer_uuid = \\? AND start_time BETWEEN \\? AND \\? AND booked_at IS NULL ORDER BY start_time ASC").
+		WithArgs("org1", sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WillReturnRows(sqlmock.NewRows([]string{"uuid", "title", "start_time", "end_time"}))
+
+	result, err := repo.QueryMeets(context.Background(), &MeetQueryOptions{
+		OrganizerUuid: "org1",
+		OnlyAvailable: &onlyAvailable,
+	})
+
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestRepositoryHasConflictWithoutExclude(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer db.Close()
+
+	repo := NewRepository(db)
+
+	mock.ExpectQuery("SELECT COUNT\\(1\\) FROM meets WHERE organizer_uuid = \\? AND start_time < \\? AND end_time > \\?").
+		WithArgs("org1", sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
+
+	result, err := repo.HasConflict(context.Background(), "org1", time.Now(), time.Now().Add(time.Hour))
+	assert.NoError(t, err)
+	assert.False(t, result)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestRepositoryUpdateWithBookedAt(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer db.Close()
+
+	repo := NewRepository(db)
+	now := time.Now()
+	meet := &Meet{
+		UUID:     "test-uuid",
+		Title:    "Updated",
+		BookedAt: &now,
+	}
+
+	mock.ExpectExec("UPDATE meets SET").
+		WithArgs(meet.Title, sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), meet.BookedAt, meet.UUID).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	err = repo.Update(context.Background(), meet)
+	assert.NoError(t, err)
+}
+
+func TestRepositoryUpdateWithNilPrice(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer db.Close()
+
+	repo := NewRepository(db)
+	meet := &Meet{
+		UUID:      "test-uuid",
+		Title:     "Updated",
+		PriceUuid: nil,
+	}
+
+	mock.ExpectExec("UPDATE meets SET").
+		WithArgs(meet.Title, sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), nil, sqlmock.AnyArg(), meet.UUID).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	err = repo.Update(context.Background(), meet)
+	assert.NoError(t, err)
+}
+
+func TestRepositoryDeleteError(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer db.Close()
+
+	repo := NewRepository(db)
+
+	mock.ExpectExec("DELETE FROM meets WHERE uuid = ?").
+		WithArgs("test-uuid").
+		WillReturnError(errors.New("delete error"))
+
+	err = repo.Delete(context.Background(), "test-uuid")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "delete error")
+
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestRepositoryCreateLastInsertIdError(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer db.Close()
+
+	repo := NewRepository(db)
+	meet := &Meet{UUID: "test"}
+
+	mock.ExpectExec("INSERT INTO meets").
+		WillReturnResult(sqlmock.NewErrorResult(errors.New("last insert id error")))
+
+	err = repo.Create(context.Background(), meet)
+	assert.NoError(t, err) // Create should still return nil if LastInsertId fails
+}
+
+func TestRepositoryQueryMeetsNoFilters(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer db.Close()
+
+	repo := NewRepository(db)
+
+	mock.ExpectQuery("SELECT id, uuid, title, organizer_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at FROM meets WHERE organizer_uuid = \\?").
+		WithArgs("org1").
+		WillReturnRows(sqlmock.NewRows([]string{"id", "uuid", "title", "organizer_uuid", "price_uuid", "participant_uuids", "start_time", "end_time", "description", "color", "type", "booked_at"}))
+
+	result, err := repo.QueryMeets(context.Background(), &MeetQueryOptions{OrganizerUuid: "org1"})
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestRepositoryGenerateAvailableSlotsEmptyPrice(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer db.Close()
+
+	repo := NewRepository(db)
+	price := ""
+
+	mock.ExpectQuery("SELECT uuid, title, start_time, end_time FROM meets WHERE organizer_uuid = \\? AND start_time BETWEEN \\? AND \\? AND booked_at IS NULL ORDER BY start_time ASC").
+		WithArgs("org1", sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WillReturnRows(sqlmock.NewRows([]string{"uuid", "title", "start_time", "end_time"}))
+
+	result, err := repo.GenerateAvailableSlots(context.Background(), "org1", time.Now(), time.Now().Add(time.Hour), &price)
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+}
