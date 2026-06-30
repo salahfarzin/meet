@@ -41,6 +41,7 @@ type Configs struct {
 	RestPrefix string `env:"REST_PREFIX,required"`
 
 	AuthService string `env:"AUTH_SERVICE,required"`
+	UserService string `env:"USER_SERVICE"`
 
 	Log  Log
 	DB   DBDriver
@@ -60,6 +61,7 @@ func Init() *Configs {
 		GRPCPort:    utils.GetEnvAsInt("APP_GRPC_PORT", 50052),
 		RestPrefix:  utils.GetEnv("REST_PREFIX", "/api/v1"),
 		AuthService: utils.GetEnv("AUTH_SERVICE", "localhost:8082"),
+		UserService: utils.GetEnv("USER_SERVICE", "http://localhost:8000/v1"),
 		Log: Log{
 			Level: utils.GetEnv("LOG_LEVEL", "debug"),
 			Path:  utils.GetEnv("LOG_PATH", "./storage/logs"),

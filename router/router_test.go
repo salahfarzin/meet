@@ -20,9 +20,9 @@ func TestSetupGRPCRoutes(t *testing.T) {
 	// Create a mock gRPC server
 	server := grpc.NewServer()
 
-	// This should not panic
+	// This should not panic; pass nil identity client (service is nil-safe)
 	assert.NotPanics(t, func() {
-		SetupGRPCRoutes(server, db)
+		SetupGRPCRoutes(server, db, nil)
 	})
 
 	// The server should have services registered

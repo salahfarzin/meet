@@ -182,34 +182,92 @@ func (h *handler) Delete(ctx context.Context, req *pb.DeleteRequest) (*pb.Delete
 }
 
 func (h *handler) GetAll(ctx context.Context, req *pb.GetAllRequest) (*pb.GetAllResponse, error) {
-	opts := &MeetQueryOptions{OrganizerUuid: retrieveOrganizerUuid(ctx, req.OrganizerId)}
+	user := middlewares.GetUserFromContext(ctx)
+	isAdmin := slices.Contains(user.Roles, "Programmer") || slices.Contains(user.Roles, "Admin")
 
-	// Parse optional date range filters for performance optimization
+	// --- Pagination defaults ---
+	page := int(req.Page)
+	if page <= 0 {
+		page = 1
+	}
+	pageSize := int(req.PageSize)
+	if pageSize <= 0 {
+		pageSize = 50
+	}
+
+	// --- Identity filter fields ---
+	firstName := req.FirstName
+	lastName := req.LastName
+	nationalID := req.NationalId
+	mobile := req.Mobile
+
+	// --- Date range ---
+	var fromTime, toTime *time.Time
 	if req.From != "" {
-		fromTime, err := time.Parse(time.RFC3339, req.From)
+		t, err := time.Parse(time.RFC3339, req.From)
 		if err != nil {
 			logger.FromContext(ctx).Warn("Invalid from date format", zap.String("from", req.From), zap.Error(err))
 		} else {
-			opts.From = &fromTime
+			fromTime = &t
 		}
 	}
-
 	if req.To != "" {
-		toTime, err := time.Parse(time.RFC3339, req.To)
+		t, err := time.Parse(time.RFC3339, req.To)
 		if err != nil {
 			logger.FromContext(ctx).Warn("Invalid to date format", zap.String("to", req.To), zap.Error(err))
 		} else {
-			opts.To = &toTime
+			toTime = &t
 		}
 	}
 
-	meetsList, err := h.service.QueryMeets(ctx, opts)
+	// --- Compute AllowedClinics ---
+	var allowedClinics []string
+	if isAdmin {
+		clinics, err := h.service.ListClinics(ctx)
+		if err != nil {
+			logger.FromContext(ctx).Error("failed to list clinics", zap.Error(err))
+			return nil, status.Error(codes.Internal, "Internal server error")
+		}
+		// If ListClinics returned results, use their UUIDs; otherwise fall back to user.Uuid.
+		if len(clinics) > 0 {
+			allowedClinics = make([]string, 0, len(clinics))
+			for _, c := range clinics {
+				allowedClinics = append(allowedClinics, c.UUID)
+			}
+		} else {
+			// identity client not wired or no clinics configured: fall back to own UUID.
+			allowedClinics = []string{user.Uuid}
+		}
+	} else {
+		allowedClinics = []string{user.Uuid}
+	}
+
+	// --- Validate req.Clinic is within allowed set ---
+	if req.Clinic != "" && !slices.Contains(allowedClinics, req.Clinic) {
+		return nil, status.Error(codes.PermissionDenied, "clinic not in allowed scope")
+	}
+
+	// --- Call service ---
+	result, err := h.service.ListScheduling(ctx, ListSchedulingInput{
+		AllowedClinics: allowedClinics,
+		Clinic:         req.Clinic,
+		FirstName:      firstName,
+		LastName:       lastName,
+		NationalID:     nationalID,
+		Mobile:         mobile,
+		From:           fromTime,
+		To:             toTime,
+		Page:           page,
+		PageSize:       pageSize,
+	})
 	if err != nil {
-		logger.FromContext(ctx).Error("failed to query meets", zap.Error(err))
+		logger.FromContext(ctx).Error("failed to list scheduling", zap.Error(err))
 		return nil, status.Error(codes.Internal, "Internal server error")
 	}
-	pbMeets := make([]*pb.Meet, 0, len(meetsList))
-	for _, a := range meetsList {
+
+	// --- Map to proto ---
+	pbMeets := make([]*pb.Meet, 0, len(result.Meets))
+	for _, a := range result.Meets {
 		pbMeets = append(pbMeets, &pb.Meet{
 			Uuid:             a.UUID,
 			OrganizerUuid:    a.OrganizerUuid,
@@ -230,7 +288,13 @@ func (h *handler) GetAll(ctx context.Context, req *pb.GetAllRequest) (*pb.GetAll
 			}(),
 		})
 	}
-	return &pb.GetAllResponse{Meets: pbMeets}, nil
+
+	return &pb.GetAllResponse{
+		Meets:    pbMeets,
+		Total:    int32(result.Total),
+		Page:     int32(result.Page),
+		PageSize: int32(result.PageSize),
+	}, nil
 }
 
 // GetAvailability returns next 7 days of availability for a organizer user

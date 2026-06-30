@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/salahfarzin/meet/internal/identity"
 	pb "github.com/salahfarzin/meet/proto/meets"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/codes"
@@ -205,11 +206,75 @@ func (m *MockService) ParseStartAndEndTimes(start, end string) (startTime, endTi
 }
 
 func (m *MockService) ListScheduling(ctx context.Context, in ListSchedulingInput) (ListSchedulingResult, error) {
-	return ListSchedulingResult{Meets: []*Meet{}}, nil
+	// Simulate an error trigger when the first AllowedClinic is "error".
+	if len(in.AllowedClinics) > 0 && in.AllowedClinics[0] == "error" {
+		return ListSchedulingResult{}, errors.New("query error")
+	}
+
+	now := time.Now()
+	// Mirror the date-range logic from the old QueryMeets mock so existing tests pass.
+	if in.From != nil && in.To != nil {
+		return ListSchedulingResult{
+			Meets:    []*Meet{{ID: "1", Title: "Filtered Meet", Start: *in.From, End: *in.To}},
+			Total:    1,
+			Page:     in.Page,
+			PageSize: in.PageSize,
+		}, nil
+	}
+	if in.From != nil {
+		return ListSchedulingResult{
+			Meets:    []*Meet{{ID: "2", Title: "From Date Meet", Start: *in.From}},
+			Total:    1,
+			Page:     in.Page,
+			PageSize: in.PageSize,
+		}, nil
+	}
+	if in.To != nil {
+		return ListSchedulingResult{
+			Meets:    []*Meet{{ID: "3", Title: "To Date Meet", End: *in.To}},
+			Total:    1,
+			Page:     in.Page,
+			PageSize: in.PageSize,
+		}, nil
+	}
+
+	// Default result.
+	return ListSchedulingResult{
+		Meets:    []*Meet{{ID: "1", Title: "Dentist", BookedAt: &now}},
+		Total:    1,
+		Page:     in.Page,
+		PageSize: in.PageSize,
+	}, nil
+}
+
+func (m *MockService) ListClinics(ctx context.Context) ([]identity.Clinic, error) {
+	// Return two fake clinics so admin-scoped tests have a non-empty AllowedClinics.
+	return []identity.Clinic{
+		{UUID: "clinic1", Name: "Clinic One"},
+		{UUID: "clinic2", Name: "Clinic Two"},
+	}, nil
 }
 
 func NewMockService() *MockService {
 	return &MockService{}
+}
+
+// fakeIdentityClient is a minimal identity.Client for handler tests.
+type fakeIdentityClient struct {
+	clinics []identity.Clinic
+	err     error
+}
+
+func (f *fakeIdentityClient) Search(ctx context.Context, filter identity.IdentityFilter) ([]string, error) {
+	return nil, f.err
+}
+
+func (f *fakeIdentityClient) GetByUUIDs(ctx context.Context, uuids []string) (map[string]identity.Identity, error) {
+	return map[string]identity.Identity{}, f.err
+}
+
+func (f *fakeIdentityClient) ListClinics(ctx context.Context) ([]identity.Clinic, error) {
+	return f.clinics, f.err
 }
 
 func TestCreateMeet(t *testing.T) {
@@ -356,13 +421,15 @@ func TestGetAllMeets(t *testing.T) {
 }
 
 func TestGetAllMeetsError(t *testing.T) {
+	// Use a non-admin (User role) with uuid "error" so AllowedClinics=["error"]
+	// which triggers the error path in MockService.ListScheduling.
 	md := metadata.New(map[string]string{
-		"x-user-roles": "Programmer",
-		"x-user-uuid":  "user1",
+		"x-user-roles": "User",
+		"x-user-uuid":  "error",
 	})
 	ctx := metadata.NewIncomingContext(context.Background(), md)
 	h := NewHandler(NewMockService())
-	resp, err := h.GetAll(ctx, &pb.GetAllRequest{OrganizerId: "error"})
+	resp, err := h.GetAll(ctx, &pb.GetAllRequest{})
 	assert.Nil(t, resp)
 	st, ok := status.FromError(err)
 	assert.True(t, ok)
@@ -779,4 +846,65 @@ func TestGetAllMeetsNonProgrammer(t *testing.T) {
 	resp, err := h.GetAll(ctx, &pb.GetAllRequest{OrganizerId: "other-org"})
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
+}
+
+// TestGetAllReturnsPaginatedEnriched verifies that GetAll maps request filters into
+// ListSchedulingInput and returns enriched meets with Total/Page/PageSize populated.
+func TestGetAllReturnsPaginatedEnriched(t *testing.T) {
+	// Admin context so AllowedClinics comes from ListClinics (["clinic1","clinic2"]).
+	md := metadata.New(map[string]string{
+		"x-user-roles": "Programmer",
+		"x-user-uuid":  "admin-user",
+	})
+	ctx := metadata.NewIncomingContext(context.Background(), md)
+
+	svc := NewMockService()
+	h := NewHandler(svc)
+
+	resp, err := h.GetAll(ctx, &pb.GetAllRequest{
+		PageSize:   50,
+		NationalId: "123456789",
+	})
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	// Total must be set (non-zero indicates ListScheduling was called, not old QueryMeets).
+	assert.Equal(t, int32(1), resp.Total)
+	assert.NotEmpty(t, resp.Meets)
+	assert.NotEqual(t, "", resp.Meets[0].Uuid+resp.Meets[0].Title) // some field is set
+}
+
+// TestGetAllNonAdminClinicScope verifies that a non-admin caller's AllowedClinics
+// is scoped to their own UUID, and requesting a clinic outside that scope returns
+// PermissionDenied.
+func TestGetAllNonAdminClinicScope(t *testing.T) {
+	md := metadata.New(map[string]string{
+		"x-user-roles": "User",
+		"x-user-uuid":  "user1",
+	})
+	ctx := metadata.NewIncomingContext(context.Background(), md)
+	h := NewHandler(NewMockService())
+
+	// Requesting a clinic the user doesn't own → PermissionDenied.
+	resp, err := h.GetAll(ctx, &pb.GetAllRequest{Clinic: "other-clinic"})
+	assert.Nil(t, resp)
+	st, ok := status.FromError(err)
+	assert.True(t, ok)
+	assert.Equal(t, codes.PermissionDenied, st.Code())
+}
+
+// TestGetAllAdminDefaultsPage verifies page defaults (1/50) are applied.
+func TestGetAllAdminDefaultsPage(t *testing.T) {
+	md := metadata.New(map[string]string{
+		"x-user-roles": "Admin",
+		"x-user-uuid":  "admin1",
+	})
+	ctx := metadata.NewIncomingContext(context.Background(), md)
+	h := NewHandler(NewMockService())
+
+	resp, err := h.GetAll(ctx, &pb.GetAllRequest{})
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	// default page=1, page_size=50
+	assert.Equal(t, int32(1), resp.Page)
+	assert.Equal(t, int32(50), resp.PageSize)
 }

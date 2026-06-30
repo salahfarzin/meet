@@ -5,13 +5,18 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
+	"strings"
+	"time"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/salahfarzin/logger"
+	"github.com/salahfarzin/meet/internal/identity"
 	"github.com/salahfarzin/meet/router"
 	"github.com/salahfarzin/meet/utils"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
 )
 
@@ -36,12 +41,46 @@ func loggingInterceptor(app *App) grpc.UnaryServerInterceptor {
 	}
 }
 
+// bearerInterceptor extracts the bearer token from incoming gRPC metadata
+// (checks "authorization" and "grpcgateway-authorization" headers) and
+// attaches it to the context via identity.WithBearer so the identity HTTP
+// client can forward it on outbound requests.
+func bearerInterceptor() grpc.UnaryServerInterceptor {
+	return func(
+		ctx context.Context,
+		req any,
+		info *grpc.UnaryServerInfo,
+		handler grpc.UnaryHandler,
+	) (any, error) {
+		if md, ok := metadata.FromIncomingContext(ctx); ok {
+			token := extractBearer(md, "authorization", "grpcgateway-authorization")
+			if token != "" {
+				ctx = identity.WithBearer(ctx, token)
+			}
+		}
+		return handler(ctx, req)
+	}
+}
+
+// extractBearer returns the raw token from the first matching metadata key that
+// carries a "Bearer <token>" value.
+func extractBearer(md metadata.MD, keys ...string) string {
+	for _, key := range keys {
+		for _, v := range md.Get(key) {
+			if strings.HasPrefix(strings.ToLower(v), "bearer ") {
+				return v[7:] // strip "Bearer " prefix
+			}
+		}
+	}
+	return ""
+}
+
 func NewGRPCServer(app *App) *GRPCServer {
 	server := grpc.NewServer(
 		grpc.UnaryInterceptor(
 			grpc_middleware.ChainUnaryServer(
 				loggingInterceptor(app),
-				// Add more interceptors here
+				bearerInterceptor(),
 			),
 		),
 	)
@@ -60,7 +99,11 @@ func (s *GRPCServer) Start() error {
 		return err
 	}
 
-	router.SetupGRPCRoutes(s.grpcServer, s.app.DB)
+	idClient := identity.NewHTTPClient(
+		s.app.Configs.UserService,
+		&http.Client{Timeout: 10 * time.Second},
+	)
+	router.SetupGRPCRoutes(s.grpcServer, s.app.DB, idClient)
 
 	reflection.Register(s.grpcServer) // Register reflection service on gRPC server
 	log.Printf("gRPC server listening on %s", address)

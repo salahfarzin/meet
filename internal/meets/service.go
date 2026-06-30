@@ -61,6 +61,9 @@ type Service interface {
 	ParseStartAndEndTimes(start, end string) (time.Time, time.Time, error)
 	Delete(ctx context.Context, uuid string) error
 	ListScheduling(ctx context.Context, in ListSchedulingInput) (ListSchedulingResult, error)
+	// ListClinics returns all clinic UUIDs from the identity service.
+	// Returns nil, nil if no identity client is wired (caller must apply a fallback).
+	ListClinics(ctx context.Context) ([]identity.Clinic, error)
 }
 
 type service struct {
@@ -186,6 +189,14 @@ func (s *service) GetAvailability(ctx context.Context, organizerId string, from,
 		dates[date] = ds
 	}
 	return dates, nil
+}
+
+// ListClinics delegates to the identity client. Returns nil, nil when no client is configured.
+func (s *service) ListClinics(ctx context.Context) ([]identity.Clinic, error) {
+	if s.identity == nil {
+		return nil, nil
+	}
+	return s.identity.ListClinics(ctx)
 }
 
 // ListScheduling returns a paginated, identity-enriched scheduling list scoped to the allowed clinics.
