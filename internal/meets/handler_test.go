@@ -95,6 +95,9 @@ type MockService struct {
 	// ListSchedulingErr, when non-nil, is returned by ListScheduling so tests
 	// can exercise the error path without embedding magic strings in UUIDs.
 	ListSchedulingErr error
+	// ListClinicsErr, when non-nil, is returned by ListClinics so tests can
+	// simulate the identity service being unreachable for admin callers.
+	ListClinicsErr error
 }
 
 func (m *MockService) Create(ctx context.Context, meet *Meet) (*Meet, error) {
@@ -252,6 +255,9 @@ func (m *MockService) ListScheduling(ctx context.Context, in ListSchedulingInput
 }
 
 func (m *MockService) ListClinics(ctx context.Context) ([]identity.Clinic, error) {
+	if m.ListClinicsErr != nil {
+		return nil, m.ListClinicsErr
+	}
 	// Return two fake clinics so admin-scoped tests have a non-empty AllowedClinics.
 	return []identity.Clinic{
 		{UUID: "clinic1", Name: "Clinic One"},
@@ -1006,4 +1012,29 @@ func TestGetAllSerializesClinicName(t *testing.T) {
 	assert.Equal(t, "Tehran Clinic", m.ClinicName, "ClinicName must be forwarded to the proto response")
 	// Ensure patient fields still survive alongside clinic name.
 	assert.Equal(t, "Ada", m.FirstName, "FirstName must not be dropped when ClinicName is set")
+}
+
+// TestGetAllAdminListClinicsError verifies that when ListClinics returns an error for
+// an admin caller, GetAll degrades gracefully: it must NOT return codes.Internal.
+// Instead it falls back to scoping AllowedClinics to the admin's own UUID and
+// returns the meets successfully.
+func TestGetAllAdminListClinicsError(t *testing.T) {
+	md := metadata.New(map[string]string{
+		"x-user-roles": "Admin",
+		"x-user-uuid":  "admin-uuid-1",
+	})
+	ctx := metadata.NewIncomingContext(context.Background(), md)
+
+	svc := NewMockService()
+	svc.ListClinicsErr = errors.New("identity service unreachable")
+	h := NewHandler(svc)
+
+	resp, err := h.GetAll(ctx, &pb.GetAllRequest{})
+	// Must succeed — the calendar must remain available when identity is down.
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	// The fallback scope (user's own UUID) means ListScheduling is called with
+	// AllowedClinics = ["admin-uuid-1"]. MockService.ListScheduling returns a
+	// default single meet, so resp.Meets must be non-empty.
+	assert.NotEmpty(t, resp.Meets)
 }

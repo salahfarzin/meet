@@ -225,26 +225,33 @@ func (h *handler) GetAll(ctx context.Context, req *pb.GetAllRequest) (*pb.GetAll
 	if isAdmin {
 		clinics, err := h.service.ListClinics(ctx)
 		if err != nil {
-			logger.FromContext(ctx).Error("failed to list clinics", zap.Error(err))
-			return nil, status.Error(codes.Internal, "Internal server error")
-		}
-		// If ListClinics returned results, use their UUIDs; otherwise fall back to user.Uuid.
-		if len(clinics) > 0 {
-			allowedClinics = make([]string, 0, len(clinics))
-			for _, c := range clinics {
-				allowedClinics = append(allowedClinics, c.UUID)
-			}
-		} else {
-			// The identity service returned zero clinics for an admin caller.
-			// Switching to an unrestricted (empty AllowedClinics) query would expose
-			// all tenant data, so we degrade scope to the admin's own UUID instead.
-			// This is a configuration problem — the identity service should always
-			// return at least one clinic for an admin — not a normal data-absence case.
+			// Identity service is unreachable — degrade gracefully by scoping to the
+			// admin's own UUID rather than failing the entire calendar request.
 			logger.FromContext(ctx).Warn(
-				"identity service returned zero clinics for admin; degrading scope to own UUID — check identity service configuration",
+				"identity service unavailable for ListClinics; degrading admin scope to own UUID",
 				zap.String("user_uuid", user.Uuid),
+				zap.Error(err),
 			)
 			allowedClinics = []string{user.Uuid}
+		} else {
+			// If ListClinics returned results, use their UUIDs; otherwise fall back to user.Uuid.
+			if len(clinics) > 0 {
+				allowedClinics = make([]string, 0, len(clinics))
+				for _, c := range clinics {
+					allowedClinics = append(allowedClinics, c.UUID)
+				}
+			} else {
+				// The identity service returned zero clinics for an admin caller.
+				// Switching to an unrestricted (empty AllowedClinics) query would expose
+				// all tenant data, so we degrade scope to the admin's own UUID instead.
+				// This is a configuration problem — the identity service should always
+				// return at least one clinic for an admin — not a normal data-absence case.
+				logger.FromContext(ctx).Warn(
+					"identity service returned zero clinics for admin; degrading scope to own UUID — check identity service configuration",
+					zap.String("user_uuid", user.Uuid),
+				)
+				allowedClinics = []string{user.Uuid}
+			}
 		}
 	} else {
 		allowedClinics = []string{user.Uuid}

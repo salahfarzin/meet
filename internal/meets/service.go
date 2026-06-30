@@ -10,7 +10,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/salahfarzin/logger"
 	"github.com/salahfarzin/meet/internal/identity"
+	"go.uber.org/zap"
 )
 
 type DateSlot struct {
@@ -279,11 +281,24 @@ func (s *service) ListScheduling(ctx context.Context, in ListSchedulingInput) (L
 	}
 
 	// 6. Enrich with identity data (single round-trip for both participants and organizers).
+	// If the identity service is unreachable, log a warning and return the meets un-enriched
+	// rather than failing the whole request — the calendar must remain available even when
+	// the identity service is down.
 	identityMap := map[string]identity.Identity{}
 	if len(uuidsToFetch) > 0 && s.identity != nil {
 		identityMap, err = s.identity.GetByUUIDs(ctx, uuidsToFetch)
 		if err != nil {
-			return empty, err
+			logger.FromContext(ctx).Warn(
+				"identity service unavailable; returning meets without enrichment",
+				zap.Error(err),
+			)
+			// Return rows un-enriched (no FirstName/LastName/NationalCode/Mobile/ClinicName).
+			return ListSchedulingResult{
+				Meets:    rows,
+				Total:    total,
+				Page:     in.Page,
+				PageSize: in.PageSize,
+			}, nil
 		}
 	}
 

@@ -611,6 +611,9 @@ func TestListSchedulingEnrichesRows(t *testing.T) {
 	assert.Equal(t, "0900", result.Meets[0].Mobile)
 }
 
+// TestListSchedulingGetByUUIDsError verifies that when GetByUUIDs fails, ListScheduling
+// still returns the meets un-enriched (no identity fields) with a nil error and
+// the correct Total — the calendar must stay available even when identity is down.
 func TestListSchedulingGetByUUIDsError(t *testing.T) {
 	now := time.Now()
 	mockRepo := &MockRepository{
@@ -627,13 +630,23 @@ func TestListSchedulingGetByUUIDsError(t *testing.T) {
 	}
 	svc := NewService(mockRepo, idClient)
 
-	_, err := svc.ListScheduling(context.Background(), ListSchedulingInput{
+	result, err := svc.ListScheduling(context.Background(), ListSchedulingInput{
 		AllowedClinics: []string{"clinic-1"},
 		Page:           1,
 		PageSize:       10,
 	})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "identity unavailable")
+	// Must succeed even though identity is unreachable.
+	assert.NoError(t, err)
+	assert.Equal(t, 1, result.Total)
+	assert.Len(t, result.Meets, 1)
+	// Identity fields must be empty (un-enriched).
+	assert.Equal(t, "", result.Meets[0].FirstName)
+	assert.Equal(t, "", result.Meets[0].LastName)
+	assert.Equal(t, "", result.Meets[0].NationalCode)
+	assert.Equal(t, "", result.Meets[0].Mobile)
+	assert.Equal(t, "", result.Meets[0].ClinicName)
+	// Core meet fields must still be present.
+	assert.Equal(t, "m1", result.Meets[0].UUID)
 }
 
 // TestListSchedulingClinicNotInAllowedReturnsEmpty verifies that passing a Clinic
