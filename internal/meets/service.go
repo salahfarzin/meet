@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"time"
 
@@ -201,6 +202,7 @@ func (s *service) ListScheduling(ctx context.Context, in ListSchedulingInput) (L
 	needsIdentityFilter := in.FirstName != "" || in.LastName != "" || in.NationalID != "" || in.Mobile != ""
 	if needsIdentityFilter {
 		if s.identity == nil {
+			// TODO(task-4): identity client must be non-nil in production; nil only during interim wiring
 			return empty, nil
 		}
 		uuids, err := s.identity.Search(ctx, identity.IdentityFilter{
@@ -229,7 +231,12 @@ func (s *service) ListScheduling(ctx context.Context, in ListSchedulingInput) (L
 		PageSize:         in.PageSize,
 	}
 	// Optionally restrict to a single clinic within the allowed set.
+	// FINDING 1 fix: only scope to in.Clinic if it is a member of AllowedClinics;
+	// an out-of-scope Clinic is an access violation — return empty without hitting the repo.
 	if in.Clinic != "" {
+		if !slices.Contains(in.AllowedClinics, in.Clinic) {
+			return ListSchedulingResult{Page: in.Page, PageSize: in.PageSize}, nil
+		}
 		opts.OrganizerUuids = []string{in.Clinic}
 	}
 
@@ -256,7 +263,7 @@ func (s *service) ListScheduling(ctx context.Context, in ListSchedulingInput) (L
 	}
 
 	// 6. Enrich with identity data.
-	var identityMap map[string]identity.Identity
+	identityMap := map[string]identity.Identity{}
 	if len(uuidsToFetch) > 0 && s.identity != nil {
 		identityMap, err = s.identity.GetByUUIDs(ctx, uuidsToFetch)
 		if err != nil {

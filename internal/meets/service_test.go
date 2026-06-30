@@ -634,6 +634,53 @@ func TestListSchedulingGetByUUIDsError(t *testing.T) {
 	assert.Contains(t, err.Error(), "identity unavailable")
 }
 
+// TestListSchedulingClinicNotInAllowedReturnsEmpty verifies that passing a Clinic
+// that is NOT in AllowedClinics returns an empty result without calling the repo.
+func TestListSchedulingClinicNotInAllowedReturnsEmpty(t *testing.T) {
+	mockRepo := &MockRepository{
+		QueryMeetsFunc: func(ctx context.Context, options *MeetQueryOptions) ([]*Meet, int, error) {
+			t.Fatal("repo must NOT be called when Clinic is not in AllowedClinics")
+			return nil, 0, nil
+		},
+	}
+	svc := NewService(mockRepo, nil)
+
+	result, err := svc.ListScheduling(context.Background(), ListSchedulingInput{
+		AllowedClinics: []string{"clinic-1"},
+		Clinic:         "clinic-other",
+		Page:           1,
+		PageSize:       10,
+	})
+	assert.NoError(t, err)
+	assert.Empty(t, result.Meets)
+	assert.Equal(t, 1, result.Page)
+	assert.Equal(t, 10, result.PageSize)
+}
+
+// TestListSchedulingClinicInAllowedScopes verifies that a Clinic that IS in
+// AllowedClinics causes the repo to be called with OrganizerUuids == [Clinic].
+func TestListSchedulingClinicInAllowedScopes(t *testing.T) {
+	var capturedOpts *MeetQueryOptions
+	mockRepo := &MockRepository{
+		QueryMeetsFunc: func(ctx context.Context, options *MeetQueryOptions) ([]*Meet, int, error) {
+			capturedOpts = options
+			return []*Meet{}, 0, nil
+		},
+	}
+	svc := NewService(mockRepo, nil)
+
+	result, err := svc.ListScheduling(context.Background(), ListSchedulingInput{
+		AllowedClinics: []string{"clinic-1", "clinic-2"},
+		Clinic:         "clinic-2",
+		Page:           1,
+		PageSize:       10,
+	})
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.NotNil(t, capturedOpts)
+	assert.Equal(t, []string{"clinic-2"}, capturedOpts.OrganizerUuids)
+}
+
 func TestListSchedulingSingleClinicFilter(t *testing.T) {
 	now := time.Now()
 	var capturedOpts *MeetQueryOptions
