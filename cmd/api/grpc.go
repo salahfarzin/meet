@@ -68,7 +68,9 @@ func extractBearer(md metadata.MD, keys ...string) string {
 	for _, key := range keys {
 		for _, v := range md.Get(key) {
 			if strings.HasPrefix(strings.ToLower(v), "bearer ") {
-				return v[7:] // strip "Bearer " prefix
+				// v[7:] is safe regardless of the token's capitalisation because
+				// "bearer " is always exactly 7 ASCII bytes in any case variant.
+				return v[7:]
 			}
 		}
 	}

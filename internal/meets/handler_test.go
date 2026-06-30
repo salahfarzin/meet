@@ -91,7 +91,11 @@ func TestHandlerUpdateNoConflict(t *testing.T) {
 	assert.NotNil(t, got)
 }
 
-type MockService struct{}
+type MockService struct {
+	// ListSchedulingErr, when non-nil, is returned by ListScheduling so tests
+	// can exercise the error path without embedding magic strings in UUIDs.
+	ListSchedulingErr error
+}
 
 func (m *MockService) Create(ctx context.Context, meet *Meet) (*Meet, error) {
 	if meet.Title == "" {
@@ -206,9 +210,9 @@ func (m *MockService) ParseStartAndEndTimes(start, end string) (startTime, endTi
 }
 
 func (m *MockService) ListScheduling(ctx context.Context, in ListSchedulingInput) (ListSchedulingResult, error) {
-	// Simulate an error trigger when the first AllowedClinic is "error".
-	if len(in.AllowedClinics) > 0 && in.AllowedClinics[0] == "error" {
-		return ListSchedulingResult{}, errors.New("query error")
+	// Return the injected error when the test has set ListSchedulingErr.
+	if m.ListSchedulingErr != nil {
+		return ListSchedulingResult{}, m.ListSchedulingErr
 	}
 
 	now := time.Now()
@@ -257,24 +261,6 @@ func (m *MockService) ListClinics(ctx context.Context) ([]identity.Clinic, error
 
 func NewMockService() *MockService {
 	return &MockService{}
-}
-
-// fakeIdentityClient is a minimal identity.Client for handler tests.
-type fakeIdentityClient struct {
-	clinics []identity.Clinic
-	err     error
-}
-
-func (f *fakeIdentityClient) Search(ctx context.Context, filter identity.IdentityFilter) ([]string, error) {
-	return nil, f.err
-}
-
-func (f *fakeIdentityClient) GetByUUIDs(ctx context.Context, uuids []string) (map[string]identity.Identity, error) {
-	return map[string]identity.Identity{}, f.err
-}
-
-func (f *fakeIdentityClient) ListClinics(ctx context.Context) ([]identity.Clinic, error) {
-	return f.clinics, f.err
 }
 
 func TestCreateMeet(t *testing.T) {
@@ -421,14 +407,16 @@ func TestGetAllMeets(t *testing.T) {
 }
 
 func TestGetAllMeetsError(t *testing.T) {
-	// Use a non-admin (User role) with uuid "error" so AllowedClinics=["error"]
-	// which triggers the error path in MockService.ListScheduling.
+	// Set ListSchedulingErr directly on the mock so the error path is exercised
+	// without relying on magic sentinel values embedded in user UUIDs.
 	md := metadata.New(map[string]string{
 		"x-user-roles": "User",
-		"x-user-uuid":  "error",
+		"x-user-uuid":  "user1",
 	})
 	ctx := metadata.NewIncomingContext(context.Background(), md)
-	h := NewHandler(NewMockService())
+	svc := NewMockService()
+	svc.ListSchedulingErr = errors.New("query error")
+	h := NewHandler(svc)
 	resp, err := h.GetAll(ctx, &pb.GetAllRequest{})
 	assert.Nil(t, resp)
 	st, ok := status.FromError(err)

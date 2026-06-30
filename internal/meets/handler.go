@@ -235,7 +235,15 @@ func (h *handler) GetAll(ctx context.Context, req *pb.GetAllRequest) (*pb.GetAll
 				allowedClinics = append(allowedClinics, c.UUID)
 			}
 		} else {
-			// identity client not wired or no clinics configured: fall back to own UUID.
+			// The identity service returned zero clinics for an admin caller.
+			// Switching to an unrestricted (empty AllowedClinics) query would expose
+			// all tenant data, so we degrade scope to the admin's own UUID instead.
+			// This is a configuration problem — the identity service should always
+			// return at least one clinic for an admin — not a normal data-absence case.
+			logger.FromContext(ctx).Warn(
+				"identity service returned zero clinics for admin; degrading scope to own UUID — check identity service configuration",
+				zap.String("user_uuid", user.Uuid),
+			)
 			allowedClinics = []string{user.Uuid}
 		}
 	} else {
