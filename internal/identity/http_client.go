@@ -75,13 +75,16 @@ func addFilter(q url.Values, i int, field, value, match string) {
 func (c *httpClient) Search(ctx context.Context, f IdentityFilter) ([]string, error) {
 	q := url.Values{}
 	q.Set("limit", "1000")
+	fields := []struct{ field, val string }{
+		{"first_name", f.FirstName},
+		{"last_name", f.LastName},
+		{"national_code", f.NationalID},
+		{"mobile", f.Mobile},
+	}
 	i := 0
-	for field, val := range map[string]string{
-		"first_name": f.FirstName, "last_name": f.LastName,
-		"national_code": f.NationalID, "mobile": f.Mobile,
-	} {
-		if val != "" {
-			addFilter(q, i, field, val, "contains")
+	for _, fv := range fields {
+		if fv.val != "" {
+			addFilter(q, i, fv.field, fv.val, "contains")
 			i++
 		}
 	}

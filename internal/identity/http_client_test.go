@@ -35,6 +35,7 @@ func TestSearchReturnsUUIDs(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "national_code", r.URL.Query().Get("filters[0][field]"))
 		assert.Equal(t, "555", r.URL.Query().Get("filters[0][value]"))
+		assert.Equal(t, "contains", r.URL.Query().Get("match_mode[national_code]"))
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"items": []map[string]any{{"uuid": "u2"}, {"uuid": "u3"}},
 		})
@@ -45,4 +46,24 @@ func TestSearchReturnsUUIDs(t *testing.T) {
 	got, err := c.Search(context.Background(), IdentityFilter{NationalID: "555"})
 	require.NoError(t, err)
 	assert.ElementsMatch(t, []string{"u2", "u3"}, got)
+}
+
+func TestSearchMultipleFiltersOrdered(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		// first_name comes before national_code in the canonical order
+		assert.Equal(t, "first_name", q.Get("filters[0][field]"))
+		assert.Equal(t, "Ada", q.Get("filters[0][value]"))
+		assert.Equal(t, "national_code", q.Get("filters[1][field]"))
+		assert.Equal(t, "555", q.Get("filters[1][value]"))
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"items": []map[string]any{{"uuid": "u4"}},
+		})
+	}))
+	defer srv.Close()
+
+	c := NewHTTPClient(srv.URL, srv.Client())
+	got, err := c.Search(context.Background(), IdentityFilter{FirstName: "Ada", NationalID: "555"})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"u4"}, got)
 }
