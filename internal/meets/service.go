@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"slices"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -262,11 +263,14 @@ func (s *service) ListScheduling(ctx context.Context, in ListSchedulingInput) (L
 		return ListSchedulingResult{Meets: []*Meet{}, Total: total, Page: in.Page, PageSize: in.PageSize}, nil
 	}
 
-	// 5. Collect all first-participant UUIDs for enrichment.
-	uuidSet := make(map[string]struct{}, len(rows))
+	// 5. Collect participant and organizer UUIDs for a single enrichment batch.
+	uuidSet := make(map[string]struct{}, len(rows)*2)
 	for _, m := range rows {
 		if len(m.ParticipantUuids) > 0 {
 			uuidSet[m.ParticipantUuids[0]] = struct{}{}
+		}
+		if m.OrganizerUuid != "" {
+			uuidSet[m.OrganizerUuid] = struct{}{}
 		}
 	}
 	uuidsToFetch := make([]string, 0, len(uuidSet))
@@ -274,7 +278,7 @@ func (s *service) ListScheduling(ctx context.Context, in ListSchedulingInput) (L
 		uuidsToFetch = append(uuidsToFetch, u)
 	}
 
-	// 6. Enrich with identity data.
+	// 6. Enrich with identity data (single round-trip for both participants and organizers).
 	identityMap := map[string]identity.Identity{}
 	if len(uuidsToFetch) > 0 && s.identity != nil {
 		identityMap, err = s.identity.GetByUUIDs(ctx, uuidsToFetch)
@@ -283,7 +287,7 @@ func (s *service) ListScheduling(ctx context.Context, in ListSchedulingInput) (L
 		}
 	}
 
-	// 7. Attach identity fields to each row's first participant.
+	// 7. Attach identity fields to each row: participant (patient) and organizer (clinic).
 	for _, m := range rows {
 		if len(m.ParticipantUuids) > 0 {
 			if id, ok := identityMap[m.ParticipantUuids[0]]; ok {
@@ -291,6 +295,12 @@ func (s *service) ListScheduling(ctx context.Context, in ListSchedulingInput) (L
 				m.LastName = id.LastName
 				m.NationalCode = id.NationalCode
 				m.Mobile = id.Mobile
+			}
+		}
+		if m.OrganizerUuid != "" {
+			if org, ok := identityMap[m.OrganizerUuid]; ok {
+				name := strings.TrimSpace(org.FirstName + " " + org.LastName)
+				m.ClinicName = name
 			}
 		}
 	}

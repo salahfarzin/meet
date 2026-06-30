@@ -298,6 +298,7 @@ func (h *handler) GetAll(ctx context.Context, req *pb.GetAllRequest) (*pb.GetAll
 			LastName:     a.LastName,
 			NationalCode: a.NationalCode,
 			Mobile:       a.Mobile,
+			ClinicName:   a.ClinicName,
 		})
 	}
 

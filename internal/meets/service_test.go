@@ -587,9 +587,11 @@ func TestListSchedulingEnrichesRows(t *testing.T) {
 	}
 	idClient := &mockIdentityClient{
 		getByUUIDsFunc: func(ctx context.Context, uuids []string) (map[string]identity.Identity, error) {
-			assert.ElementsMatch(t, []string{"p1"}, uuids)
+			// After the clinic-name enrichment change, organizer UUID is included in the same batch.
+			assert.ElementsMatch(t, []string{"p1", "clinic-1"}, uuids)
 			return map[string]identity.Identity{
-				"p1": {UUID: "p1", FirstName: "Ada", LastName: "Lovelace", NationalCode: "123", Mobile: "0900"},
+				"p1":       {UUID: "p1", FirstName: "Ada", LastName: "Lovelace", NationalCode: "123", Mobile: "0900"},
+				"clinic-1": {UUID: "clinic-1", FirstName: "Test", LastName: "Clinic"},
 			}, nil
 		},
 	}
@@ -679,6 +681,87 @@ func TestListSchedulingClinicInAllowedScopes(t *testing.T) {
 	assert.NotNil(t, result)
 	assert.NotNil(t, capturedOpts)
 	assert.Equal(t, []string{"clinic-2"}, capturedOpts.OrganizerUuids)
+}
+
+// TestListSchedulingEnrichesClinicName verifies that the organizer UUID is included
+// in the same GetByUUIDs batch as patient UUIDs and that ClinicName is set on the result.
+func TestListSchedulingEnrichesClinicName(t *testing.T) {
+	now := time.Now()
+	mockRepo := &MockRepository{
+		QueryMeetsFunc: func(ctx context.Context, options *MeetQueryOptions) ([]*Meet, int, error) {
+			return []*Meet{
+				{
+					UUID:             "m1",
+					OrganizerUuid:    "clinic-1",
+					ParticipantUuids: []string{"p1"},
+					Start:            now,
+					End:              now.Add(time.Hour),
+				},
+			}, 1, nil
+		},
+	}
+	idClient := &mockIdentityClient{
+		getByUUIDsFunc: func(ctx context.Context, uuids []string) (map[string]identity.Identity, error) {
+			// Both patient and organizer UUIDs must be present in the single batch call.
+			assert.ElementsMatch(t, []string{"p1", "clinic-1"}, uuids)
+			return map[string]identity.Identity{
+				"p1":       {UUID: "p1", FirstName: "Ada", LastName: "Lovelace", NationalCode: "123", Mobile: "0900"},
+				"clinic-1": {UUID: "clinic-1", FirstName: "Tehran", LastName: "Clinic"},
+			}, nil
+		},
+	}
+	svc := NewService(mockRepo, idClient)
+
+	result, err := svc.ListScheduling(context.Background(), ListSchedulingInput{
+		AllowedClinics: []string{"clinic-1"},
+		Page:           1,
+		PageSize:       10,
+	})
+	assert.NoError(t, err)
+	assert.Len(t, result.Meets, 1)
+	// Patient fields still set.
+	assert.Equal(t, "Ada", result.Meets[0].FirstName)
+	assert.Equal(t, "Lovelace", result.Meets[0].LastName)
+	// Clinic name composed from organizer identity.
+	assert.Equal(t, "Tehran Clinic", result.Meets[0].ClinicName)
+}
+
+// TestListSchedulingClinicNameOrganizerNotInIdentity verifies that if the identity
+// service does not return an entry for the organizer UUID, ClinicName is left empty
+// rather than causing an error.
+func TestListSchedulingClinicNameOrganizerNotInIdentity(t *testing.T) {
+	now := time.Now()
+	mockRepo := &MockRepository{
+		QueryMeetsFunc: func(ctx context.Context, options *MeetQueryOptions) ([]*Meet, int, error) {
+			return []*Meet{
+				{
+					UUID:             "m2",
+					OrganizerUuid:    "clinic-unknown",
+					ParticipantUuids: []string{"p2"},
+					Start:            now,
+					End:              now.Add(time.Hour),
+				},
+			}, 1, nil
+		},
+	}
+	idClient := &mockIdentityClient{
+		getByUUIDsFunc: func(ctx context.Context, uuids []string) (map[string]identity.Identity, error) {
+			// Only patient entry is returned; organizer is absent.
+			return map[string]identity.Identity{
+				"p2": {UUID: "p2", FirstName: "Grace", LastName: "Hopper"},
+			}, nil
+		},
+	}
+	svc := NewService(mockRepo, idClient)
+
+	result, err := svc.ListScheduling(context.Background(), ListSchedulingInput{
+		AllowedClinics: []string{"clinic-unknown"},
+		Page:           1,
+		PageSize:       10,
+	})
+	assert.NoError(t, err)
+	assert.Len(t, result.Meets, 1)
+	assert.Equal(t, "", result.Meets[0].ClinicName)
 }
 
 func TestListSchedulingSingleClinicFilter(t *testing.T) {

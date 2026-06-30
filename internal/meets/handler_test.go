@@ -927,6 +927,36 @@ func (e *enrichedMockService) ListScheduling(_ context.Context, in ListSchedulin
 	}, nil
 }
 
+// enrichedMockServiceWithClinic extends enrichedMockService to also populate ClinicName,
+// used by TestGetAllSerializesClinicName to verify the ClinicName proto mapping.
+type enrichedMockServiceWithClinic struct {
+	MockService
+}
+
+func (e *enrichedMockServiceWithClinic) ListScheduling(_ context.Context, in ListSchedulingInput) (ListSchedulingResult, error) {
+	now := time.Now()
+	return ListSchedulingResult{
+		Meets: []*Meet{
+			{
+				UUID:             "uuid-clinic",
+				OrganizerUuid:    "clinic-1",
+				Title:            "Clinic Meet",
+				Start:            now,
+				End:              now.Add(time.Hour),
+				FirstName:        "Ada",
+				LastName:         "Lovelace",
+				NationalCode:     "1234567890",
+				Mobile:           "09123456789",
+				ClinicName:       "Tehran Clinic",
+				ParticipantUuids: []string{"p1"},
+			},
+		},
+		Total:    1,
+		Page:     in.Page,
+		PageSize: in.PageSize,
+	}, nil
+}
+
 // TestGetAllSerializesEnrichedIdentity asserts that when the service returns a
 // Meet with enriched identity fields (FirstName/LastName/NationalCode/Mobile),
 // those values survive the proto-mapping loop and appear in the gRPC response.
@@ -952,4 +982,28 @@ func TestGetAllSerializesEnrichedIdentity(t *testing.T) {
 	assert.Equal(t, "Lovelace", m.LastName, "LastName must be forwarded to the proto response")
 	assert.Equal(t, "1234567890", m.NationalCode, "NationalCode must be forwarded to the proto response")
 	assert.Equal(t, "09123456789", m.Mobile, "Mobile must be forwarded to the proto response")
+}
+
+// TestGetAllSerializesClinicName asserts that when the service returns a Meet with
+// ClinicName populated, that value survives the proto-mapping loop in GetAll and
+// appears in the gRPC response as clinic_name.
+func TestGetAllSerializesClinicName(t *testing.T) {
+	md := metadata.New(map[string]string{
+		"x-user-roles": "User",
+		"x-user-uuid":  "clinic-1",
+	})
+	ctx := metadata.NewIncomingContext(context.Background(), md)
+
+	svc := &enrichedMockServiceWithClinic{}
+	h := NewHandler(svc)
+
+	resp, err := h.GetAll(ctx, &pb.GetAllRequest{})
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Len(t, resp.Meets, 1)
+
+	m := resp.Meets[0]
+	assert.Equal(t, "Tehran Clinic", m.ClinicName, "ClinicName must be forwarded to the proto response")
+	// Ensure patient fields still survive alongside clinic name.
+	assert.Equal(t, "Ada", m.FirstName, "FirstName must not be dropped when ClinicName is set")
 }

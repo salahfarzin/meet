@@ -353,6 +353,9 @@ definitions:
         type: string
       mobile:
         type: string
+      clinic_name:
+        type: string
+        description: clinic_name is the display name of the meet's organizer (clinic/center identity).
     title: Meet message
   meetsMeetType:
     type: integer

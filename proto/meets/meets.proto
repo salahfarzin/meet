@@ -62,6 +62,8 @@ message Meet {
   string last_name = 13;
   string national_code = 14;
   string mobile = 15;
+  // clinic_name is the display name of the meet's organizer (clinic/center identity).
+  string clinic_name = 16;
 }
 
 // Request & Response

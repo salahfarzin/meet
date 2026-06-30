@@ -27,6 +27,7 @@ type Meet struct {
 	LastName     string `json:"last_name,omitempty" db:"-"`
 	NationalCode string `json:"national_code,omitempty" db:"-"`
 	Mobile       string `json:"mobile,omitempty" db:"-"`
+	ClinicName   string `json:"clinic_name,omitempty" db:"-"`
 }
 
 type Repository interface {
