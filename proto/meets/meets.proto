@@ -57,6 +57,11 @@ message Meet {
   repeated string participant_uuids = 9;
   MeetType type = 10;
   optional string booked_at = 11;
+  // Identity-enriched fields (populated in scheduling list; empty for other endpoints).
+  string first_name = 12;
+  string last_name = 13;
+  string national_code = 14;
+  string mobile = 15;
 }
 
 // Request & Response

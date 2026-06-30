@@ -93,8 +93,13 @@ type Meet struct {
 	ParticipantUuids []string               `protobuf:"bytes,9,rep,name=participant_uuids,json=participantUuids,proto3" json:"participant_uuids,omitempty"`
 	Type             MeetType               `protobuf:"varint,10,opt,name=type,proto3,enum=meets.MeetType" json:"type,omitempty"`
 	BookedAt         *string                `protobuf:"bytes,11,opt,name=booked_at,json=bookedAt,proto3,oneof" json:"booked_at,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// Identity-enriched fields (populated in scheduling list; empty for other endpoints).
+	FirstName     string `protobuf:"bytes,12,opt,name=first_name,json=firstName,proto3" json:"first_name,omitempty"`
+	LastName      string `protobuf:"bytes,13,opt,name=last_name,json=lastName,proto3" json:"last_name,omitempty"`
+	NationalCode  string `protobuf:"bytes,14,opt,name=national_code,json=nationalCode,proto3" json:"national_code,omitempty"`
+	Mobile        string `protobuf:"bytes,15,opt,name=mobile,proto3" json:"mobile,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Meet) Reset() {
@@ -200,6 +205,34 @@ func (x *Meet) GetType() MeetType {
 func (x *Meet) GetBookedAt() string {
 	if x != nil && x.BookedAt != nil {
 		return *x.BookedAt
+	}
+	return ""
+}
+
+func (x *Meet) GetFirstName() string {
+	if x != nil {
+		return x.FirstName
+	}
+	return ""
+}
+
+func (x *Meet) GetLastName() string {
+	if x != nil {
+		return x.LastName
+	}
+	return ""
+}
+
+func (x *Meet) GetNationalCode() string {
+	if x != nil {
+		return x.NationalCode
+	}
+	return ""
+}
+
+func (x *Meet) GetMobile() string {
+	if x != nil {
+		return x.Mobile
 	}
 	return ""
 }
@@ -1103,7 +1136,7 @@ var File_meets_meets_proto protoreflect.FileDescriptor
 
 const file_meets_meets_proto_rawDesc = "" +
 	"\n" +
-	"\x11meets/meets.proto\x12\x05meets\x1a\x1cgoogle/api/annotations.proto\x1a\x13common/common.proto\x1a.protoc-gen-openapiv2/options/annotations.proto\"\xec\x02\n" +
+	"\x11meets/meets.proto\x12\x05meets\x1a\x1cgoogle/api/annotations.proto\x1a\x13common/common.proto\x1a.protoc-gen-openapiv2/options/annotations.proto\"\xe5\x03\n" +
 	"\x04Meet\x12\x12\n" +
 	"\x04uuid\x18\x01 \x01(\tR\x04uuid\x12%\n" +
 	"\x0eorganizer_uuid\x18\x02 \x01(\tR\rorganizerUuid\x12\"\n" +
@@ -1117,7 +1150,12 @@ const file_meets_meets_proto_rawDesc = "" +
 	"\x11participant_uuids\x18\t \x03(\tR\x10participantUuids\x12#\n" +
 	"\x04type\x18\n" +
 	" \x01(\x0e2\x0f.meets.MeetTypeR\x04type\x12 \n" +
-	"\tbooked_at\x18\v \x01(\tH\x01R\bbookedAt\x88\x01\x01B\r\n" +
+	"\tbooked_at\x18\v \x01(\tH\x01R\bbookedAt\x88\x01\x01\x12\x1d\n" +
+	"\n" +
+	"first_name\x18\f \x01(\tR\tfirstName\x12\x1b\n" +
+	"\tlast_name\x18\r \x01(\tR\blastName\x12#\n" +
+	"\rnational_code\x18\x0e \x01(\tR\fnationalCode\x12\x16\n" +
+	"\x06mobile\x18\x0f \x01(\tR\x06mobileB\r\n" +
 	"\v_price_uuidB\f\n" +
 	"\n" +
 	"_booked_at\"#\n" +

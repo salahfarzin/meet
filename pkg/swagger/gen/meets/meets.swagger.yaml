@@ -344,6 +344,15 @@ definitions:
         $ref: '#/definitions/meetsMeetType'
       booked_at:
         type: string
+      first_name:
+        type: string
+        description: Identity-enriched fields (populated in scheduling list; empty for other endpoints).
+      last_name:
+        type: string
+      national_code:
+        type: string
+      mobile:
+        type: string
     title: Meet message
   meetsMeetType:
     type: integer

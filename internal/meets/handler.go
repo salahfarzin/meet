@@ -294,6 +294,10 @@ func (h *handler) GetAll(ctx context.Context, req *pb.GetAllRequest) (*pb.GetAll
 				s := a.BookedAt.Format(time.RFC3339)
 				return &s
 			}(),
+			FirstName:    a.FirstName,
+			LastName:     a.LastName,
+			NationalCode: a.NationalCode,
+			Mobile:       a.Mobile,
 		})
 	}
 

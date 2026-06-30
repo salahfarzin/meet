@@ -213,7 +213,8 @@ func (s *service) ListScheduling(ctx context.Context, in ListSchedulingInput) (L
 	needsIdentityFilter := in.FirstName != "" || in.LastName != "" || in.NationalID != "" || in.Mobile != ""
 	if needsIdentityFilter {
 		if s.identity == nil {
-			// TODO(task-4): identity client must be non-nil in production; nil only during interim wiring
+			// identity client is nil only in unit tests; production wiring always injects a real client.
+			// When nil with an active identity filter, return empty rather than erroring.
 			return empty, nil
 		}
 		uuids, err := s.identity.Search(ctx, identity.IdentityFilter{
