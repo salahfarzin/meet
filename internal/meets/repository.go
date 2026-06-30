@@ -30,8 +30,8 @@ type Repository interface {
 	GetByUUID(ctx context.Context, uuid string) (*Meet, error)
 	Update(ctx context.Context, meet *Meet) error
 	Delete(ctx context.Context, uuid string) error
-	// QueryMeets: pass nil for no filter
-	QueryMeets(ctx context.Context, options *MeetQueryOptions) ([]*Meet, error)
+	// QueryMeets: pass nil for no filter; returns rows, total count, error
+	QueryMeets(ctx context.Context, options *MeetQueryOptions) ([]*Meet, int, error)
 	HasConflict(ctx context.Context, organizerId string, start, end time.Time, excludeUUID ...string) (bool, error)
 }
 type repository struct {
@@ -45,11 +45,15 @@ func NewRepository(db *sql.DB) Repository {
 }
 
 type MeetQueryOptions struct {
-	OrganizerUuid string
-	From          *time.Time
-	To            *time.Time
-	OnlyAvailable *bool
-	PriceUuid     *string
+	OrganizerUuid    string
+	OrganizerUuids   []string
+	ParticipantUuids []string
+	From             *time.Time
+	To               *time.Time
+	OnlyAvailable    *bool
+	PriceUuid        *string
+	Page             int
+	PageSize         int
 }
 
 // HasConflict checks if there is an overlapping appointment for the organizer and period
@@ -155,25 +159,119 @@ func (repo *repository) Delete(ctx context.Context, uuid string) error {
 	return err
 }
 
-func (repo *repository) QueryMeets(ctx context.Context, options *MeetQueryOptions) ([]*Meet, error) {
+func (repo *repository) QueryMeets(ctx context.Context, options *MeetQueryOptions) ([]*Meet, int, error) {
+	// New path: OrganizerUuids (multi-organizer) with pagination
+	if options != nil && len(options.OrganizerUuids) > 0 {
+		return repo.queryMeetsPaginated(ctx, options)
+	}
+
 	if options == nil || options.OrganizerUuid == "" {
-		return nil, fmt.Errorf("OrganizerUuid is required")
+		return nil, 0, fmt.Errorf("OrganizerUuid is required")
 	}
 
 	// Handle availability query
 	if options.OnlyAvailable != nil && *options.OnlyAvailable {
-		return repo.handleAvailabilityQuery(ctx, options)
+		meets, err := repo.handleAvailabilityQuery(ctx, options)
+		return meets, len(meets), err
 	}
 
 	// Handle regular query
 	query, args := repo.buildQueryAndArgs(options)
 	rows, err := repo.db.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 
-	return repo.processRows(rows)
+	meets, err := repo.processRows(rows)
+	return meets, len(meets), err
+}
+
+// queryMeetsPaginated handles the new OrganizerUuids path with COUNT + paginated SELECT.
+func (repo *repository) queryMeetsPaginated(ctx context.Context, options *MeetQueryOptions) ([]*Meet, int, error) {
+	page := options.Page
+	pageSize := options.PageSize
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 50
+	}
+	offset := (page - 1) * pageSize
+
+	// Build WHERE clause with proper IN placeholders for all organizer UUIDs.
+	inPlaceholders := make([]string, len(options.OrganizerUuids))
+	args := make([]any, len(options.OrganizerUuids))
+	for i, u := range options.OrganizerUuids {
+		inPlaceholders[i] = "?"
+		args[i] = u
+	}
+	whereClause := "organizer_uuid IN (" + joinStrings(inPlaceholders, ",") + ")"
+
+	if options.From != nil {
+		whereClause += " AND start_time >= ?"
+		args = append(args, *options.From)
+	}
+	if options.To != nil {
+		whereClause += " AND start_time < ?"
+		args = append(args, *options.To)
+	}
+	if len(options.ParticipantUuids) > 0 {
+		participantJSON, err := json.Marshal(options.ParticipantUuids)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to marshal participant uuids: %w", err)
+		}
+		whereClause += " AND JSON_OVERLAPS(participant_uuids, ?)"
+		args = append(args, string(participantJSON))
+	}
+
+	// COUNT query
+	countQuery := "SELECT COUNT(*) FROM meets WHERE " + whereClause
+	var total int
+	if err := repo.db.QueryRowContext(ctx, countQuery, args...).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	// Paginated SELECT
+	selectQuery := `SELECT id, uuid, organizer_uuid, price_uuid, participant_uuids, type, title, start_time, end_time, color, description, booked_at FROM meets WHERE ` +
+		whereClause + ` ORDER BY start_time LIMIT ? OFFSET ?`
+	selectArgs := append(args, pageSize, offset)
+
+	rows, err := repo.db.QueryContext(ctx, selectQuery, selectArgs...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	result := make([]*Meet, 0)
+	for rows.Next() {
+		var m Meet
+		var participantsStr string
+		var start, end time.Time
+		if err := rows.Scan(&m.ID, &m.UUID, &m.OrganizerUuid, &m.PriceUuid, &participantsStr, &m.Type, &m.Title, &start, &end, &m.Color, &m.Description, &m.BookedAt); err != nil {
+			return nil, 0, err
+		}
+		if err := json.Unmarshal([]byte(participantsStr), &m.ParticipantUuids); err != nil {
+			return nil, 0, fmt.Errorf("failed to unmarshal participants: %w", err)
+		}
+		m.Start = start
+		m.End = end
+		result = append(result, &m)
+	}
+
+	return result, total, nil
+}
+
+// joinStrings joins a slice of strings with a separator.
+func joinStrings(ss []string, sep string) string {
+	result := ""
+	for i, s := range ss {
+		if i > 0 {
+			result += sep
+		}
+		result += s
+	}
+	return result
 }
 
 // buildQueryAndArgs constructs the SQL query and arguments based on options

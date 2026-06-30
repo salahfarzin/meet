@@ -47,6 +47,36 @@ paths:
           in: query
           required: false
           type: string
+        - name: clinic
+          in: query
+          required: false
+          type: string
+        - name: first_name
+          in: query
+          required: false
+          type: string
+        - name: last_name
+          in: query
+          required: false
+          type: string
+        - name: national_id
+          in: query
+          required: false
+          type: string
+        - name: mobile
+          in: query
+          required: false
+          type: string
+        - name: page
+          in: query
+          required: false
+          type: integer
+          format: int32
+        - name: page_size
+          in: query
+          required: false
+          type: integer
+          format: int32
       tags:
         - MeetService
     post:
@@ -258,6 +288,15 @@ definitions:
         items:
           type: object
           $ref: '#/definitions/meetsMeet'
+      total:
+        type: integer
+        format: int32
+      page:
+        type: integer
+        format: int32
+      page_size:
+        type: integer
+        format: int32
   meetsGetAvailabilityResponse:
     type: object
     properties:

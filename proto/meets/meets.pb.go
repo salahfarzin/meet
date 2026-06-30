@@ -380,6 +380,13 @@ type GetAllRequest struct {
 	OrganizerId   string                 `protobuf:"bytes,1,opt,name=organizer_id,json=organizerId,proto3" json:"organizer_id,omitempty"`
 	From          string                 `protobuf:"bytes,2,opt,name=from,proto3" json:"from,omitempty"`
 	To            string                 `protobuf:"bytes,3,opt,name=to,proto3" json:"to,omitempty"`
+	Clinic        string                 `protobuf:"bytes,4,opt,name=clinic,proto3" json:"clinic,omitempty"`
+	FirstName     string                 `protobuf:"bytes,5,opt,name=first_name,json=firstName,proto3" json:"first_name,omitempty"`
+	LastName      string                 `protobuf:"bytes,6,opt,name=last_name,json=lastName,proto3" json:"last_name,omitempty"`
+	NationalId    string                 `protobuf:"bytes,7,opt,name=national_id,json=nationalId,proto3" json:"national_id,omitempty"`
+	Mobile        string                 `protobuf:"bytes,8,opt,name=mobile,proto3" json:"mobile,omitempty"`
+	Page          int32                  `protobuf:"varint,9,opt,name=page,proto3" json:"page,omitempty"`
+	PageSize      int32                  `protobuf:"varint,10,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -435,9 +442,61 @@ func (x *GetAllRequest) GetTo() string {
 	return ""
 }
 
+func (x *GetAllRequest) GetClinic() string {
+	if x != nil {
+		return x.Clinic
+	}
+	return ""
+}
+
+func (x *GetAllRequest) GetFirstName() string {
+	if x != nil {
+		return x.FirstName
+	}
+	return ""
+}
+
+func (x *GetAllRequest) GetLastName() string {
+	if x != nil {
+		return x.LastName
+	}
+	return ""
+}
+
+func (x *GetAllRequest) GetNationalId() string {
+	if x != nil {
+		return x.NationalId
+	}
+	return ""
+}
+
+func (x *GetAllRequest) GetMobile() string {
+	if x != nil {
+		return x.Mobile
+	}
+	return ""
+}
+
+func (x *GetAllRequest) GetPage() int32 {
+	if x != nil {
+		return x.Page
+	}
+	return 0
+}
+
+func (x *GetAllRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
 type GetAllResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Meets         []*Meet                `protobuf:"bytes,1,rep,name=meets,proto3" json:"meets,omitempty"`
+	Total         int32                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	Page          int32                  `protobuf:"varint,3,opt,name=page,proto3" json:"page,omitempty"`
+	PageSize      int32                  `protobuf:"varint,4,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -477,6 +536,27 @@ func (x *GetAllResponse) GetMeets() []*Meet {
 		return x.Meets
 	}
 	return nil
+}
+
+func (x *GetAllResponse) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+func (x *GetAllResponse) GetPage() int32 {
+	if x != nil {
+		return x.Page
+	}
+	return 0
+}
+
+func (x *GetAllResponse) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
 }
 
 // Request & Response
@@ -1047,13 +1127,26 @@ const file_meets_meets_proto_rawDesc = "" +
 	"\x04meet\x18\x01 \x01(\v2\v.meets.MeetR\x04meet\"#\n" +
 	"\rDeleteRequest\x12\x12\n" +
 	"\x04uuid\x18\x01 \x01(\tR\x04uuid\"\x10\n" +
-	"\x0eDeleteResponse\"V\n" +
+	"\x0eDeleteResponse\"\x94\x02\n" +
 	"\rGetAllRequest\x12!\n" +
 	"\forganizer_id\x18\x01 \x01(\tR\vorganizerId\x12\x12\n" +
 	"\x04from\x18\x02 \x01(\tR\x04from\x12\x0e\n" +
-	"\x02to\x18\x03 \x01(\tR\x02to\"3\n" +
+	"\x02to\x18\x03 \x01(\tR\x02to\x12\x16\n" +
+	"\x06clinic\x18\x04 \x01(\tR\x06clinic\x12\x1d\n" +
+	"\n" +
+	"first_name\x18\x05 \x01(\tR\tfirstName\x12\x1b\n" +
+	"\tlast_name\x18\x06 \x01(\tR\blastName\x12\x1f\n" +
+	"\vnational_id\x18\a \x01(\tR\n" +
+	"nationalId\x12\x16\n" +
+	"\x06mobile\x18\b \x01(\tR\x06mobile\x12\x12\n" +
+	"\x04page\x18\t \x01(\x05R\x04page\x12\x1b\n" +
+	"\tpage_size\x18\n" +
+	" \x01(\x05R\bpageSize\"z\n" +
 	"\x0eGetAllResponse\x12!\n" +
-	"\x05meets\x18\x01 \x03(\v2\v.meets.MeetR\x05meets\"0\n" +
+	"\x05meets\x18\x01 \x03(\v2\v.meets.MeetR\x05meets\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\x12\x12\n" +
+	"\x04page\x18\x03 \x01(\x05R\x04page\x12\x1b\n" +
+	"\tpage_size\x18\x04 \x01(\x05R\bpageSize\"0\n" +
 	"\rCreateRequest\x12\x1f\n" +
 	"\x04meet\x18\x01 \x01(\v2\v.meets.MeetR\x04meet\"a\n" +
 	"\x0eCreateResponse\x12.\n" +

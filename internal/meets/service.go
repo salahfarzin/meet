@@ -104,7 +104,8 @@ func (s *service) ParseStartAndEndTimes(start, end string) (startTime, endTime t
 
 // QueryMeets implements Service.
 func (s *service) QueryMeets(ctx context.Context, opts *MeetQueryOptions) ([]*Meet, error) {
-	return s.repo.QueryMeets(ctx, opts)
+	meets, _, err := s.repo.QueryMeets(ctx, opts)
+	return meets, err
 }
 
 // Delete implements Service.
@@ -121,7 +122,7 @@ func (s *service) GetAvailability(ctx context.Context, organizerId string, from,
 		OnlyAvailable: func(b bool) *bool { return &b }(true),
 		PriceUuid:     priceUUID,
 	}
-	meets, err := s.repo.QueryMeets(ctx, opts)
+	meets, _, err := s.repo.QueryMeets(ctx, opts)
 	if err != nil {
 		return nil, err
 	}

@@ -77,9 +77,19 @@ message GetAllRequest {
   string organizer_id = 1;
   string from = 2;
   string to = 3;
+  string clinic = 4;
+  string first_name = 5;
+  string last_name = 6;
+  string national_id = 7;
+  string mobile = 8;
+  int32 page = 9;
+  int32 page_size = 10;
 }
 message GetAllResponse {
   repeated Meet meets = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 page_size = 4;
 }
 // Request & Response
 message CreateRequest {

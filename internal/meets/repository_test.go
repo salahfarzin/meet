@@ -9,6 +9,7 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRepositoryHasConflict(t *testing.T) {
@@ -304,7 +305,7 @@ func TestRepositoryQueryMeets(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "uuid", "title", "organizer_uuid", "price_uuid", "participant_uuids", "start_time", "end_time", "description", "color", "type", "booked_at"}).
 			AddRow(expectedMeets[0].ID, expectedMeets[0].UUID, expectedMeets[0].Title, expectedMeets[0].OrganizerUuid, expectedMeets[0].PriceUuid, `["p1"]`, expectedMeets[0].Start, expectedMeets[0].End, expectedMeets[0].Description, expectedMeets[0].Color, expectedMeets[0].Type, expectedMeets[0].BookedAt))
 
-	result, err := repo.QueryMeets(context.Background(), opts)
+	result, _, err := repo.QueryMeets(context.Background(), opts)
 	assert.NoError(t, err)
 	assert.Len(t, result, 1)
 	assert.Equal(t, expectedMeets[0].Title, result[0].Title)
@@ -403,7 +404,7 @@ func TestRepositoryQueryMeetsAvailability(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"uuid", "title", "start_time", "end_time"}).
 			AddRow(expectedSlots[0].UUID, expectedSlots[0].Title, expectedSlots[0].Start, expectedSlots[0].End))
 
-	result, err := repo.QueryMeets(context.Background(), &MeetQueryOptions{
+	result, _, err := repo.QueryMeets(context.Background(), &MeetQueryOptions{
 		OrganizerUuid: "org1",
 		OnlyAvailable: &onlyAvailable,
 		From:          &from,
@@ -483,7 +484,7 @@ func TestRepositoryQueryMeetsNoOrganizerUuid(t *testing.T) {
 
 	repo := NewRepository(db)
 
-	result, err := repo.QueryMeets(context.Background(), &MeetQueryOptions{})
+	result, _, err := repo.QueryMeets(context.Background(), &MeetQueryOptions{})
 	assert.Error(t, err)
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "OrganizerUuid is required")
@@ -496,7 +497,7 @@ func TestRepositoryQueryMeetsNilOptions(t *testing.T) {
 
 	repo := NewRepository(db)
 
-	result, err := repo.QueryMeets(context.Background(), nil)
+	result, _, err := repo.QueryMeets(context.Background(), nil)
 	assert.Error(t, err)
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "OrganizerUuid is required")
@@ -522,7 +523,7 @@ func TestRepositoryQueryMeetsQueryError(t *testing.T) {
 		WithArgs("org1", sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnError(errors.New("query error"))
 
-	result, err := repo.QueryMeets(context.Background(), opts)
+	result, _, err := repo.QueryMeets(context.Background(), opts)
 	assert.Error(t, err)
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "query error")
@@ -590,7 +591,7 @@ func TestRepositoryProcessRowsScanError(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "uuid", "title", "organizer_uuid", "price_uuid", "participant_uuids", "start_time", "end_time", "description", "color", "type", "booked_at"}).
 			AddRow("1", "uuid1", "Meet 1", "org1", nil, `["p1"]`, "invalid-time", "invalid-time", "Desc", "#fff", 1, nil))
 
-	result, err := repo.QueryMeets(context.Background(), opts)
+	result, _, err := repo.QueryMeets(context.Background(), opts)
 	assert.Error(t, err)
 	assert.Nil(t, result)
 
@@ -619,7 +620,7 @@ func TestRepositoryProcessRowsUnmarshalError(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "uuid", "title", "organizer_uuid", "price_uuid", "participant_uuids", "start_time", "end_time", "description", "color", "type", "booked_at"}).
 			AddRow("1", "uuid1", "Meet 1", "org1", nil, "invalid-json", time.Now(), time.Now().Add(time.Hour), "Desc", "#fff", 1, nil))
 
-	result, err := repo.QueryMeets(context.Background(), opts)
+	result, _, err := repo.QueryMeets(context.Background(), opts)
 	assert.Error(t, err)
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "failed to unmarshal participants")
@@ -647,6 +648,31 @@ func TestRepositoryGenerateAvailableSlotsError(t *testing.T) {
 	assert.Contains(t, err.Error(), "query error")
 
 	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestQueryMeetsScopesAndPaginates(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+	repo := NewRepository(db)
+
+	mock.ExpectQuery("SELECT COUNT").
+		WithArgs("clinic-1").
+		WillReturnRows(sqlmock.NewRows([]string{"c"}).AddRow(1))
+	mock.ExpectQuery("SELECT .* FROM meets").
+		WithArgs("clinic-1", 10, 0).
+		WillReturnRows(sqlmock.NewRows([]string{
+			"id", "uuid", "organizer_uuid", "price_uuid", "participant_uuids",
+			"type", "title", "start_time", "end_time", "color", "description", "booked_at",
+		}).AddRow(1, "m1", "clinic-1", nil, "[\"p1\"]", 1, "T", time.Now(), time.Now(), "", "", nil))
+
+	rows, total, err := repo.QueryMeets(context.Background(), &MeetQueryOptions{
+		OrganizerUuids: []string{"clinic-1"}, Page: 1, PageSize: 10,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 1, total)
+	assert.Len(t, rows, 1)
+	require.NoError(t, mock.ExpectationsWereMet())
 }
 
 func TestRepositoryGenerateAvailableSlotsScanError(t *testing.T) {
@@ -741,7 +767,7 @@ func TestRepositoryQueryMeetsAvailabilityDefaultDates(t *testing.T) {
 		WithArgs("org1", sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnRows(sqlmock.NewRows([]string{"uuid", "title", "start_time", "end_time"}))
 
-	result, err := repo.QueryMeets(context.Background(), &MeetQueryOptions{
+	result, _, err := repo.QueryMeets(context.Background(), &MeetQueryOptions{
 		OrganizerUuid: "org1",
 		OnlyAvailable: &onlyAvailable,
 	})
@@ -853,7 +879,7 @@ func TestRepositoryQueryMeetsNoFilters(t *testing.T) {
 		WithArgs("org1").
 		WillReturnRows(sqlmock.NewRows([]string{"id", "uuid", "title", "organizer_uuid", "price_uuid", "participant_uuids", "start_time", "end_time", "description", "color", "type", "booked_at"}))
 
-	result, err := repo.QueryMeets(context.Background(), &MeetQueryOptions{OrganizerUuid: "org1"})
+	result, _, err := repo.QueryMeets(context.Background(), &MeetQueryOptions{OrganizerUuid: "org1"})
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
 	assert.NoError(t, mock.ExpectationsWereMet())

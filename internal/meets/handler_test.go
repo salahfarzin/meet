@@ -29,8 +29,8 @@ func (m *MockRepoConflict) GetByUUID(ctx context.Context, uuid string) (*Meet, e
 }
 func (m *MockRepoConflict) Update(ctx context.Context, meet *Meet) error  { return nil }
 func (m *MockRepoConflict) Delete(ctx context.Context, uuid string) error { return nil }
-func (m *MockRepoConflict) QueryMeets(ctx context.Context, options *MeetQueryOptions) ([]*Meet, error) {
-	return nil, nil
+func (m *MockRepoConflict) QueryMeets(ctx context.Context, options *MeetQueryOptions) ([]*Meet, int, error) {
+	return nil, 0, nil
 }
 func (m *MockRepoConflict) GenerateAvailableSlots(ctx context.Context, organizerID string, from, to time.Time, priceUUID *string) ([]*Meet, error) {
 	return nil, nil

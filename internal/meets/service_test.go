@@ -15,7 +15,7 @@ type MockRepository struct {
 	GetByUUIDFunc     func(ctx context.Context, uuid string) (*Meet, error)
 	UpdateFunc        func(ctx context.Context, meet *Meet) error
 	DeleteFunc        func(ctx context.Context, uuid string) error
-	QueryMeetsFunc    func(ctx context.Context, options *MeetQueryOptions) ([]*Meet, error)
+	QueryMeetsFunc    func(ctx context.Context, options *MeetQueryOptions) ([]*Meet, int, error)
 	HasConflictFunc   func(ctx context.Context, organizerId string, start, end time.Time, excludeUUID ...string) (bool, error)
 	GenerateSlotsFunc func(ctx context.Context, organizerID string, from, to time.Time, priceUUID *string) ([]*Meet, error)
 }
@@ -55,13 +55,14 @@ func (m *MockRepository) Delete(ctx context.Context, uuid string) error {
 	return nil
 }
 
-func (m *MockRepository) QueryMeets(ctx context.Context, options *MeetQueryOptions) ([]*Meet, error) {
+func (m *MockRepository) QueryMeets(ctx context.Context, options *MeetQueryOptions) ([]*Meet, int, error) {
 	if m.QueryMeetsFunc != nil {
 		return m.QueryMeetsFunc(ctx, options)
 	}
-	return []*Meet{
+	meets := []*Meet{
 		{ID: "1", Title: "Meet 1", Start: time.Now(), End: time.Now().Add(time.Hour)},
-	}, nil
+	}
+	return meets, len(meets), nil
 }
 
 func (m *MockRepository) HasConflict(ctx context.Context, organizerId string, start, end time.Time, excludeUUID ...string) (bool, error) {
@@ -119,8 +120,8 @@ func TestServiceQueryMeets(t *testing.T) {
 
 func TestServiceQueryMeetsError(t *testing.T) {
 	mockRepo := &MockRepository{
-		QueryMeetsFunc: func(ctx context.Context, options *MeetQueryOptions) ([]*Meet, error) {
-			return nil, errors.New("query error")
+		QueryMeetsFunc: func(ctx context.Context, options *MeetQueryOptions) ([]*Meet, int, error) {
+			return nil, 0, errors.New("query error")
 		},
 	}
 	svc := NewService(mockRepo)
@@ -183,8 +184,8 @@ func TestServiceParseStartAndEndTimesInvalidEnd(t *testing.T) {
 func TestServiceGetAvailability(t *testing.T) {
 	now := time.Date(2023, 1, 1, 10, 0, 0, 0, time.UTC)
 	mockRepo := &MockRepository{
-		QueryMeetsFunc: func(ctx context.Context, options *MeetQueryOptions) ([]*Meet, error) {
-			return []*Meet{
+		QueryMeetsFunc: func(ctx context.Context, options *MeetQueryOptions) ([]*Meet, int, error) {
+			meets := []*Meet{
 				{
 					Title: "Meeting 1",
 					Start: now.Add(time.Hour),
@@ -195,7 +196,8 @@ func TestServiceGetAvailability(t *testing.T) {
 					Start: now.Add(3 * time.Hour),
 					End:   now.Add(4 * time.Hour),
 				},
-			}, nil
+			}
+			return meets, len(meets), nil
 		},
 	}
 	svc := NewService(mockRepo)
@@ -218,8 +220,8 @@ func TestServiceGetAvailability(t *testing.T) {
 
 func TestServiceGetAvailabilityError(t *testing.T) {
 	mockRepo := &MockRepository{
-		QueryMeetsFunc: func(ctx context.Context, options *MeetQueryOptions) ([]*Meet, error) {
-			return nil, errors.New("query error")
+		QueryMeetsFunc: func(ctx context.Context, options *MeetQueryOptions) ([]*Meet, int, error) {
+			return nil, 0, errors.New("query error")
 		},
 	}
 	svc := NewService(mockRepo)
