@@ -22,6 +22,11 @@ type Meet struct {
 	Color            string     `json:"color" db:"color"`
 	ParticipantUuids []string   `json:"participant_uuids" db:"participant_uuids"`
 	BookedAt         *time.Time `json:"booked_at" db:"booked_at"`
+	// Display-only fields: populated from identity service, never persisted.
+	FirstName    string `json:"first_name,omitempty" db:"-"`
+	LastName     string `json:"last_name,omitempty" db:"-"`
+	NationalCode string `json:"national_code,omitempty" db:"-"`
+	Mobile       string `json:"mobile,omitempty" db:"-"`
 }
 
 type Repository interface {

@@ -6,8 +6,37 @@ import (
 	"testing"
 	"time"
 
+	"github.com/salahfarzin/meet/internal/identity"
 	"github.com/stretchr/testify/assert"
 )
+
+// mockIdentityClient is a test double for identity.Client.
+type mockIdentityClient struct {
+	searchFunc     func(ctx context.Context, f identity.IdentityFilter) ([]string, error)
+	getByUUIDsFunc func(ctx context.Context, uuids []string) (map[string]identity.Identity, error)
+	listClinicsFunc func(ctx context.Context) ([]identity.Clinic, error)
+}
+
+func (m *mockIdentityClient) Search(ctx context.Context, f identity.IdentityFilter) ([]string, error) {
+	if m.searchFunc != nil {
+		return m.searchFunc(ctx, f)
+	}
+	return nil, nil
+}
+
+func (m *mockIdentityClient) GetByUUIDs(ctx context.Context, uuids []string) (map[string]identity.Identity, error) {
+	if m.getByUUIDsFunc != nil {
+		return m.getByUUIDsFunc(ctx, uuids)
+	}
+	return map[string]identity.Identity{}, nil
+}
+
+func (m *mockIdentityClient) ListClinics(ctx context.Context) ([]identity.Clinic, error) {
+	if m.listClinicsFunc != nil {
+		return m.listClinicsFunc(ctx)
+	}
+	return nil, nil
+}
 
 type MockRepository struct {
 	CreateFunc        func(ctx context.Context, meet *Meet) error
@@ -81,7 +110,7 @@ func (m *MockRepository) GenerateAvailableSlots(ctx context.Context, organizerID
 
 func TestServiceGetByID(t *testing.T) {
 	mockRepo := &MockRepository{}
-	svc := NewService(mockRepo)
+	svc := NewService(mockRepo, nil)
 
 	meet, err := svc.GetByID(context.Background(), "123")
 
@@ -97,7 +126,7 @@ func TestServiceGetByIDError(t *testing.T) {
 			return nil, errors.New("not found")
 		},
 	}
-	svc := NewService(mockRepo)
+	svc := NewService(mockRepo, nil)
 
 	meet, err := svc.GetByID(context.Background(), "123")
 
@@ -108,7 +137,7 @@ func TestServiceGetByIDError(t *testing.T) {
 
 func TestServiceQueryMeets(t *testing.T) {
 	mockRepo := &MockRepository{}
-	svc := NewService(mockRepo)
+	svc := NewService(mockRepo, nil)
 
 	opts := &MeetQueryOptions{OrganizerUuid: "org1"}
 	meets, err := svc.QueryMeets(context.Background(), opts)
@@ -124,7 +153,7 @@ func TestServiceQueryMeetsError(t *testing.T) {
 			return nil, 0, errors.New("query error")
 		},
 	}
-	svc := NewService(mockRepo)
+	svc := NewService(mockRepo, nil)
 
 	opts := &MeetQueryOptions{}
 	meets, err := svc.QueryMeets(context.Background(), opts)
@@ -136,7 +165,7 @@ func TestServiceQueryMeetsError(t *testing.T) {
 
 func TestServiceParseStartAndEndTimesValid(t *testing.T) {
 	mockRepo := &MockRepository{}
-	svc := NewService(mockRepo)
+	svc := NewService(mockRepo, nil)
 
 	startStr := "2023-01-01T10:00:00Z"
 	endStr := "2023-01-01T11:00:00Z"
@@ -153,7 +182,7 @@ func TestServiceParseStartAndEndTimesValid(t *testing.T) {
 
 func TestServiceParseStartAndEndTimesInvalidStart(t *testing.T) {
 	mockRepo := &MockRepository{}
-	svc := NewService(mockRepo)
+	svc := NewService(mockRepo, nil)
 
 	startStr := "invalid"
 	endStr := "2023-01-01T11:00:00Z"
@@ -168,7 +197,7 @@ func TestServiceParseStartAndEndTimesInvalidStart(t *testing.T) {
 
 func TestServiceParseStartAndEndTimesInvalidEnd(t *testing.T) {
 	mockRepo := &MockRepository{}
-	svc := NewService(mockRepo)
+	svc := NewService(mockRepo, nil)
 
 	startStr := "2023-01-01T10:00:00Z"
 	endStr := "invalid"
@@ -200,7 +229,7 @@ func TestServiceGetAvailability(t *testing.T) {
 			return meets, len(meets), nil
 		},
 	}
-	svc := NewService(mockRepo)
+	svc := NewService(mockRepo, nil)
 
 	from := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
 	to := from.AddDate(0, 0, 1)
@@ -224,7 +253,7 @@ func TestServiceGetAvailabilityError(t *testing.T) {
 			return nil, 0, errors.New("query error")
 		},
 	}
-	svc := NewService(mockRepo)
+	svc := NewService(mockRepo, nil)
 
 	from := time.Now()
 	to := from.Add(time.Hour)
@@ -242,7 +271,7 @@ func TestServiceCreateSuccess(t *testing.T) {
 			return false, nil
 		},
 	}
-	svc := NewService(mockRepo)
+	svc := NewService(mockRepo, nil)
 
 	meet := &Meet{
 		Title:         "Test Meet",
@@ -265,7 +294,7 @@ func TestServiceCreateConflict(t *testing.T) {
 			return true, nil
 		},
 	}
-	svc := NewService(mockRepo)
+	svc := NewService(mockRepo, nil)
 
 	meet := &Meet{
 		Title:         "Test Meet",
@@ -290,7 +319,7 @@ func TestServiceCreateRepoError(t *testing.T) {
 			return errors.New("repo create error")
 		},
 	}
-	svc := NewService(mockRepo)
+	svc := NewService(mockRepo, nil)
 
 	meet := &Meet{
 		Title:         "Test Meet",
@@ -312,7 +341,7 @@ func TestServiceUpdateSuccess(t *testing.T) {
 			return false, nil
 		},
 	}
-	svc := NewService(mockRepo)
+	svc := NewService(mockRepo, nil)
 
 	meet := &Meet{
 		UUID:          "test-uuid",
@@ -331,7 +360,7 @@ func TestServiceUpdateSuccess(t *testing.T) {
 
 func TestServiceUpdateNoUUID(t *testing.T) {
 	mockRepo := &MockRepository{}
-	svc := NewService(mockRepo)
+	svc := NewService(mockRepo, nil)
 
 	meet := &Meet{
 		Title:         "Updated Meet",
@@ -353,7 +382,7 @@ func TestServiceUpdateConflict(t *testing.T) {
 			return true, nil
 		},
 	}
-	svc := NewService(mockRepo)
+	svc := NewService(mockRepo, nil)
 
 	meet := &Meet{
 		UUID:          "test-uuid",
@@ -376,7 +405,7 @@ func TestServiceCreateHasConflictError(t *testing.T) {
 			return false, errors.New("conflict check error")
 		},
 	}
-	svc := NewService(mockRepo)
+	svc := NewService(mockRepo, nil)
 
 	meet := &Meet{
 		Title:         "Test Meet",
@@ -398,7 +427,7 @@ func TestServiceUpdateHasConflictError(t *testing.T) {
 			return false, errors.New("conflict check error")
 		},
 	}
-	svc := NewService(mockRepo)
+	svc := NewService(mockRepo, nil)
 
 	meet := &Meet{
 		UUID:          "test-uuid",
@@ -424,7 +453,7 @@ func TestServiceUpdateRepoError(t *testing.T) {
 			return errors.New("repo update error")
 		},
 	}
-	svc := NewService(mockRepo)
+	svc := NewService(mockRepo, nil)
 
 	meet := &Meet{
 		UUID:          "test-uuid",
@@ -443,7 +472,7 @@ func TestServiceUpdateRepoError(t *testing.T) {
 
 func TestServiceGetByUUID(t *testing.T) {
 	mockRepo := &MockRepository{}
-	svc := NewService(mockRepo)
+	svc := NewService(mockRepo, nil)
 
 	meet, err := svc.GetByUUID(context.Background(), "uuid-123")
 
@@ -459,7 +488,7 @@ func TestServiceGetByUUIDError(t *testing.T) {
 			return nil, errors.New("not found")
 		},
 	}
-	svc := NewService(mockRepo)
+	svc := NewService(mockRepo, nil)
 
 	meet, err := svc.GetByUUID(context.Background(), "uuid-123")
 
@@ -470,7 +499,7 @@ func TestServiceGetByUUIDError(t *testing.T) {
 
 func TestServiceDelete(t *testing.T) {
 	mockRepo := &MockRepository{}
-	svc := NewService(mockRepo)
+	svc := NewService(mockRepo, nil)
 
 	err := svc.Delete(context.Background(), "uuid-123")
 
@@ -483,10 +512,153 @@ func TestServiceDeleteError(t *testing.T) {
 			return errors.New("delete error")
 		},
 	}
-	svc := NewService(mockRepo)
+	svc := NewService(mockRepo, nil)
 
 	err := svc.Delete(context.Background(), "uuid-123")
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "delete error")
+}
+
+// ---- ListScheduling tests ----
+
+func TestListSchedulingEmptyAllowedClinics(t *testing.T) {
+	mockRepo := &MockRepository{}
+	idClient := &mockIdentityClient{}
+	svc := NewService(mockRepo, idClient)
+
+	result, err := svc.ListScheduling(context.Background(), ListSchedulingInput{
+		AllowedClinics: []string{},
+		Page:           1,
+		PageSize:       10,
+	})
+	assert.NoError(t, err)
+	assert.Empty(t, result.Meets)
+	assert.Equal(t, 0, result.Total)
+}
+
+func TestListSchedulingIdentitySearchEmptyResult(t *testing.T) {
+	mockRepo := &MockRepository{}
+	idClient := &mockIdentityClient{
+		searchFunc: func(ctx context.Context, f identity.IdentityFilter) ([]string, error) {
+			return []string{}, nil
+		},
+	}
+	svc := NewService(mockRepo, idClient)
+
+	result, err := svc.ListScheduling(context.Background(), ListSchedulingInput{
+		AllowedClinics: []string{"clinic-1"},
+		FirstName:      "Ada",
+		Page:           1,
+		PageSize:       10,
+	})
+	assert.NoError(t, err)
+	assert.Empty(t, result.Meets)
+	assert.Equal(t, 0, result.Total)
+}
+
+func TestListSchedulingIdentitySearchError(t *testing.T) {
+	mockRepo := &MockRepository{}
+	idClient := &mockIdentityClient{
+		searchFunc: func(ctx context.Context, f identity.IdentityFilter) ([]string, error) {
+			return nil, errors.New("search failed")
+		},
+	}
+	svc := NewService(mockRepo, idClient)
+
+	_, err := svc.ListScheduling(context.Background(), ListSchedulingInput{
+		AllowedClinics: []string{"clinic-1"},
+		FirstName:      "Ada",
+		Page:           1,
+		PageSize:       10,
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "search failed")
+}
+
+func TestListSchedulingEnrichesRows(t *testing.T) {
+	now := time.Now()
+	mockRepo := &MockRepository{
+		QueryMeetsFunc: func(ctx context.Context, options *MeetQueryOptions) ([]*Meet, int, error) {
+			return []*Meet{
+				{UUID: "m1", OrganizerUuid: "clinic-1", ParticipantUuids: []string{"p1"}, Start: now, End: now.Add(time.Hour)},
+			}, 1, nil
+		},
+	}
+	idClient := &mockIdentityClient{
+		getByUUIDsFunc: func(ctx context.Context, uuids []string) (map[string]identity.Identity, error) {
+			assert.ElementsMatch(t, []string{"p1"}, uuids)
+			return map[string]identity.Identity{
+				"p1": {UUID: "p1", FirstName: "Ada", LastName: "Lovelace", NationalCode: "123", Mobile: "0900"},
+			}, nil
+		},
+	}
+	svc := NewService(mockRepo, idClient)
+
+	result, err := svc.ListScheduling(context.Background(), ListSchedulingInput{
+		AllowedClinics: []string{"clinic-1"},
+		Page:           1,
+		PageSize:       10,
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, 1, result.Total)
+	assert.Len(t, result.Meets, 1)
+	assert.Equal(t, "Ada", result.Meets[0].FirstName)
+	assert.Equal(t, "Lovelace", result.Meets[0].LastName)
+	assert.Equal(t, "123", result.Meets[0].NationalCode)
+	assert.Equal(t, "0900", result.Meets[0].Mobile)
+}
+
+func TestListSchedulingGetByUUIDsError(t *testing.T) {
+	now := time.Now()
+	mockRepo := &MockRepository{
+		QueryMeetsFunc: func(ctx context.Context, options *MeetQueryOptions) ([]*Meet, int, error) {
+			return []*Meet{
+				{UUID: "m1", OrganizerUuid: "clinic-1", ParticipantUuids: []string{"p1"}, Start: now, End: now.Add(time.Hour)},
+			}, 1, nil
+		},
+	}
+	idClient := &mockIdentityClient{
+		getByUUIDsFunc: func(ctx context.Context, uuids []string) (map[string]identity.Identity, error) {
+			return nil, errors.New("identity unavailable")
+		},
+	}
+	svc := NewService(mockRepo, idClient)
+
+	_, err := svc.ListScheduling(context.Background(), ListSchedulingInput{
+		AllowedClinics: []string{"clinic-1"},
+		Page:           1,
+		PageSize:       10,
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "identity unavailable")
+}
+
+func TestListSchedulingSingleClinicFilter(t *testing.T) {
+	now := time.Now()
+	var capturedOpts *MeetQueryOptions
+	mockRepo := &MockRepository{
+		QueryMeetsFunc: func(ctx context.Context, options *MeetQueryOptions) ([]*Meet, int, error) {
+			capturedOpts = options
+			return []*Meet{}, 0, nil
+		},
+	}
+	idClient := &mockIdentityClient{}
+	svc := NewService(mockRepo, idClient)
+
+	from := now
+	to := now.Add(24 * time.Hour)
+	_, err := svc.ListScheduling(context.Background(), ListSchedulingInput{
+		AllowedClinics: []string{"clinic-1"},
+		Clinic:         "clinic-1",
+		From:           &from,
+		To:             &to,
+		Page:           2,
+		PageSize:       20,
+	})
+	assert.NoError(t, err)
+	assert.NotNil(t, capturedOpts)
+	assert.Equal(t, []string{"clinic-1"}, capturedOpts.OrganizerUuids)
+	assert.Equal(t, 2, capturedOpts.Page)
+	assert.Equal(t, 20, capturedOpts.PageSize)
 }

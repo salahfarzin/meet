@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/salahfarzin/meet/internal/identity"
 )
 
 type DateSlot struct {
@@ -21,6 +22,34 @@ type TimeSlot struct {
 	Duration string
 }
 
+// ListSchedulingInput holds all filter parameters for the scheduling list.
+type ListSchedulingInput struct {
+	// AllowedClinics are the organizer UUIDs this caller is allowed to see.
+	// An empty slice means the caller has no allowed clinics — return empty immediately.
+	AllowedClinics []string
+	// Clinic, when non-empty, restricts to a single clinic within AllowedClinics.
+	Clinic string
+	// Identity pre-filter fields — if any are set the identity service is queried first.
+	FirstName  string
+	LastName   string
+	NationalID string
+	Mobile     string
+	// Time range filter.
+	From *time.Time
+	To   *time.Time
+	// Pagination.
+	Page     int
+	PageSize int
+}
+
+// ListSchedulingResult is the paginated result of ListScheduling.
+type ListSchedulingResult struct {
+	Meets    []*Meet
+	Total    int
+	Page     int
+	PageSize int
+}
+
 type Service interface {
 	Create(ctx context.Context, meet *Meet) (*Meet, error)
 	Update(ctx context.Context, meet *Meet) (*Meet, error)
@@ -30,14 +59,16 @@ type Service interface {
 	GetAvailability(ctx context.Context, organizerId string, from, to time.Time, priceUUID *string) (map[string]DateSlot, error)
 	ParseStartAndEndTimes(start, end string) (time.Time, time.Time, error)
 	Delete(ctx context.Context, uuid string) error
+	ListScheduling(ctx context.Context, in ListSchedulingInput) (ListSchedulingResult, error)
 }
 
 type service struct {
-	repo Repository
+	repo     Repository
+	identity identity.Client
 }
 
-func NewService(repo Repository) Service {
-	return &service{repo: repo}
+func NewService(repo Repository, id identity.Client) Service {
+	return &service{repo: repo, identity: id}
 }
 
 // GetByID implements Service.
@@ -154,4 +185,101 @@ func (s *service) GetAvailability(ctx context.Context, organizerId string, from,
 		dates[date] = ds
 	}
 	return dates, nil
+}
+
+// ListScheduling returns a paginated, identity-enriched scheduling list scoped to the allowed clinics.
+func (s *service) ListScheduling(ctx context.Context, in ListSchedulingInput) (ListSchedulingResult, error) {
+	empty := ListSchedulingResult{Meets: []*Meet{}}
+
+	// 1. Empty allowed clinics → empty result (caller has no scope).
+	if len(in.AllowedClinics) == 0 {
+		return empty, nil
+	}
+
+	// 2. Identity pre-filter: if any name/id/mobile filter is set, resolve candidate participant UUIDs.
+	var participantUuids []string
+	needsIdentityFilter := in.FirstName != "" || in.LastName != "" || in.NationalID != "" || in.Mobile != ""
+	if needsIdentityFilter {
+		if s.identity == nil {
+			return empty, nil
+		}
+		uuids, err := s.identity.Search(ctx, identity.IdentityFilter{
+			FirstName:  in.FirstName,
+			LastName:   in.LastName,
+			NationalID: in.NationalID,
+			Mobile:     in.Mobile,
+		})
+		if err != nil {
+			return empty, err
+		}
+		// No matching patients → no meets to show.
+		if len(uuids) == 0 {
+			return empty, nil
+		}
+		participantUuids = uuids
+	}
+
+	// 3. Build query options scoped to allowed clinics.
+	opts := &MeetQueryOptions{
+		OrganizerUuids:   in.AllowedClinics,
+		ParticipantUuids: participantUuids,
+		From:             in.From,
+		To:               in.To,
+		Page:             in.Page,
+		PageSize:         in.PageSize,
+	}
+	// Optionally restrict to a single clinic within the allowed set.
+	if in.Clinic != "" {
+		opts.OrganizerUuids = []string{in.Clinic}
+	}
+
+	// 4. Query repository.
+	rows, total, err := s.repo.QueryMeets(ctx, opts)
+	if err != nil {
+		return empty, err
+	}
+
+	if len(rows) == 0 {
+		return ListSchedulingResult{Meets: []*Meet{}, Total: total, Page: in.Page, PageSize: in.PageSize}, nil
+	}
+
+	// 5. Collect all first-participant UUIDs for enrichment.
+	uuidSet := make(map[string]struct{}, len(rows))
+	for _, m := range rows {
+		if len(m.ParticipantUuids) > 0 {
+			uuidSet[m.ParticipantUuids[0]] = struct{}{}
+		}
+	}
+	uuidsToFetch := make([]string, 0, len(uuidSet))
+	for u := range uuidSet {
+		uuidsToFetch = append(uuidsToFetch, u)
+	}
+
+	// 6. Enrich with identity data.
+	var identityMap map[string]identity.Identity
+	if len(uuidsToFetch) > 0 && s.identity != nil {
+		identityMap, err = s.identity.GetByUUIDs(ctx, uuidsToFetch)
+		if err != nil {
+			return empty, err
+		}
+	}
+
+	// 7. Attach identity fields to each row's first participant.
+	for _, m := range rows {
+		if len(m.ParticipantUuids) > 0 {
+			if id, ok := identityMap[m.ParticipantUuids[0]]; ok {
+				m.FirstName = id.FirstName
+				m.LastName = id.LastName
+				m.NationalCode = id.NationalCode
+				m.Mobile = id.Mobile
+			}
+		}
+	}
+
+	return ListSchedulingResult{
+		Meets:    rows,
+		Total:    total,
+		Page:     in.Page,
+		PageSize: in.PageSize,
+	}, nil
 }

@@ -204,6 +204,10 @@ func (m *MockService) ParseStartAndEndTimes(start, end string) (startTime, endTi
 	return st, et, nil
 }
 
+func (m *MockService) ListScheduling(ctx context.Context, in ListSchedulingInput) (ListSchedulingResult, error) {
+	return ListSchedulingResult{Meets: []*Meet{}}, nil
+}
+
 func NewMockService() *MockService {
 	return &MockService{}
 }
