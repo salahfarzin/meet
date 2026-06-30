@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -206,7 +207,7 @@ func (repo *repository) queryMeetsPaginated(ctx context.Context, options *MeetQu
 		inPlaceholders[i] = "?"
 		args[i] = u
 	}
-	whereClause := "organizer_uuid IN (" + joinStrings(inPlaceholders, ",") + ")"
+	whereClause := "organizer_uuid IN (" + strings.Join(inPlaceholders, ",") + ")"
 
 	if options.From != nil {
 		whereClause += " AND start_time >= ?"
@@ -235,7 +236,7 @@ func (repo *repository) queryMeetsPaginated(ctx context.Context, options *MeetQu
 	// Paginated SELECT
 	selectQuery := `SELECT id, uuid, organizer_uuid, price_uuid, participant_uuids, type, title, start_time, end_time, color, description, booked_at FROM meets WHERE ` +
 		whereClause + ` ORDER BY start_time LIMIT ? OFFSET ?`
-	selectArgs := append(args, pageSize, offset)
+	selectArgs := append(args[:len(args):len(args)], pageSize, offset)
 
 	rows, err := repo.db.QueryContext(ctx, selectQuery, selectArgs...)
 	if err != nil {
@@ -258,20 +259,11 @@ func (repo *repository) queryMeetsPaginated(ctx context.Context, options *MeetQu
 		m.End = end
 		result = append(result, &m)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
 
 	return result, total, nil
-}
-
-// joinStrings joins a slice of strings with a separator.
-func joinStrings(ss []string, sep string) string {
-	result := ""
-	for i, s := range ss {
-		if i > 0 {
-			result += sep
-		}
-		result += s
-	}
-	return result
 }
 
 // buildQueryAndArgs constructs the SQL query and arguments based on options

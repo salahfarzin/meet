@@ -675,6 +675,37 @@ func TestQueryMeetsScopesAndPaginates(t *testing.T) {
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
+func TestQueryMeetsPaginatedRowsErr(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+	repo := NewRepository(db)
+
+	iterErr := errors.New("iteration error")
+
+	mock.ExpectQuery("SELECT COUNT").
+		WithArgs("clinic-1").
+		WillReturnRows(sqlmock.NewRows([]string{"c"}).AddRow(2))
+
+	// Return rows that produce an error after iteration via RowError.
+	dataRows := sqlmock.NewRows([]string{
+		"id", "uuid", "organizer_uuid", "price_uuid", "participant_uuids",
+		"type", "title", "start_time", "end_time", "color", "description", "booked_at",
+	}).AddRow(1, "m1", "clinic-1", nil, `["p1"]`, 1, "T", time.Now(), time.Now(), "", "", nil).
+		RowError(0, iterErr)
+
+	mock.ExpectQuery("SELECT .* FROM meets").
+		WithArgs("clinic-1", 10, 0).
+		WillReturnRows(dataRows)
+
+	_, _, err = repo.QueryMeets(context.Background(), &MeetQueryOptions{
+		OrganizerUuids: []string{"clinic-1"}, Page: 1, PageSize: 10,
+	})
+	require.Error(t, err)
+	assert.Equal(t, iterErr, err)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
 func TestRepositoryGenerateAvailableSlotsScanError(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	assert.NoError(t, err)
