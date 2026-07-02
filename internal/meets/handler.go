@@ -15,6 +15,8 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 type Handler interface {
@@ -54,6 +56,7 @@ func (h *handler) Create(ctx context.Context, req *pb.CreateRequest) (*pb.Create
 		Description:      req.Meet.Description,
 		Color:            req.Meet.Color,
 		Type:             int32(req.Meet.Type),
+		Settings:         settingsFromStruct(req.Meet.Settings),
 	})
 	if err != nil {
 		if err.Error() == "appointment conflict for this organizer and period" {
@@ -76,6 +79,8 @@ func (h *handler) Create(ctx context.Context, req *pb.CreateRequest) (*pb.Create
 			Color:            meet.Color,
 			Description:      meet.Description,
 			Type:             pb.MeetType(meet.Type),
+			Settings:         settingsToStruct(meet.Settings),
+			CreatedAt:        meet.CreatedAt.Format(time.RFC3339),
 		},
 	}, nil
 }
@@ -102,6 +107,7 @@ func (h *handler) Update(ctx context.Context, req *pb.UpdateRequest) (*pb.Update
 		Color:            req.Meet.Color,
 		Description:      req.Meet.Description,
 		Type:             int32(req.Meet.Type),
+		Settings:         settingsFromStruct(req.Meet.Settings),
 	})
 	if err != nil {
 		if err.Error() == "appointment conflict for this organizer and period" {
@@ -124,6 +130,8 @@ func (h *handler) Update(ctx context.Context, req *pb.UpdateRequest) (*pb.Update
 			Description:      meet.Description,
 			Color:            meet.Color,
 			Type:             pb.MeetType(meet.Type),
+			Settings:         settingsToStruct(meet.Settings),
+			CreatedAt:        meet.CreatedAt.Format(time.RFC3339),
 		},
 	}, nil
 }
@@ -155,6 +163,8 @@ func (h *handler) GetOne(ctx context.Context, req *pb.GetOneRequest) (*pb.GetOne
 			End:              meet.End.Format(time.RFC3339),
 			Color:            meet.Color,
 			Type:             pb.MeetType(meet.Type),
+			Settings:         settingsToStruct(meet.Settings),
+			CreatedAt:        meet.CreatedAt.Format(time.RFC3339),
 			BookedAt: func() *string {
 				if meet.BookedAt == nil {
 					return nil
@@ -264,16 +274,17 @@ func (h *handler) GetAll(ctx context.Context, req *pb.GetAllRequest) (*pb.GetAll
 
 	// --- Call service ---
 	result, err := h.service.ListScheduling(ctx, ListSchedulingInput{
-		AllowedClinics: allowedClinics,
-		Clinic:         req.Clinic,
-		FirstName:      firstName,
-		LastName:       lastName,
-		NationalID:     nationalID,
-		Mobile:         mobile,
-		From:           fromTime,
-		To:             toTime,
-		Page:           page,
-		PageSize:       pageSize,
+		AllowedClinics:  allowedClinics,
+		Clinic:          req.Clinic,
+		FirstName:       firstName,
+		LastName:        lastName,
+		NationalID:      nationalID,
+		Mobile:          mobile,
+		ParticipantUuid: req.ParticipantUuid,
+		From:            fromTime,
+		To:              toTime,
+		Page:            page,
+		PageSize:        pageSize,
 	})
 	if err != nil {
 		logger.FromContext(ctx).Error("failed to list scheduling", zap.Error(err))
@@ -306,6 +317,8 @@ func (h *handler) GetAll(ctx context.Context, req *pb.GetAllRequest) (*pb.GetAll
 			NationalCode: a.NationalCode,
 			Mobile:       a.Mobile,
 			ClinicName:   a.ClinicName,
+			Settings:     settingsToStruct(a.Settings),
+			CreatedAt:    a.CreatedAt.Format(time.RFC3339),
 		})
 	}
 
@@ -421,6 +434,34 @@ func validateUpdateRequest(req *pb.UpdateRequest) *common.ResponseStatus {
 		return &common.ResponseStatus{Code: http.StatusBadRequest, Message: "end time is required"}
 	}
 	return nil
+}
+
+// settingsToStruct converts the domain Meet.Settings (a JSON string) into a
+// *structpb.Struct for the proto response. Returns nil if settings is nil, empty,
+// or fails to parse as JSON.
+func settingsToStruct(settings *string) *structpb.Struct {
+	if settings == nil || *settings == "" {
+		return nil
+	}
+	s := &structpb.Struct{}
+	if err := protojson.Unmarshal([]byte(*settings), s); err != nil {
+		return nil
+	}
+	return s
+}
+
+// settingsFromStruct converts a *structpb.Struct from the proto request into the
+// domain Meet.Settings JSON string. Returns nil if s is nil.
+func settingsFromStruct(s *structpb.Struct) *string {
+	if s == nil {
+		return nil
+	}
+	b, err := protojson.Marshal(s)
+	if err != nil {
+		return nil
+	}
+	str := string(b)
+	return &str
 }
 
 func retrieveOrganizerUuid(ctx context.Context, organizerUserID string) string {

@@ -805,3 +805,30 @@ func TestListSchedulingSingleClinicFilter(t *testing.T) {
 	assert.Equal(t, 2, capturedOpts.Page)
 	assert.Equal(t, 20, capturedOpts.PageSize)
 }
+
+// TestListSchedulingParticipantUuidBypassesIdentitySearch verifies that when
+// ParticipantUuid is set, ListScheduling uses it directly as an exact-match filter
+// and never calls the identity Search pre-filter (identity client is nil here, so
+// any attempt to call it would panic).
+func TestListSchedulingParticipantUuidBypassesIdentitySearch(t *testing.T) {
+	mockRepo := &MockRepository{
+		QueryMeetsFunc: func(ctx context.Context, options *MeetQueryOptions) ([]*Meet, int, error) {
+			assert.Equal(t, []string{"patient-1"}, options.ParticipantUuids)
+			// Clinic scoping still applies alongside the ParticipantUuid bypass.
+			assert.Equal(t, []string{"clinic-1"}, options.OrganizerUuids)
+			return []*Meet{{UUID: "m1", OrganizerUuid: "clinic-1", ParticipantUuids: []string{"patient-1"}}}, 1, nil
+		},
+	}
+	svc := NewService(mockRepo, nil) // no identity client — must not be needed for this path
+
+	result, err := svc.ListScheduling(context.Background(), ListSchedulingInput{
+		AllowedClinics:  []string{"clinic-1"},
+		ParticipantUuid: "patient-1",
+		Page:            1,
+		PageSize:        20,
+	})
+
+	assert.NoError(t, err)
+	assert.Len(t, result.Meets, 1)
+	assert.Equal(t, "m1", result.Meets[0].UUID)
+}

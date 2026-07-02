@@ -98,6 +98,10 @@ type MockService struct {
 	// ListClinicsErr, when non-nil, is returned by ListClinics so tests can
 	// simulate the identity service being unreachable for admin callers.
 	ListClinicsErr error
+	// ListSchedulingFn, when non-nil, overrides the default ListScheduling behavior
+	// entirely — used by tests that need to control the returned Meets/inspect the
+	// received ListSchedulingInput (e.g. Settings/CreatedAt/ParticipantUuid mapping).
+	ListSchedulingFn func(ctx context.Context, in ListSchedulingInput) (ListSchedulingResult, error)
 }
 
 func (m *MockService) Create(ctx context.Context, meet *Meet) (*Meet, error) {
@@ -213,6 +217,9 @@ func (m *MockService) ParseStartAndEndTimes(start, end string) (startTime, endTi
 }
 
 func (m *MockService) ListScheduling(ctx context.Context, in ListSchedulingInput) (ListSchedulingResult, error) {
+	if m.ListSchedulingFn != nil {
+		return m.ListSchedulingFn(ctx, in)
+	}
 	// Return the injected error when the test has set ListSchedulingErr.
 	if m.ListSchedulingErr != nil {
 		return ListSchedulingResult{}, m.ListSchedulingErr
@@ -536,6 +543,39 @@ func TestGetAllMeetsWithPartiallyInvalidDates(t *testing.T) {
 	assert.NotNil(t, resp)
 	assert.Len(t, resp.Meets, 1)
 	assert.Equal(t, "From Date Meet", resp.Meets[0].Title)
+}
+
+// TestHandlerGetAllMapsSettingsCreatedAtAndParticipantUuid verifies that GetAll
+// forwards req.ParticipantUuid into ListSchedulingInput, and maps the domain
+// Meet.Settings/CreatedAt fields onto the response's pb.Meet.Settings/CreatedAt.
+func TestHandlerGetAllMapsSettingsCreatedAtAndParticipantUuid(t *testing.T) {
+	settings := `{"is_absent":true}`
+	svc := NewMockService()
+	svc.ListSchedulingFn = func(ctx context.Context, in ListSchedulingInput) (ListSchedulingResult, error) {
+		assert.Equal(t, "patient-1", in.ParticipantUuid)
+		return ListSchedulingResult{
+			Meets: []*Meet{{
+				UUID: "m1", OrganizerUuid: "clinic-1",
+				Settings:  &settings,
+				CreatedAt: time.Date(2026, 7, 1, 8, 0, 0, 0, time.UTC),
+			}},
+			Total: 1, Page: 1, PageSize: 20,
+		}, nil
+	}
+	h := NewHandler(svc)
+
+	md := metadata.New(map[string]string{
+		"x-user-roles": "Programmer",
+		"x-user-uuid":  "clinic-1",
+	})
+	ctx := metadata.NewIncomingContext(context.Background(), md)
+
+	resp, err := h.GetAll(ctx, &pb.GetAllRequest{ParticipantUuid: "patient-1"})
+
+	assert.NoError(t, err)
+	assert.Len(t, resp.Meets, 1)
+	assert.Equal(t, "2026-07-01T08:00:00Z", resp.Meets[0].CreatedAt)
+	assert.True(t, resp.Meets[0].Settings.Fields["is_absent"].GetBoolValue())
 }
 
 func TestUpdateMeet(t *testing.T) {

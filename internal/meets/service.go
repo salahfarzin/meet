@@ -38,6 +38,9 @@ type ListSchedulingInput struct {
 	LastName   string
 	NationalID string
 	Mobile     string
+	// ParticipantUuid, when set, is an exact-match filter — bypasses the identity Search
+	// pre-filter entirely (the caller already knows the UUID; this is not a name/mobile lookup).
+	ParticipantUuid string
 	// Time range filter.
 	From *time.Time
 	To   *time.Time
@@ -213,27 +216,32 @@ func (s *service) ListScheduling(ctx context.Context, in ListSchedulingInput) (L
 
 	// 2. Identity pre-filter: if any name/id/mobile filter is set, resolve candidate participant UUIDs.
 	var participantUuids []string
-	needsIdentityFilter := in.FirstName != "" || in.LastName != "" || in.NationalID != "" || in.Mobile != ""
-	if needsIdentityFilter {
-		if s.identity == nil {
-			// identity client is nil only in unit tests; production wiring always injects a real client.
-			// When nil with an active identity filter, return empty rather than erroring.
-			return empty, nil
+	if in.ParticipantUuid != "" {
+		// Exact-match filter — caller already knows the UUID, so skip the identity Search entirely.
+		participantUuids = []string{in.ParticipantUuid}
+	} else {
+		needsIdentityFilter := in.FirstName != "" || in.LastName != "" || in.NationalID != "" || in.Mobile != ""
+		if needsIdentityFilter {
+			if s.identity == nil {
+				// identity client is nil only in unit tests; production wiring always injects a real client.
+				// When nil with an active identity filter, return empty rather than erroring.
+				return empty, nil
+			}
+			uuids, err := s.identity.Search(ctx, identity.IdentityFilter{
+				FirstName:  in.FirstName,
+				LastName:   in.LastName,
+				NationalID: in.NationalID,
+				Mobile:     in.Mobile,
+			})
+			if err != nil {
+				return empty, err
+			}
+			// No matching patients → no meets to show.
+			if len(uuids) == 0 {
+				return empty, nil
+			}
+			participantUuids = uuids
 		}
-		uuids, err := s.identity.Search(ctx, identity.IdentityFilter{
-			FirstName:  in.FirstName,
-			LastName:   in.LastName,
-			NationalID: in.NationalID,
-			Mobile:     in.Mobile,
-		})
-		if err != nil {
-			return empty, err
-		}
-		// No matching patients → no meets to show.
-		if len(uuids) == 0 {
-			return empty, nil
-		}
-		participantUuids = uuids
 	}
 
 	// 3. Build query options scoped to allowed clinics.
