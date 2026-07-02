@@ -77,6 +77,14 @@ paths:
           required: false
           type: integer
           format: int32
+        - name: participant_uuid
+          description: |-
+            participant_uuid, when set, restricts results to meets where this exact UUID is the
+            (sole) participant — used for "this user's appointment history". Bypasses the identity
+            name/mobile search path entirely.
+          in: query
+          required: false
+          type: string
       tags:
         - MeetService
     post:
@@ -356,6 +364,14 @@ definitions:
       clinic_name:
         type: string
         description: clinic_name is the display name of the meet's organizer (clinic/center identity).
+      settings:
+        type: object
+        description: |-
+          settings holds admin-workflow state (approved_at, is_absent, present_at) — free-form,
+          owned entirely by the caller (ravanhealth), opaque to this service.
+      created_at:
+        type: string
+        description: 'created_at exposes the existing meets.created_at column (RFC3339). Read-only: ignored on input.'
     title: Meet message
   meetsMeetType:
     type: integer
@@ -391,6 +407,19 @@ definitions:
       '@type':
         type: string
     additionalProperties: {}
+  protobufNullValue:
+    type: integer
+    format: int32
+    enum:
+      - 0
+    default: 0
+    description: |-
+      `NullValue` is a singleton enumeration to represent the null value for the
+      `Value` type union.
+
+      The JSON representation for `NullValue` is JSON `null`.
+
+       - 0: Null value.
   rpcStatus:
     type: object
     properties:

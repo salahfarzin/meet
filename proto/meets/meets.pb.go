@@ -12,6 +12,7 @@ import (
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -99,7 +100,12 @@ type Meet struct {
 	NationalCode string `protobuf:"bytes,14,opt,name=national_code,json=nationalCode,proto3" json:"national_code,omitempty"`
 	Mobile       string `protobuf:"bytes,15,opt,name=mobile,proto3" json:"mobile,omitempty"`
 	// clinic_name is the display name of the meet's organizer (clinic/center identity).
-	ClinicName    string `protobuf:"bytes,16,opt,name=clinic_name,json=clinicName,proto3" json:"clinic_name,omitempty"`
+	ClinicName string `protobuf:"bytes,16,opt,name=clinic_name,json=clinicName,proto3" json:"clinic_name,omitempty"`
+	// settings holds admin-workflow state (approved_at, is_absent, present_at) — free-form,
+	// owned entirely by the caller (ravanhealth), opaque to this service.
+	Settings *structpb.Struct `protobuf:"bytes,17,opt,name=settings,proto3" json:"settings,omitempty"`
+	// created_at exposes the existing meets.created_at column (RFC3339). Read-only: ignored on input.
+	CreatedAt     string `protobuf:"bytes,18,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -242,6 +248,20 @@ func (x *Meet) GetMobile() string {
 func (x *Meet) GetClinicName() string {
 	if x != nil {
 		return x.ClinicName
+	}
+	return ""
+}
+
+func (x *Meet) GetSettings() *structpb.Struct {
+	if x != nil {
+		return x.Settings
+	}
+	return nil
+}
+
+func (x *Meet) GetCreatedAt() string {
+	if x != nil {
+		return x.CreatedAt
 	}
 	return ""
 }
@@ -418,19 +438,23 @@ func (*DeleteResponse) Descriptor() ([]byte, []int) {
 
 // Request & Response
 type GetAllRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	OrganizerId   string                 `protobuf:"bytes,1,opt,name=organizer_id,json=organizerId,proto3" json:"organizer_id,omitempty"`
-	From          string                 `protobuf:"bytes,2,opt,name=from,proto3" json:"from,omitempty"`
-	To            string                 `protobuf:"bytes,3,opt,name=to,proto3" json:"to,omitempty"`
-	Clinic        string                 `protobuf:"bytes,4,opt,name=clinic,proto3" json:"clinic,omitempty"`
-	FirstName     string                 `protobuf:"bytes,5,opt,name=first_name,json=firstName,proto3" json:"first_name,omitempty"`
-	LastName      string                 `protobuf:"bytes,6,opt,name=last_name,json=lastName,proto3" json:"last_name,omitempty"`
-	NationalId    string                 `protobuf:"bytes,7,opt,name=national_id,json=nationalId,proto3" json:"national_id,omitempty"`
-	Mobile        string                 `protobuf:"bytes,8,opt,name=mobile,proto3" json:"mobile,omitempty"`
-	Page          int32                  `protobuf:"varint,9,opt,name=page,proto3" json:"page,omitempty"`
-	PageSize      int32                  `protobuf:"varint,10,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	OrganizerId string                 `protobuf:"bytes,1,opt,name=organizer_id,json=organizerId,proto3" json:"organizer_id,omitempty"`
+	From        string                 `protobuf:"bytes,2,opt,name=from,proto3" json:"from,omitempty"`
+	To          string                 `protobuf:"bytes,3,opt,name=to,proto3" json:"to,omitempty"`
+	Clinic      string                 `protobuf:"bytes,4,opt,name=clinic,proto3" json:"clinic,omitempty"`
+	FirstName   string                 `protobuf:"bytes,5,opt,name=first_name,json=firstName,proto3" json:"first_name,omitempty"`
+	LastName    string                 `protobuf:"bytes,6,opt,name=last_name,json=lastName,proto3" json:"last_name,omitempty"`
+	NationalId  string                 `protobuf:"bytes,7,opt,name=national_id,json=nationalId,proto3" json:"national_id,omitempty"`
+	Mobile      string                 `protobuf:"bytes,8,opt,name=mobile,proto3" json:"mobile,omitempty"`
+	Page        int32                  `protobuf:"varint,9,opt,name=page,proto3" json:"page,omitempty"`
+	PageSize    int32                  `protobuf:"varint,10,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	// participant_uuid, when set, restricts results to meets where this exact UUID is the
+	// (sole) participant — used for "this user's appointment history". Bypasses the identity
+	// name/mobile search path entirely.
+	ParticipantUuid string `protobuf:"bytes,11,opt,name=participant_uuid,json=participantUuid,proto3" json:"participant_uuid,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *GetAllRequest) Reset() {
@@ -531,6 +555,13 @@ func (x *GetAllRequest) GetPageSize() int32 {
 		return x.PageSize
 	}
 	return 0
+}
+
+func (x *GetAllRequest) GetParticipantUuid() string {
+	if x != nil {
+		return x.ParticipantUuid
+	}
+	return ""
 }
 
 type GetAllResponse struct {
@@ -1145,7 +1176,7 @@ var File_meets_meets_proto protoreflect.FileDescriptor
 
 const file_meets_meets_proto_rawDesc = "" +
 	"\n" +
-	"\x11meets/meets.proto\x12\x05meets\x1a\x1cgoogle/api/annotations.proto\x1a\x13common/common.proto\x1a.protoc-gen-openapiv2/options/annotations.proto\"\x86\x04\n" +
+	"\x11meets/meets.proto\x12\x05meets\x1a\x1cgoogle/api/annotations.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x13common/common.proto\x1a.protoc-gen-openapiv2/options/annotations.proto\"\xda\x04\n" +
 	"\x04Meet\x12\x12\n" +
 	"\x04uuid\x18\x01 \x01(\tR\x04uuid\x12%\n" +
 	"\x0eorganizer_uuid\x18\x02 \x01(\tR\rorganizerUuid\x12\"\n" +
@@ -1166,7 +1197,10 @@ const file_meets_meets_proto_rawDesc = "" +
 	"\rnational_code\x18\x0e \x01(\tR\fnationalCode\x12\x16\n" +
 	"\x06mobile\x18\x0f \x01(\tR\x06mobile\x12\x1f\n" +
 	"\vclinic_name\x18\x10 \x01(\tR\n" +
-	"clinicNameB\r\n" +
+	"clinicName\x123\n" +
+	"\bsettings\x18\x11 \x01(\v2\x17.google.protobuf.StructR\bsettings\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\x12 \x01(\tR\tcreatedAtB\r\n" +
 	"\v_price_uuidB\f\n" +
 	"\n" +
 	"_booked_at\"#\n" +
@@ -1176,7 +1210,7 @@ const file_meets_meets_proto_rawDesc = "" +
 	"\x04meet\x18\x01 \x01(\v2\v.meets.MeetR\x04meet\"#\n" +
 	"\rDeleteRequest\x12\x12\n" +
 	"\x04uuid\x18\x01 \x01(\tR\x04uuid\"\x10\n" +
-	"\x0eDeleteResponse\"\x94\x02\n" +
+	"\x0eDeleteResponse\"\xbf\x02\n" +
 	"\rGetAllRequest\x12!\n" +
 	"\forganizer_id\x18\x01 \x01(\tR\vorganizerId\x12\x12\n" +
 	"\x04from\x18\x02 \x01(\tR\x04from\x12\x0e\n" +
@@ -1190,7 +1224,8 @@ const file_meets_meets_proto_rawDesc = "" +
 	"\x06mobile\x18\b \x01(\tR\x06mobile\x12\x12\n" +
 	"\x04page\x18\t \x01(\x05R\x04page\x12\x1b\n" +
 	"\tpage_size\x18\n" +
-	" \x01(\x05R\bpageSize\"z\n" +
+	" \x01(\x05R\bpageSize\x12)\n" +
+	"\x10participant_uuid\x18\v \x01(\tR\x0fparticipantUuid\"z\n" +
 	"\x0eGetAllResponse\x12!\n" +
 	"\x05meets\x18\x01 \x03(\v2\v.meets.MeetR\x05meets\x12\x14\n" +
 	"\x05total\x18\x02 \x01(\x05R\x05total\x12\x12\n" +
@@ -1288,39 +1323,41 @@ var file_meets_meets_proto_goTypes = []any{
 	(*GetAvailabilityResponse)(nil), // 15: meets.GetAvailabilityResponse
 	(*GetMeetTypesRequest)(nil),     // 16: meets.GetMeetTypesRequest
 	(*GetMeetTypesResponse)(nil),    // 17: meets.GetMeetTypesResponse
-	(*common.ResponseStatus)(nil),   // 18: common.ResponseStatus
+	(*structpb.Struct)(nil),         // 18: google.protobuf.Struct
+	(*common.ResponseStatus)(nil),   // 19: common.ResponseStatus
 }
 var file_meets_meets_proto_depIdxs = []int32{
 	0,  // 0: meets.Meet.type:type_name -> meets.MeetType
-	1,  // 1: meets.GetOneResponse.meet:type_name -> meets.Meet
-	1,  // 2: meets.GetAllResponse.meets:type_name -> meets.Meet
-	1,  // 3: meets.CreateRequest.meet:type_name -> meets.Meet
-	18, // 4: meets.CreateResponse.status:type_name -> common.ResponseStatus
-	1,  // 5: meets.CreateResponse.meet:type_name -> meets.Meet
-	1,  // 6: meets.UpdateRequest.meet:type_name -> meets.Meet
-	1,  // 7: meets.UpdateResponse.meet:type_name -> meets.Meet
-	14, // 8: meets.DateSlot.times:type_name -> meets.TimeSlot
-	13, // 9: meets.GetAvailabilityResponse.dates:type_name -> meets.DateSlot
-	0,  // 10: meets.GetMeetTypesResponse.types:type_name -> meets.MeetType
-	6,  // 11: meets.MeetService.GetAll:input_type -> meets.GetAllRequest
-	2,  // 12: meets.MeetService.GetOne:input_type -> meets.GetOneRequest
-	8,  // 13: meets.MeetService.Create:input_type -> meets.CreateRequest
-	10, // 14: meets.MeetService.Update:input_type -> meets.UpdateRequest
-	4,  // 15: meets.MeetService.Delete:input_type -> meets.DeleteRequest
-	12, // 16: meets.MeetService.GetAvailability:input_type -> meets.GetAvailabilityRequest
-	16, // 17: meets.MeetService.GetMeetTypes:input_type -> meets.GetMeetTypesRequest
-	7,  // 18: meets.MeetService.GetAll:output_type -> meets.GetAllResponse
-	3,  // 19: meets.MeetService.GetOne:output_type -> meets.GetOneResponse
-	9,  // 20: meets.MeetService.Create:output_type -> meets.CreateResponse
-	11, // 21: meets.MeetService.Update:output_type -> meets.UpdateResponse
-	5,  // 22: meets.MeetService.Delete:output_type -> meets.DeleteResponse
-	15, // 23: meets.MeetService.GetAvailability:output_type -> meets.GetAvailabilityResponse
-	17, // 24: meets.MeetService.GetMeetTypes:output_type -> meets.GetMeetTypesResponse
-	18, // [18:25] is the sub-list for method output_type
-	11, // [11:18] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	18, // 1: meets.Meet.settings:type_name -> google.protobuf.Struct
+	1,  // 2: meets.GetOneResponse.meet:type_name -> meets.Meet
+	1,  // 3: meets.GetAllResponse.meets:type_name -> meets.Meet
+	1,  // 4: meets.CreateRequest.meet:type_name -> meets.Meet
+	19, // 5: meets.CreateResponse.status:type_name -> common.ResponseStatus
+	1,  // 6: meets.CreateResponse.meet:type_name -> meets.Meet
+	1,  // 7: meets.UpdateRequest.meet:type_name -> meets.Meet
+	1,  // 8: meets.UpdateResponse.meet:type_name -> meets.Meet
+	14, // 9: meets.DateSlot.times:type_name -> meets.TimeSlot
+	13, // 10: meets.GetAvailabilityResponse.dates:type_name -> meets.DateSlot
+	0,  // 11: meets.GetMeetTypesResponse.types:type_name -> meets.MeetType
+	6,  // 12: meets.MeetService.GetAll:input_type -> meets.GetAllRequest
+	2,  // 13: meets.MeetService.GetOne:input_type -> meets.GetOneRequest
+	8,  // 14: meets.MeetService.Create:input_type -> meets.CreateRequest
+	10, // 15: meets.MeetService.Update:input_type -> meets.UpdateRequest
+	4,  // 16: meets.MeetService.Delete:input_type -> meets.DeleteRequest
+	12, // 17: meets.MeetService.GetAvailability:input_type -> meets.GetAvailabilityRequest
+	16, // 18: meets.MeetService.GetMeetTypes:input_type -> meets.GetMeetTypesRequest
+	7,  // 19: meets.MeetService.GetAll:output_type -> meets.GetAllResponse
+	3,  // 20: meets.MeetService.GetOne:output_type -> meets.GetOneResponse
+	9,  // 21: meets.MeetService.Create:output_type -> meets.CreateResponse
+	11, // 22: meets.MeetService.Update:output_type -> meets.UpdateResponse
+	5,  // 23: meets.MeetService.Delete:output_type -> meets.DeleteResponse
+	15, // 24: meets.MeetService.GetAvailability:output_type -> meets.GetAvailabilityResponse
+	17, // 25: meets.MeetService.GetMeetTypes:output_type -> meets.GetMeetTypesResponse
+	19, // [19:26] is the sub-list for method output_type
+	12, // [12:19] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_meets_meets_proto_init() }

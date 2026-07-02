@@ -3,6 +3,7 @@ syntax = "proto3";
 package meets;
 
 import "google/api/annotations.proto";
+import "google/protobuf/struct.proto";
 import "common/common.proto";
 import "protoc-gen-openapiv2/options/annotations.proto";
 
@@ -64,6 +65,11 @@ message Meet {
   string mobile = 15;
   // clinic_name is the display name of the meet's organizer (clinic/center identity).
   string clinic_name = 16;
+  // settings holds admin-workflow state (approved_at, is_absent, present_at) — free-form,
+  // owned entirely by the caller (ravanhealth), opaque to this service.
+  google.protobuf.Struct settings = 17;
+  // created_at exposes the existing meets.created_at column (RFC3339). Read-only: ignored on input.
+  string created_at = 18;
 }
 
 // Request & Response
@@ -91,6 +97,10 @@ message GetAllRequest {
   string mobile = 8;
   int32 page = 9;
   int32 page_size = 10;
+  // participant_uuid, when set, restricts results to meets where this exact UUID is the
+  // (sole) participant — used for "this user's appointment history". Bypasses the identity
+  // name/mobile search path entirely.
+  string participant_uuid = 11;
 }
 message GetAllResponse {
   repeated Meet meets = 1;
