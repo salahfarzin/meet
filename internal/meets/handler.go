@@ -245,8 +245,13 @@ func (h *handler) GetAll(ctx context.Context, req *pb.GetAllRequest) (*pb.GetAll
 			allowedClinics = []string{user.Uuid}
 		} else {
 			// If ListClinics returned results, use their UUIDs; otherwise fall back to user.Uuid.
+			// user.Uuid is always included alongside real clinics too - it's the
+			// same identity retrieveOrganizerUuid() falls back to when a meet is
+			// created with no organizer_uuid, so without it those "general"
+			// (no-clinic) meets could never be read back by this same caller.
 			if len(clinics) > 0 {
-				allowedClinics = make([]string, 0, len(clinics))
+				allowedClinics = make([]string, 0, len(clinics)+1)
+				allowedClinics = append(allowedClinics, user.Uuid)
 				for _, c := range clinics {
 					allowedClinics = append(allowedClinics, c.UUID)
 				}
