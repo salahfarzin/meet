@@ -131,6 +131,12 @@ func (m *MockService) Update(ctx context.Context, meet *Meet) (*Meet, error) {
 	if meet.Title == "conflict" {
 		return nil, errors.New("appointment conflict for this organizer and period")
 	}
+	if meet.Title == "version-conflict" {
+		return nil, ErrVersionConflict
+	}
+	if meet.Title == "not-found" {
+		return nil, errors.New("meet not found")
+	}
 	return meet, nil
 }
 
@@ -591,6 +597,39 @@ func TestUpdateMeet(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
 	assert.Equal(t, "Updated Dentist", resp.Meet.Title)
+}
+
+func TestUpdateMeetVersionConflict(t *testing.T) {
+	h := NewHandler(NewMockService())
+	resp, err := h.Update(context.Background(), &pb.UpdateRequest{
+		Uuid: "test-uuid",
+		Meet: &pb.Meet{
+			Title:   "version-conflict",
+			Start:   "2023-01-01T10:00:00Z",
+			End:     "2023-01-01T11:00:00Z",
+			Version: 1,
+		},
+	})
+	assert.Nil(t, resp)
+	st, ok := status.FromError(err)
+	assert.True(t, ok)
+	assert.Equal(t, codes.Aborted, st.Code())
+}
+
+func TestUpdateMeetNotFound(t *testing.T) {
+	h := NewHandler(NewMockService())
+	resp, err := h.Update(context.Background(), &pb.UpdateRequest{
+		Uuid: "test-uuid",
+		Meet: &pb.Meet{
+			Title: "not-found",
+			Start: "2023-01-01T10:00:00Z",
+			End:   "2023-01-01T11:00:00Z",
+		},
+	})
+	assert.Nil(t, resp)
+	st, ok := status.FromError(err)
+	assert.True(t, ok)
+	assert.Equal(t, codes.NotFound, st.Code())
 }
 
 func TestUpdateMeetValidationError(t *testing.T) {

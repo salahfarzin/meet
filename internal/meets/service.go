@@ -322,7 +322,10 @@ func (s *service) ListScheduling(ctx context.Context, in ListSchedulingInput) (L
 		}
 		if m.OrganizerUuid != "" {
 			if org, ok := identityMap[m.OrganizerUuid]; ok {
-				name := strings.TrimSpace(org.FirstName + " " + org.LastName)
+				name := strings.TrimSpace(org.Name)
+				if name == "" {
+					name = strings.TrimSpace(org.FirstName + " " + org.LastName)
+				}
 				m.ClinicName = name
 			}
 		}

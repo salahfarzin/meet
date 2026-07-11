@@ -12,8 +12,8 @@ import (
 
 // mockIdentityClient is a test double for identity.Client.
 type mockIdentityClient struct {
-	searchFunc     func(ctx context.Context, f identity.IdentityFilter) ([]string, error)
-	getByUUIDsFunc func(ctx context.Context, uuids []string) (map[string]identity.Identity, error)
+	searchFunc      func(ctx context.Context, f identity.IdentityFilter) ([]string, error)
+	getByUUIDsFunc  func(ctx context.Context, uuids []string) (map[string]identity.Identity, error)
 	listClinicsFunc func(ctx context.Context) ([]identity.Clinic, error)
 }
 
@@ -421,6 +421,32 @@ func TestServiceCreateHasConflictError(t *testing.T) {
 	assert.Contains(t, err.Error(), "conflict check error")
 }
 
+func TestServiceUpdatePropagatesVersionConflict(t *testing.T) {
+	mockRepo := &MockRepository{
+		HasConflictFunc: func(ctx context.Context, organizerId string, start, end time.Time, excludeUUID ...string) (bool, error) {
+			return false, nil
+		},
+		UpdateFunc: func(ctx context.Context, meet *Meet) error {
+			return ErrVersionConflict
+		},
+	}
+	svc := NewService(mockRepo, nil)
+
+	meet := &Meet{
+		UUID:          "test-uuid",
+		Title:         "Updated Meet",
+		OrganizerUuid: "org1",
+		Start:         time.Now(),
+		End:           time.Now().Add(time.Hour),
+		Version:       1,
+	}
+
+	result, err := svc.Update(context.Background(), meet)
+
+	assert.Nil(t, result)
+	assert.ErrorIs(t, err, ErrVersionConflict)
+}
+
 func TestServiceUpdateHasConflictError(t *testing.T) {
 	mockRepo := &MockRepository{
 		HasConflictFunc: func(ctx context.Context, organizerId string, start, end time.Time, excludeUUID ...string) (bool, error) {
@@ -736,6 +762,43 @@ func TestListSchedulingEnrichesClinicName(t *testing.T) {
 	assert.Equal(t, "Ada", result.Meets[0].FirstName)
 	assert.Equal(t, "Lovelace", result.Meets[0].LastName)
 	// Clinic name composed from organizer identity.
+	assert.Equal(t, "Tehran Clinic", result.Meets[0].ClinicName)
+}
+
+// TestListSchedulingClinicNamePrefersNameFieldOverFirstLastName verifies that when
+// the organizer identity has its `Name` field set (the real shape for a clinic/center
+// record, which has no first_name/last_name), ClinicName uses Name rather than the
+// empty First+Last composition.
+func TestListSchedulingClinicNamePrefersNameFieldOverFirstLastName(t *testing.T) {
+	now := time.Now()
+	mockRepo := &MockRepository{
+		QueryMeetsFunc: func(ctx context.Context, options *MeetQueryOptions) ([]*Meet, int, error) {
+			return []*Meet{
+				{
+					UUID:          "m1",
+					OrganizerUuid: "clinic-1",
+					Start:         now,
+					End:           now.Add(time.Hour),
+				},
+			}, 1, nil
+		},
+	}
+	idClient := &mockIdentityClient{
+		getByUUIDsFunc: func(ctx context.Context, uuids []string) (map[string]identity.Identity, error) {
+			return map[string]identity.Identity{
+				"clinic-1": {UUID: "clinic-1", Name: "Tehran Clinic"},
+			}, nil
+		},
+	}
+	svc := NewService(mockRepo, idClient)
+
+	result, err := svc.ListScheduling(context.Background(), ListSchedulingInput{
+		AllowedClinics: []string{"clinic-1"},
+		Page:           1,
+		PageSize:       10,
+	})
+	assert.NoError(t, err)
+	assert.Len(t, result.Meets, 1)
 	assert.Equal(t, "Tehran Clinic", result.Meets[0].ClinicName)
 }
 

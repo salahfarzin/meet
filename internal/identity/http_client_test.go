@@ -31,6 +31,25 @@ func TestGetByUUIDsEnrichesByUUID(t *testing.T) {
 	assert.Equal(t, "123", got["u1"].NationalCode)
 }
 
+// TestGetByUUIDsCarriesNameField verifies the `name` field (a clinic/center's
+// display title - clinics have no first_name/last_name) survives into Identity.
+func TestGetByUUIDsCarriesNameField(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"items": []map[string]any{
+				{"uuid": "clinic-1", "first_name": "", "last_name": "", "name": "Tehran Clinic"},
+			},
+		})
+	}))
+	defer srv.Close()
+
+	c := NewHTTPClient(srv.URL, srv.Client())
+	ctx := WithBearer(context.Background(), "tok-123")
+	got, err := c.GetByUUIDs(ctx, []string{"clinic-1"})
+	require.NoError(t, err)
+	assert.Equal(t, "Tehran Clinic", got["clinic-1"].Name)
+}
+
 func TestSearchReturnsUUIDs(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "national_code", r.URL.Query().Get("filters[0][field]"))

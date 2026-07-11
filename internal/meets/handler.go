@@ -2,6 +2,7 @@ package meets
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"slices"
@@ -80,6 +81,7 @@ func (h *handler) Create(ctx context.Context, req *pb.CreateRequest) (*pb.Create
 			Description:      meet.Description,
 			Type:             pb.MeetType(meet.Type),
 			Settings:         settingsToStruct(meet.Settings),
+			Version:          meet.Version,
 			CreatedAt:        meet.CreatedAt.Format(time.RFC3339),
 		},
 	}, nil
@@ -108,10 +110,17 @@ func (h *handler) Update(ctx context.Context, req *pb.UpdateRequest) (*pb.Update
 		Description:      req.Meet.Description,
 		Type:             int32(req.Meet.Type),
 		Settings:         settingsFromStruct(req.Meet.Settings),
+		Version:          req.Meet.Version,
 	})
 	if err != nil {
 		if err.Error() == "appointment conflict for this organizer and period" {
 			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		if errors.Is(err, ErrVersionConflict) {
+			return nil, status.Error(codes.Aborted, err.Error())
+		}
+		if err.Error() == "meet not found" {
+			return nil, status.Error(codes.NotFound, err.Error())
 		}
 		// Log the internal error with trace context
 		logger.FromContext(ctx).Error("failed to update meet", zap.Error(err), zap.String("uuid", req.Uuid))
@@ -131,6 +140,7 @@ func (h *handler) Update(ctx context.Context, req *pb.UpdateRequest) (*pb.Update
 			Color:            meet.Color,
 			Type:             pb.MeetType(meet.Type),
 			Settings:         settingsToStruct(meet.Settings),
+			Version:          meet.Version,
 			CreatedAt:        meet.CreatedAt.Format(time.RFC3339),
 		},
 	}, nil
@@ -164,6 +174,7 @@ func (h *handler) GetOne(ctx context.Context, req *pb.GetOneRequest) (*pb.GetOne
 			Color:            meet.Color,
 			Type:             pb.MeetType(meet.Type),
 			Settings:         settingsToStruct(meet.Settings),
+			Version:          meet.Version,
 			CreatedAt:        meet.CreatedAt.Format(time.RFC3339),
 			BookedAt: func() *string {
 				if meet.BookedAt == nil {
@@ -323,6 +334,7 @@ func (h *handler) GetAll(ctx context.Context, req *pb.GetAllRequest) (*pb.GetAll
 			Mobile:       a.Mobile,
 			ClinicName:   a.ClinicName,
 			Settings:     settingsToStruct(a.Settings),
+			Version:      a.Version,
 			CreatedAt:    a.CreatedAt.Format(time.RFC3339),
 		})
 	}

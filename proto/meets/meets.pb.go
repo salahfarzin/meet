@@ -105,7 +105,11 @@ type Meet struct {
 	// owned entirely by the caller (ravanhealth), opaque to this service.
 	Settings *structpb.Struct `protobuf:"bytes,17,opt,name=settings,proto3" json:"settings,omitempty"`
 	// created_at exposes the existing meets.created_at column (RFC3339). Read-only: ignored on input.
-	CreatedAt     string `protobuf:"bytes,18,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	CreatedAt string `protobuf:"bytes,18,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// version is an optimistic-concurrency token. Callers round-trip the value
+	// read from GetOne/GetAll back into Update; if the row changed since, Update
+	// fails with ABORTED instead of silently clobbering a concurrent write.
+	Version       int32 `protobuf:"varint,19,opt,name=version,proto3" json:"version,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -264,6 +268,13 @@ func (x *Meet) GetCreatedAt() string {
 		return x.CreatedAt
 	}
 	return ""
+}
+
+func (x *Meet) GetVersion() int32 {
+	if x != nil {
+		return x.Version
+	}
+	return 0
 }
 
 // Request & Response
@@ -1176,7 +1187,7 @@ var File_meets_meets_proto protoreflect.FileDescriptor
 
 const file_meets_meets_proto_rawDesc = "" +
 	"\n" +
-	"\x11meets/meets.proto\x12\x05meets\x1a\x1cgoogle/api/annotations.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x13common/common.proto\x1a.protoc-gen-openapiv2/options/annotations.proto\"\xda\x04\n" +
+	"\x11meets/meets.proto\x12\x05meets\x1a\x1cgoogle/api/annotations.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x13common/common.proto\x1a.protoc-gen-openapiv2/options/annotations.proto\"\xf4\x04\n" +
 	"\x04Meet\x12\x12\n" +
 	"\x04uuid\x18\x01 \x01(\tR\x04uuid\x12%\n" +
 	"\x0eorganizer_uuid\x18\x02 \x01(\tR\rorganizerUuid\x12\"\n" +
@@ -1200,7 +1211,8 @@ const file_meets_meets_proto_rawDesc = "" +
 	"clinicName\x123\n" +
 	"\bsettings\x18\x11 \x01(\v2\x17.google.protobuf.StructR\bsettings\x12\x1d\n" +
 	"\n" +
-	"created_at\x18\x12 \x01(\tR\tcreatedAtB\r\n" +
+	"created_at\x18\x12 \x01(\tR\tcreatedAt\x12\x18\n" +
+	"\aversion\x18\x13 \x01(\x05R\aversionB\r\n" +
 	"\v_price_uuidB\f\n" +
 	"\n" +
 	"_booked_at\"#\n" +

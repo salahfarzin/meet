@@ -70,6 +70,10 @@ message Meet {
   google.protobuf.Struct settings = 17;
   // created_at exposes the existing meets.created_at column (RFC3339). Read-only: ignored on input.
   string created_at = 18;
+  // version is an optimistic-concurrency token. Callers round-trip the value
+  // read from GetOne/GetAll back into Update; if the row changed since, Update
+  // fails with ABORTED instead of silently clobbering a concurrent write.
+  int32 version = 19;
 }
 
 // Request & Response

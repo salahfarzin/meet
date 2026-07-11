@@ -4,10 +4,15 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 )
+
+// ErrVersionConflict is returned by Update when the row's version no longer
+// matches meet.Version — someone else updated it since the caller last read it.
+var ErrVersionConflict = errors.New("meet was modified concurrently")
 
 type Meet struct {
 	ID               string     `json:"id" db:"id"`
@@ -23,6 +28,7 @@ type Meet struct {
 	ParticipantUuids []string   `json:"participant_uuids" db:"participant_uuids"`
 	BookedAt         *time.Time `json:"booked_at" db:"booked_at"`
 	Settings         *string    `json:"settings" db:"settings"`
+	Version          int32      `json:"version" db:"version"`
 	CreatedAt        time.Time  `json:"created_at" db:"created_at"`
 	// Display-only fields: populated from identity service, never persisted.
 	FirstName    string `json:"first_name,omitempty" db:"-"`
@@ -91,8 +97,9 @@ func (repo *repository) Create(ctx context.Context, meet *Meet) error {
 	startUTC := meet.Start.UTC()
 	endUTC := meet.End.UTC()
 
-	query := `INSERT INTO meets (uuid, title, organizer_uuid, participant_uuids, start_time, end_time, description, color, type, price_uuid, booked_at, settings) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-	res, err := repo.db.ExecContext(ctx, query, meet.UUID, meet.Title, meet.OrganizerUuid, string(participantsJSON), startUTC, endUTC, meet.Description, meet.Color, meet.Type, meet.PriceUuid, meet.BookedAt, meet.Settings)
+	meet.Version = 1
+	query := `INSERT INTO meets (uuid, title, organizer_uuid, participant_uuids, start_time, end_time, description, color, type, price_uuid, booked_at, settings, version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	res, err := repo.db.ExecContext(ctx, query, meet.UUID, meet.Title, meet.OrganizerUuid, string(participantsJSON), startUTC, endUTC, meet.Description, meet.Color, meet.Type, meet.PriceUuid, meet.BookedAt, meet.Settings, meet.Version)
 	if err != nil {
 		return err
 	}
@@ -105,12 +112,12 @@ func (repo *repository) Create(ctx context.Context, meet *Meet) error {
 }
 
 func (repo *repository) GetByID(ctx context.Context, id string) (*Meet, error) {
-	query := `SELECT id, uuid, title, organizer_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at, settings, created_at FROM meets WHERE id = ?`
+	query := `SELECT id, uuid, title, organizer_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at, settings, version, created_at FROM meets WHERE id = ?`
 	row := repo.db.QueryRowContext(ctx, query, id)
 	var a Meet
 	var participantsStr string
 	var start, end time.Time
-	err := row.Scan(&a.ID, &a.UUID, &a.Title, &a.OrganizerUuid, &a.PriceUuid, &participantsStr, &start, &end, &a.Description, &a.Color, &a.Type, &a.BookedAt, &a.Settings, &a.CreatedAt)
+	err := row.Scan(&a.ID, &a.UUID, &a.Title, &a.OrganizerUuid, &a.PriceUuid, &participantsStr, &start, &end, &a.Description, &a.Color, &a.Type, &a.BookedAt, &a.Settings, &a.Version, &a.CreatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("meet not found")
@@ -126,12 +133,12 @@ func (repo *repository) GetByID(ctx context.Context, id string) (*Meet, error) {
 }
 
 func (repo *repository) GetByUUID(ctx context.Context, uuid string) (*Meet, error) {
-	query := `SELECT id, uuid, title, organizer_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at, settings, created_at FROM meets WHERE uuid = ?`
+	query := `SELECT id, uuid, title, organizer_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at, settings, version, created_at FROM meets WHERE uuid = ?`
 	row := repo.db.QueryRowContext(ctx, query, uuid)
 	var a Meet
 	var participantsStr string
 	var start, end time.Time
-	err := row.Scan(&a.ID, &a.UUID, &a.Title, &a.OrganizerUuid, &a.PriceUuid, &participantsStr, &start, &end, &a.Description, &a.Color, &a.Type, &a.BookedAt, &a.Settings, &a.CreatedAt)
+	err := row.Scan(&a.ID, &a.UUID, &a.Title, &a.OrganizerUuid, &a.PriceUuid, &participantsStr, &start, &end, &a.Description, &a.Color, &a.Type, &a.BookedAt, &a.Settings, &a.Version, &a.CreatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("meet not found")
@@ -146,6 +153,10 @@ func (repo *repository) GetByUUID(ctx context.Context, uuid string) (*Meet, erro
 	return &a, nil
 }
 
+// Update is a compare-and-swap: it only writes if the row's current version
+// still matches meet.Version, then advances the version. If another update
+// landed first (version moved), 0 rows are affected and ErrVersionConflict is
+// returned so the caller can re-read and retry instead of clobbering it.
 func (repo *repository) Update(ctx context.Context, meet *Meet) error {
 	participantsJSON, err := json.Marshal(meet.ParticipantUuids)
 	if err != nil {
@@ -156,10 +167,35 @@ func (repo *repository) Update(ctx context.Context, meet *Meet) error {
 	startUTC := meet.Start.UTC()
 	endUTC := meet.End.UTC()
 
-	query := `UPDATE meets SET title=?, organizer_uuid=?, participant_uuids=?, start_time=?, end_time=?, description=?, color=?, type=?, price_uuid=?, booked_at=?, settings=? WHERE uuid=?`
-	_, err = repo.db.ExecContext(ctx, query, meet.Title, meet.OrganizerUuid, string(participantsJSON), startUTC, endUTC, meet.Description, meet.Color, meet.Type, meet.PriceUuid, meet.BookedAt, meet.Settings, meet.UUID)
+	query := `UPDATE meets SET title=?, organizer_uuid=?, participant_uuids=?, start_time=?, end_time=?, description=?, color=?, type=?, price_uuid=?, booked_at=?, settings=?, version=version+1 WHERE uuid=? AND version=?`
+	res, err := repo.db.ExecContext(ctx, query, meet.Title, meet.OrganizerUuid, string(participantsJSON), startUTC, endUTC, meet.Description, meet.Color, meet.Type, meet.PriceUuid, meet.BookedAt, meet.Settings, meet.UUID, meet.Version)
+	if err != nil {
+		return err
+	}
 
-	return err
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		exists, existsErr := repo.exists(ctx, meet.UUID)
+		if existsErr != nil {
+			return existsErr
+		}
+		if !exists {
+			return fmt.Errorf("meet not found")
+		}
+		return ErrVersionConflict
+	}
+
+	meet.Version++
+	return nil
+}
+
+func (repo *repository) exists(ctx context.Context, uuid string) (bool, error) {
+	var count int
+	err := repo.db.QueryRowContext(ctx, `SELECT COUNT(1) FROM meets WHERE uuid = ?`, uuid).Scan(&count)
+	return count > 0, err
 }
 
 func (repo *repository) Delete(ctx context.Context, uuid string) error {
@@ -242,7 +278,7 @@ func (repo *repository) queryMeetsPaginated(ctx context.Context, options *MeetQu
 	}
 
 	// Paginated SELECT
-	selectQuery := `SELECT id, uuid, organizer_uuid, price_uuid, participant_uuids, type, title, start_time, end_time, color, description, booked_at, settings, created_at FROM meets WHERE ` +
+	selectQuery := `SELECT id, uuid, organizer_uuid, price_uuid, participant_uuids, type, title, start_time, end_time, color, description, booked_at, settings, version, created_at FROM meets WHERE ` +
 		whereClause + ` ORDER BY start_time LIMIT ? OFFSET ?`
 	selectArgs := append(args[:len(args):len(args)], pageSize, offset)
 
@@ -257,7 +293,7 @@ func (repo *repository) queryMeetsPaginated(ctx context.Context, options *MeetQu
 		var m Meet
 		var participantsStr string
 		var start, end time.Time
-		if err := rows.Scan(&m.ID, &m.UUID, &m.OrganizerUuid, &m.PriceUuid, &participantsStr, &m.Type, &m.Title, &start, &end, &m.Color, &m.Description, &m.BookedAt, &m.Settings, &m.CreatedAt); err != nil {
+		if err := rows.Scan(&m.ID, &m.UUID, &m.OrganizerUuid, &m.PriceUuid, &participantsStr, &m.Type, &m.Title, &start, &end, &m.Color, &m.Description, &m.BookedAt, &m.Settings, &m.Version, &m.CreatedAt); err != nil {
 			return nil, 0, err
 		}
 		if err := json.Unmarshal([]byte(participantsStr), &m.ParticipantUuids); err != nil {

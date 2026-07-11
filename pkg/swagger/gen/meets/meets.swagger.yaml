@@ -372,6 +372,13 @@ definitions:
       created_at:
         type: string
         description: 'created_at exposes the existing meets.created_at column (RFC3339). Read-only: ignored on input.'
+      version:
+        type: integer
+        format: int32
+        description: |-
+          version is an optimistic-concurrency token. Callers round-trip the value
+          read from GetOne/GetAll back into Update; if the row changed since, Update
+          fails with ABORTED instead of silently clobbering a concurrent write.
     title: Meet message
   meetsMeetType:
     type: integer

@@ -116,10 +116,7 @@ func (c *httpClient) GetByUUIDs(ctx context.Context, uuids []string) (map[string
 		return nil, err
 	}
 	for _, it := range items {
-		out[it.UUID] = Identity{
-			UUID: it.UUID, FirstName: it.FirstName, LastName: it.LastName,
-			NationalCode: it.NationalCode, Mobile: it.Mobile,
-		}
+		out[it.UUID] = Identity(it)
 	}
 	return out, nil
 }

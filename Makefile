@@ -23,6 +23,18 @@ migrate-create:
 	@if [ -z "$(name)" ]; then echo "❌ Usage: make migrate-create name=migration_name"; exit 1; fi
 	@migrate create -ext sql -dir migrations -seq $(name)
 
+# Local Kubernetes (e.g. docker-desktop via ansible/deploy-local-k8s.yml).
+# entrypoint.sh's auto-migrate only sees DATABASE_URL if it's a real shell env
+# var, but it's mounted as a file (/app/.env) with no export step - these
+# targets export it from that file explicitly before invoking `migrate`.
+.PHONY: migrate-k8s
+migrate-k8s:
+	kubectl exec -n psychometrist deploy/meet -- sh -c 'export $$(grep DATABASE_URL /app/.env) && migrate -path /app/migrations -database "$$DATABASE_URL" up'
+
+.PHONY: migrate-k8s-down
+migrate-k8s-down:
+	kubectl exec -n psychometrist deploy/meet -- sh -c 'export $$(grep DATABASE_URL /app/.env) && migrate -path /app/migrations -database "$$DATABASE_URL" down'
+
 .PHONY: build
 build:
 	$(MAKE) generate-proto

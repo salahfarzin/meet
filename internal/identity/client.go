@@ -7,7 +7,7 @@ type IdentityFilter struct {
 }
 
 type Identity struct {
-	UUID, FirstName, LastName, NationalCode, Mobile string
+	UUID, FirstName, LastName, NationalCode, Mobile, Name string
 }
 
 type Clinic struct {
