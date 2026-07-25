@@ -4,6 +4,10 @@ on:
   push:
     tags:
       - 'v*'
+    # TEMPORARY: build/push ghcr.io images from this branch too, for testing.
+    # Remove this branches entry before merging.
+    branches:
+      - '14-scheduling-list-clinic-identity-enrichment'
   workflow_dispatch:
     inputs:
       environment:
@@ -54,8 +58,10 @@ jobs:
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=sha,prefix=
+            type=sha,prefix=,enable=${{ github.ref != 'refs/heads/14-scheduling-list-clinic-identity-enrichment' }}
             type=raw,value=latest,enable={{is_default_branch}}
+            # TEMPORARY: also tag latest (only) from this branch. Remove alongside the branches trigger above.
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/14-scheduling-list-clinic-identity-enrichment' }}
 
       - name: Build and push Docker image
         id: build
