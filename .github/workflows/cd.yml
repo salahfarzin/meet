@@ -75,6 +75,26 @@ jobs:
           cache-to: type=gha,mode=max
           platforms: linux/amd64,linux/arm64
 
+      # TEMPORARY: also push to Docker Hub psychometrist/meet:latest, which is what
+      # docker-compose.prod.yml actually pulls. Remove alongside the other TEMPORARY
+      # blocks in this file before merging.
+      - name: Log in to Docker Hub
+        if: github.ref == 'refs/heads/14-scheduling-list-clinic-identity-enrichment'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push to Docker Hub (temporary)
+        if: github.ref == 'refs/heads/14-scheduling-list-clinic-identity-enrichment'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: psychometrist/meet:latest
+          cache-from: type=gha
+          platforms: linux/amd64,linux/arm64
+
   deploy-staging:
     name: Deploy to Staging
     runs-on: ubuntu-latest
