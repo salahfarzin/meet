@@ -35,9 +35,45 @@ func NewRESTServer(app *App) *RESTServer {
 
 func (s *RESTServer) Start(ctx context.Context) error {
 	grpcAddr := fmt.Sprintf(":%d", s.App.Configs.GRPCPort)
+	mux := newGatewayMux()
 
-	// Configure gateway to forward custom headers as metadata
-	mux := runtime.NewServeMux(
+	if err := router.SetupRESTRoutes(ctx, mux, grpcAddr, []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}); err != nil {
+		return err
+	}
+	log.Printf("REST gateway listening on %d", s.App.Configs.Port)
+
+	var handler http.Handler = mux
+	handler = s.buildMiddlewareStack(s.authFunc(ctx))(handler)
+
+	prefix := s.App.Configs.RestPrefix
+	if prefix == "" {
+		prefix = "/api/v1"
+	}
+
+	// Health check endpoints (bypass authentication middleware)
+	healthHandler := health.NewHealthHandler(s.App.DB, s.App.Configs.Version)
+	http.HandleFunc(prefix+"/health", healthHandler.Health)
+	http.HandleFunc(prefix+"/live", healthHandler.Live)
+	http.HandleFunc(prefix+"/ready", healthHandler.Ready)
+
+	http.Handle(prefix+"/", http.StripPrefix(prefix, handler))
+
+	registerDocsRoutes(prefix)
+
+	server := &http.Server{
+		Addr:         ":" + strconv.FormatInt(s.App.Configs.Port, 10),
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+
+	return server.ListenAndServe()
+}
+
+// newGatewayMux configures the grpc-gateway mux: it forwards the caller identity
+// headers as metadata and marshals JSON in snake_case, matching the proto field names.
+func newGatewayMux() *runtime.ServeMux {
+	return runtime.NewServeMux(
 		runtime.WithIncomingHeaderMatcher(func(key string) (string, bool) {
 			switch strings.ToLower(key) {
 			case "x-user", "x-user-uuid", "x-user-roles":
@@ -56,17 +92,11 @@ func (s *RESTServer) Start(ctx context.Context) error {
 			},
 		}),
 	)
-	opts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+}
 
-	// or use your middleware stack
-	err := router.SetupRESTRoutes(ctx, mux, grpcAddr, opts)
-	if err != nil {
-		return err
-	}
-
-	log.Printf("REST gateway listening on %d", s.App.Configs.Port)
-
-	authFunc := func(token string) (*middlewares.User, error) {
+// authFunc calls AUTH_SERVICE + "/me" with the caller's bearer token to resolve identity.
+func (s *RESTServer) authFunc(ctx context.Context) func(token string) (*middlewares.User, error) {
+	return func(token string) (*middlewares.User, error) {
 		client := &http.Client{}
 
 		url := s.App.Configs.AuthService + "/me"
@@ -92,57 +122,14 @@ func (s *RESTServer) Start(ctx context.Context) error {
 		}
 		return &user, nil
 	}
+}
 
-	var handler http.Handler = mux
-
-	// AUTH_DISABLED=true skips the auth service entirely for this local, non-public
-	// deployment - every request is treated as a fully-privileged local caller.
-	if s.App.Configs.AuthDisabled {
-		log.Println("⚠️  AUTH_DISABLED=true - authentication is DISABLED (local use only)")
-		handler = middlewares.CreateStack(
-			middlewares.JSONHeader,
-			middlewares.CORSMiddleware(s.App.AllowedOrigins),
-			middlewares.LoggingMiddleware(s.App.Logger, s.App.Configs.Log.Level),
-			localAuthBypassMiddleware(),
-		)(handler)
-	} else if s.App.Configs.AppEnv == "test" {
-		// Skip authentication in test mode for E2E testing
-		log.Println("⚠️  Running in TEST mode - authentication is DISABLED")
-		handler = middlewares.CreateStack(
-			middlewares.JSONHeader,
-			middlewares.CORSMiddleware(s.App.AllowedOrigins),
-			middlewares.LoggingMiddleware(s.App.Logger, s.App.Configs.Log.Level),
-			middlewares.TestAuthMiddleware(), // Use test auth instead of real auth
-		)(handler)
-	} else {
-		handler = middlewares.CreateStack(
-			middlewares.JSONHeader,
-			middlewares.CORSMiddleware(s.App.AllowedOrigins),
-			middlewares.LoggingMiddleware(s.App.Logger, s.App.Configs.Log.Level),
-			middlewares.AuthMiddleware(authFunc),
-			// add more middlewares here
-		)(handler)
-	}
-
-	prefix := s.App.Configs.RestPrefix
-	if prefix == "" {
-		prefix = "/api/v1"
-	}
-
-	// Health check endpoints (bypass authentication middleware)
-	healthHandler := health.NewHealthHandler(s.App.DB, s.App.Configs.Version)
-	http.HandleFunc(prefix+"/health", healthHandler.Health)
-	http.HandleFunc(prefix+"/live", healthHandler.Live)
-	http.HandleFunc(prefix+"/ready", healthHandler.Ready)
-
-	http.Handle(prefix+"/", http.StripPrefix(prefix, handler))
-
-	// Serve openapi.yaml and postman_collection.json from embedded files
+// registerDocsRoutes serves the embedded OpenAPI/Postman files and Swagger-style docs UI.
+func registerDocsRoutes(prefix string) {
 	yamlFS, _ := fs.Sub(swagger.Gen, "gen")
 	http.Handle("/openapi.yaml", http.FileServer(http.FS(yamlFS)))
 	http.Handle("/postman_collection.json", http.FileServer(http.FS(yamlFS)))
 
-	// Serve Documentation UI from embedded files
 	uiFS, _ := fs.Sub(swagger.UI, "assets")
 	docsTmpl, err := template.ParseFS(swagger.UI, "assets/index.html")
 	if err != nil {
@@ -164,19 +151,31 @@ func (s *RESTServer) Start(ctx context.Context) error {
 		}
 		http.StripPrefix(prefix+"/docs", http.FileServer(http.FS(uiFS))).ServeHTTP(w, r)
 	})
+}
 
-	server := &http.Server{
-		Addr:         ":" + strconv.FormatInt(s.App.Configs.Port, 10),
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
-		IdleTimeout:  60 * time.Second,
+// buildMiddlewareStack picks the auth strategy for the REST gateway based on config:
+// AUTH_DISABLED bypasses the auth service entirely (local, non-public use only), test
+// env swaps in a fixed test identity for E2E runs, and the default path delegates to
+// the real auth service via authFunc.
+func (s *RESTServer) buildMiddlewareStack(authFunc func(token string) (*middlewares.User, error)) middlewares.Middleware {
+	base := []middlewares.Middleware{
+		middlewares.JSONHeader,
+		middlewares.CORSMiddleware(s.App.AllowedOrigins),
+		middlewares.LoggingMiddleware(s.App.Logger, s.App.Configs.Log.Level),
 	}
 
-	if err := server.ListenAndServe(); err != nil {
-		return err
+	switch {
+	case s.App.Configs.AuthDisabled:
+		log.Println("⚠️  AUTH_DISABLED=true - authentication is DISABLED (local use only)")
+		base = append(base, localAuthBypassMiddleware())
+	case s.App.Configs.AppEnv == "test":
+		log.Println("⚠️  Running in TEST mode - authentication is DISABLED")
+		base = append(base, middlewares.TestAuthMiddleware())
+	default:
+		base = append(base, middlewares.AuthMiddleware(authFunc))
 	}
 
-	return nil
+	return middlewares.CreateStack(base...)
 }
 
 // localAuthBypassMiddleware injects a fixed, fully-privileged local user for

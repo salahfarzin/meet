@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"slices"
 	"sort"
@@ -202,6 +203,65 @@ func (h *handler) Delete(ctx context.Context, req *pb.DeleteRequest) (*pb.Delete
 	return &pb.DeleteResponse{}, nil
 }
 
+// parseOptionalRFC3339 parses an optional RFC3339 timestamp, logging and returning
+// nil (rather than erroring the request) when the value is present but malformed.
+func parseOptionalRFC3339(ctx context.Context, field, value string) *time.Time {
+	if value == "" {
+		return nil
+	}
+	t, err := time.Parse(time.RFC3339, value)
+	if err != nil {
+		logger.FromContext(ctx).Warn("Invalid "+field+" date format", zap.String(field, value), zap.Error(err))
+		return nil
+	}
+	return &t
+}
+
+// computeAllowedClinics resolves the clinic scope for a GetAll request. Non-admins
+// are scoped to their own uuid. Admins are scoped to every clinic returned by the
+// identity service; if that service is unreachable or returns nothing, scope
+// degrades to the admin's own uuid rather than either failing the request or
+// exposing all tenants' data via an unrestricted scope.
+func (h *handler) computeAllowedClinics(ctx context.Context, user *middlewares.User, isAdmin bool) []string {
+	if !isAdmin {
+		return []string{user.Uuid}
+	}
+
+	clinics, err := h.service.ListClinics(ctx)
+	if err != nil {
+		logger.FromContext(ctx).Warn(
+			"identity service unavailable for ListClinics; degrading admin scope to own UUID",
+			zap.String("user_uuid", user.Uuid),
+			zap.Error(err),
+		)
+		return []string{user.Uuid}
+	}
+
+	if len(clinics) == 0 {
+		// The identity service returned zero clinics for an admin caller.
+		// Switching to an unrestricted (empty AllowedClinics) query would expose
+		// all tenant data, so we degrade scope to the admin's own UUID instead.
+		// This is a configuration problem — the identity service should always
+		// return at least one clinic for an admin — not a normal data-absence case.
+		logger.FromContext(ctx).Warn(
+			"identity service returned zero clinics for admin; degrading scope to own UUID — check identity service configuration",
+			zap.String("user_uuid", user.Uuid),
+		)
+		return []string{user.Uuid}
+	}
+
+	// user.Uuid is always included alongside real clinics too - it's the
+	// same identity retrieveOrganizerUuid() falls back to when a meet is
+	// created with no organizer_uuid, so without it those "general"
+	// (no-clinic) meets could never be read back by this same caller.
+	allowedClinics := make([]string, 0, len(clinics)+1)
+	allowedClinics = append(allowedClinics, user.Uuid)
+	for _, c := range clinics {
+		allowedClinics = append(allowedClinics, c.UUID)
+	}
+	return allowedClinics
+}
+
 func (h *handler) GetAll(ctx context.Context, req *pb.GetAllRequest) (*pb.GetAllResponse, error) {
 	user := middlewares.GetUserFromContext(ctx)
 	isAdmin := slices.Contains(user.Roles, "Programmer") || slices.Contains(user.Roles, "Admin")
@@ -223,65 +283,11 @@ func (h *handler) GetAll(ctx context.Context, req *pb.GetAllRequest) (*pb.GetAll
 	mobile := req.Mobile
 
 	// --- Date range ---
-	var fromTime, toTime *time.Time
-	if req.From != "" {
-		t, err := time.Parse(time.RFC3339, req.From)
-		if err != nil {
-			logger.FromContext(ctx).Warn("Invalid from date format", zap.String("from", req.From), zap.Error(err))
-		} else {
-			fromTime = &t
-		}
-	}
-	if req.To != "" {
-		t, err := time.Parse(time.RFC3339, req.To)
-		if err != nil {
-			logger.FromContext(ctx).Warn("Invalid to date format", zap.String("to", req.To), zap.Error(err))
-		} else {
-			toTime = &t
-		}
-	}
+	fromTime := parseOptionalRFC3339(ctx, "from", req.From)
+	toTime := parseOptionalRFC3339(ctx, "to", req.To)
 
 	// --- Compute AllowedClinics ---
-	var allowedClinics []string
-	if isAdmin {
-		clinics, err := h.service.ListClinics(ctx)
-		if err != nil {
-			// Identity service is unreachable — degrade gracefully by scoping to the
-			// admin's own UUID rather than failing the entire calendar request.
-			logger.FromContext(ctx).Warn(
-				"identity service unavailable for ListClinics; degrading admin scope to own UUID",
-				zap.String("user_uuid", user.Uuid),
-				zap.Error(err),
-			)
-			allowedClinics = []string{user.Uuid}
-		} else {
-			// If ListClinics returned results, use their UUIDs; otherwise fall back to user.Uuid.
-			// user.Uuid is always included alongside real clinics too - it's the
-			// same identity retrieveOrganizerUuid() falls back to when a meet is
-			// created with no organizer_uuid, so without it those "general"
-			// (no-clinic) meets could never be read back by this same caller.
-			if len(clinics) > 0 {
-				allowedClinics = make([]string, 0, len(clinics)+1)
-				allowedClinics = append(allowedClinics, user.Uuid)
-				for _, c := range clinics {
-					allowedClinics = append(allowedClinics, c.UUID)
-				}
-			} else {
-				// The identity service returned zero clinics for an admin caller.
-				// Switching to an unrestricted (empty AllowedClinics) query would expose
-				// all tenant data, so we degrade scope to the admin's own UUID instead.
-				// This is a configuration problem — the identity service should always
-				// return at least one clinic for an admin — not a normal data-absence case.
-				logger.FromContext(ctx).Warn(
-					"identity service returned zero clinics for admin; degrading scope to own UUID — check identity service configuration",
-					zap.String("user_uuid", user.Uuid),
-				)
-				allowedClinics = []string{user.Uuid}
-			}
-		}
-	} else {
-		allowedClinics = []string{user.Uuid}
-	}
+	allowedClinics := h.computeAllowedClinics(ctx, &user, isAdmin)
 
 	// --- Validate req.Clinic is within allowed set ---
 	if req.Clinic != "" && !slices.Contains(allowedClinics, req.Clinic) {
@@ -289,7 +295,7 @@ func (h *handler) GetAll(ctx context.Context, req *pb.GetAllRequest) (*pb.GetAll
 	}
 
 	// --- Call service ---
-	result, err := h.service.ListScheduling(ctx, ListSchedulingInput{
+	result, err := h.service.ListScheduling(ctx, &ListSchedulingInput{
 		AllowedClinics:  allowedClinics,
 		Clinic:          req.Clinic,
 		FirstName:       firstName,
@@ -341,10 +347,23 @@ func (h *handler) GetAll(ctx context.Context, req *pb.GetAllRequest) (*pb.GetAll
 
 	return &pb.GetAllResponse{
 		Meets:    pbMeets,
-		Total:    int32(result.Total),
-		Page:     int32(result.Page),
-		PageSize: int32(result.PageSize),
+		Total:    safeInt32(result.Total),
+		Page:     safeInt32(result.Page),
+		PageSize: safeInt32(result.PageSize),
 	}, nil
+}
+
+// safeInt32 clamps to MaxInt32 instead of wrapping. Total/Page/PageSize come from
+// paginated queries bounded by pageSize, so realistic values never approach this
+// limit — the clamp only guards against overflow, not against a valid large value.
+func safeInt32(n int) int32 {
+	if n > math.MaxInt32 {
+		return math.MaxInt32
+	}
+	if n < math.MinInt32 {
+		return math.MinInt32
+	}
+	return int32(n)
 }
 
 // GetAvailability returns next 7 days of availability for a organizer user

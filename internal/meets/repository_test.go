@@ -3,6 +3,7 @@ package meets
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"testing"
 	"time"
@@ -128,96 +129,108 @@ func TestRepositoryCreate(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestRepositoryGetByID(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	assert.NoError(t, err)
-	defer db.Close()
+func TestRepositoryGetOne(t *testing.T) {
+	scanCols := []string{"id", "uuid", "title", "organizer_uuid", "price_uuid", "participant_uuids", "start_time", "end_time", "description", "color", "type", "booked_at", "settings", "version", "created_at"}
 
-	repo := NewRepository(db)
-
-	priceID := "price-uuid-1"
-	expectedMeet := &Meet{
-		ID:               "1",
-		UUID:             "test-uuid",
-		Title:            "Test Meet",
-		OrganizerUuid:    "org1",
-		ParticipantUuids: []string{"p1", "p2"},
-		Start:            time.Now(),
-		End:              time.Now().Add(time.Hour),
-		Description:      "Test description",
-		Color:            "#ffffff",
-		Type:             1,
-		PriceUuid:        &priceID,
+	tests := []struct {
+		name    string
+		byUUID  bool
+		lookup  string
+		queryRe string
+	}{
+		{name: "ByID", byUUID: false, lookup: "1", queryRe: "SELECT id, uuid, title, organizer_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at, settings, version, created_at FROM meets WHERE id = \\?"},
+		{name: "ByUUID", byUUID: true, lookup: "test-uuid", queryRe: "SELECT id, uuid, title, organizer_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at, settings, version, created_at FROM meets WHERE uuid = \\?"},
 	}
 
-	mock.ExpectQuery("SELECT id, uuid, title, organizer_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at, settings, version, created_at FROM meets WHERE id = \\?").
-		WithArgs("1").
-		WillReturnRows(sqlmock.NewRows([]string{"id", "uuid", "title", "organizer_uuid", "price_uuid", "participant_uuids", "start_time", "end_time", "description", "color", "type", "booked_at", "settings", "version", "created_at"}).
-			AddRow(expectedMeet.ID, expectedMeet.UUID, expectedMeet.Title, expectedMeet.OrganizerUuid, expectedMeet.PriceUuid, `["p1","p2"]`, expectedMeet.Start, expectedMeet.End, expectedMeet.Description, expectedMeet.Color, expectedMeet.Type, expectedMeet.BookedAt, expectedMeet.Settings, 1, expectedMeet.CreatedAt))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db, mock, err := sqlmock.New()
+			assert.NoError(t, err)
+			defer db.Close()
 
-	result, err := repo.GetByID(context.Background(), "1")
-	assert.NoError(t, err)
-	assert.NotNil(t, result)
-	assert.Equal(t, expectedMeet.ID, result.ID)
-	assert.Equal(t, expectedMeet.Title, result.Title)
+			repo := NewRepository(db)
 
-	assert.NoError(t, mock.ExpectationsWereMet())
+			priceID := "price-uuid-1"
+			expectedMeet := &Meet{
+				ID:               "1",
+				UUID:             "test-uuid",
+				Title:            "Test Meet",
+				OrganizerUuid:    "org1",
+				ParticipantUuids: []string{"p1", "p2"},
+				Start:            time.Now(),
+				End:              time.Now().Add(time.Hour),
+				Description:      "Test description",
+				Color:            "#ffffff",
+				Type:             1,
+				PriceUuid:        &priceID,
+			}
+			participantsJSON, err := json.Marshal(expectedMeet.ParticipantUuids)
+			assert.NoError(t, err)
+
+			mock.ExpectQuery(tt.queryRe).
+				WithArgs(tt.lookup).
+				WillReturnRows(sqlmock.NewRows(scanCols).
+					AddRow(expectedMeet.ID, expectedMeet.UUID, expectedMeet.Title, expectedMeet.OrganizerUuid, expectedMeet.PriceUuid, string(participantsJSON), expectedMeet.Start, expectedMeet.End, expectedMeet.Description, expectedMeet.Color, expectedMeet.Type, expectedMeet.BookedAt, expectedMeet.Settings, 1, expectedMeet.CreatedAt))
+
+			var result *Meet
+			if tt.byUUID {
+				result, err = repo.GetByUUID(context.Background(), tt.lookup)
+			} else {
+				result, err = repo.GetByID(context.Background(), tt.lookup)
+			}
+			assert.NoError(t, err)
+			assert.NotNil(t, result)
+			assert.Equal(t, expectedMeet.Title, result.Title)
+			if tt.byUUID {
+				assert.Equal(t, expectedMeet.UUID, result.UUID)
+			} else {
+				assert.Equal(t, expectedMeet.ID, result.ID)
+			}
+
+			assert.NoError(t, mock.ExpectationsWereMet())
+		})
+	}
 }
 
-func TestRepositoryGetByUUID(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	assert.NoError(t, err)
-	defer db.Close()
+func TestRepositoryGetOneInvalidParticipants(t *testing.T) {
+	scanCols := []string{"id", "uuid", "title", "organizer_uuid", "price_uuid", "participant_uuids", "start_time", "end_time", "description", "color", "type", "booked_at", "settings", "version", "created_at"}
 
-	repo := NewRepository(db)
-
-	priceID := "price-uuid-1"
-	expectedMeet := &Meet{
-		ID:               "1",
-		UUID:             "test-uuid",
-		Title:            "Test Meet",
-		OrganizerUuid:    "org1",
-		ParticipantUuids: []string{"p1", "p2"},
-		Start:            time.Now(),
-		End:              time.Now().Add(time.Hour),
-		Description:      "Test description",
-		Color:            "#ffffff",
-		Type:             1,
-		PriceUuid:        &priceID,
+	tests := []struct {
+		name    string
+		byUUID  bool
+		lookup  string
+		queryRe string
+	}{
+		{name: "ByID", byUUID: false, lookup: "1", queryRe: "SELECT id, uuid, title, organizer_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at, settings, version, created_at FROM meets WHERE id = \\?"},
+		{name: "ByUUID", byUUID: true, lookup: "test-uuid", queryRe: "SELECT id, uuid, title, organizer_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at, settings, version, created_at FROM meets WHERE uuid = \\?"},
 	}
 
-	mock.ExpectQuery("SELECT id, uuid, title, organizer_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at, settings, version, created_at FROM meets WHERE uuid = \\?").
-		WithArgs("test-uuid").
-		WillReturnRows(sqlmock.NewRows([]string{"id", "uuid", "title", "organizer_uuid", "price_uuid", "participant_uuids", "start_time", "end_time", "description", "color", "type", "booked_at", "settings", "version", "created_at"}).
-			AddRow(expectedMeet.ID, expectedMeet.UUID, expectedMeet.Title, expectedMeet.OrganizerUuid, expectedMeet.PriceUuid, `["p1","p2"]`, expectedMeet.Start, expectedMeet.End, expectedMeet.Description, expectedMeet.Color, expectedMeet.Type, expectedMeet.BookedAt, expectedMeet.Settings, 1, expectedMeet.CreatedAt))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db, mock, err := sqlmock.New()
+			assert.NoError(t, err)
+			defer db.Close()
 
-	result, err := repo.GetByUUID(context.Background(), "test-uuid")
-	assert.NoError(t, err)
-	assert.NotNil(t, result)
-	assert.Equal(t, expectedMeet.UUID, result.UUID)
-	assert.Equal(t, expectedMeet.Title, result.Title)
+			repo := NewRepository(db)
 
-	assert.NoError(t, mock.ExpectationsWereMet())
-}
+			mock.ExpectQuery(tt.queryRe).
+				WithArgs(tt.lookup).
+				WillReturnRows(sqlmock.NewRows(scanCols).
+					AddRow("1", "test-uuid", "Test Meet", "org1", nil, "invalid", time.Now(), time.Now().Add(time.Hour), "Test description", "#ffffff", 1, nil, nil, 1, time.Now()))
 
-func TestRepositoryGetByIDInvalidParticipants(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	assert.NoError(t, err)
-	defer db.Close()
+			var result *Meet
+			if tt.byUUID {
+				result, err = repo.GetByUUID(context.Background(), tt.lookup)
+			} else {
+				result, err = repo.GetByID(context.Background(), tt.lookup)
+			}
+			assert.Error(t, err)
+			assert.Nil(t, result)
+			assert.Contains(t, err.Error(), "failed to unmarshal participants")
 
-	repo := NewRepository(db)
-
-	mock.ExpectQuery("SELECT id, uuid, title, organizer_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at, settings, version, created_at FROM meets WHERE id = \\?").
-		WithArgs("1").
-		WillReturnRows(sqlmock.NewRows([]string{"id", "uuid", "title", "organizer_uuid", "price_uuid", "participant_uuids", "start_time", "end_time", "description", "color", "type", "booked_at", "settings", "version", "created_at"}).
-			AddRow("1", "test-uuid", "Test Meet", "org1", nil, "invalid", time.Now(), time.Now().Add(time.Hour), "Test description", "#ffffff", 1, nil, nil, 1, time.Now()))
-
-	result, err := repo.GetByID(context.Background(), "1")
-	assert.Error(t, err)
-	assert.Nil(t, result)
-	assert.Contains(t, err.Error(), "failed to unmarshal participants")
-
-	assert.NoError(t, mock.ExpectationsWereMet())
+			assert.NoError(t, mock.ExpectationsWereMet())
+		})
+	}
 }
 
 func TestRepositoryUpdate(t *testing.T) {

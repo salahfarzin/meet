@@ -66,7 +66,7 @@ type Service interface {
 	GetAvailability(ctx context.Context, organizerId string, from, to time.Time, priceUUID *string) (map[string]DateSlot, error)
 	ParseStartAndEndTimes(start, end string) (time.Time, time.Time, error)
 	Delete(ctx context.Context, uuid string) error
-	ListScheduling(ctx context.Context, in ListSchedulingInput) (ListSchedulingResult, error)
+	ListScheduling(ctx context.Context, in *ListSchedulingInput) (ListSchedulingResult, error)
 	// ListClinics returns all clinic UUIDs from the identity service.
 	// Returns nil, nil if no identity client is wired (caller must apply a fallback).
 	ListClinics(ctx context.Context) ([]identity.Clinic, error)
@@ -206,7 +206,7 @@ func (s *service) ListClinics(ctx context.Context) ([]identity.Clinic, error) {
 }
 
 // ListScheduling returns a paginated, identity-enriched scheduling list scoped to the allowed clinics.
-func (s *service) ListScheduling(ctx context.Context, in ListSchedulingInput) (ListSchedulingResult, error) {
+func (s *service) ListScheduling(ctx context.Context, in *ListSchedulingInput) (ListSchedulingResult, error) {
 	empty := ListSchedulingResult{Meets: []*Meet{}}
 
 	// 1. Empty allowed clinics → empty result (caller has no scope).
@@ -215,52 +215,20 @@ func (s *service) ListScheduling(ctx context.Context, in ListSchedulingInput) (L
 	}
 
 	// 2. Identity pre-filter: if any name/id/mobile filter is set, resolve candidate participant UUIDs.
-	var participantUuids []string
-	if in.ParticipantUuid != "" {
-		// Exact-match filter — caller already knows the UUID, so skip the identity Search entirely.
-		participantUuids = []string{in.ParticipantUuid}
-	} else {
-		needsIdentityFilter := in.FirstName != "" || in.LastName != "" || in.NationalID != "" || in.Mobile != ""
-		if needsIdentityFilter {
-			if s.identity == nil {
-				// identity client is nil only in unit tests; production wiring always injects a real client.
-				// When nil with an active identity filter, return empty rather than erroring.
-				return empty, nil
-			}
-			uuids, err := s.identity.Search(ctx, identity.IdentityFilter{
-				FirstName:  in.FirstName,
-				LastName:   in.LastName,
-				NationalID: in.NationalID,
-				Mobile:     in.Mobile,
-			})
-			if err != nil {
-				return empty, err
-			}
-			// No matching patients → no meets to show.
-			if len(uuids) == 0 {
-				return empty, nil
-			}
-			participantUuids = uuids
-		}
+	participantUuids, noMatch, err := s.resolveParticipantFilter(ctx, in)
+	if err != nil {
+		return empty, err
+	}
+	if noMatch {
+		return empty, nil
 	}
 
 	// 3. Build query options scoped to allowed clinics.
-	opts := &MeetQueryOptions{
-		OrganizerUuids:   in.AllowedClinics,
-		ParticipantUuids: participantUuids,
-		From:             in.From,
-		To:               in.To,
-		Page:             in.Page,
-		PageSize:         in.PageSize,
-	}
-	// Optionally restrict to a single clinic within the allowed set.
-	// FINDING 1 fix: only scope to in.Clinic if it is a member of AllowedClinics;
-	// an out-of-scope Clinic is an access violation — return empty without hitting the repo.
-	if in.Clinic != "" {
-		if !slices.Contains(in.AllowedClinics, in.Clinic) {
-			return ListSchedulingResult{Page: in.Page, PageSize: in.PageSize}, nil
-		}
-		opts.OrganizerUuids = []string{in.Clinic}
+	opts, clinicDenied := buildScopedQueryOptions(in, participantUuids)
+	if clinicDenied {
+		// FINDING 1 fix: an out-of-scope Clinic is an access violation — return
+		// empty without hitting the repo.
+		return ListSchedulingResult{Page: in.Page, PageSize: in.PageSize}, nil
 	}
 
 	// 4. Query repository.
@@ -268,49 +236,103 @@ func (s *service) ListScheduling(ctx context.Context, in ListSchedulingInput) (L
 	if err != nil {
 		return empty, err
 	}
-
 	if len(rows) == 0 {
 		return ListSchedulingResult{Meets: []*Meet{}, Total: total, Page: in.Page, PageSize: in.PageSize}, nil
 	}
 
-	// 5. Collect participant and organizer UUIDs for a single enrichment batch.
-	uuidSet := make(map[string]struct{}, len(rows)*2)
-	for _, m := range rows {
-		if len(m.ParticipantUuids) > 0 {
-			uuidSet[m.ParticipantUuids[0]] = struct{}{}
-		}
-		if m.OrganizerUuid != "" {
-			uuidSet[m.OrganizerUuid] = struct{}{}
-		}
-	}
-	uuidsToFetch := make([]string, 0, len(uuidSet))
-	for u := range uuidSet {
-		uuidsToFetch = append(uuidsToFetch, u)
+	// 5-7. Enrich with identity data (single round-trip for both participants and
+	// organizers). If the identity service is unreachable, rows are returned
+	// un-enriched rather than failing the whole request — the calendar must
+	// remain available even when the identity service is down.
+	s.enrichWithIdentity(ctx, rows)
+
+	return ListSchedulingResult{
+		Meets:    rows,
+		Total:    total,
+		Page:     in.Page,
+		PageSize: in.PageSize,
+	}, nil
+}
+
+// resolveParticipantFilter resolves the candidate participant UUIDs for a scheduling
+// query. noMatch signals "no meets can possibly match" (empty result, no error) — an
+// exhausted identity search or a nil identity client with an active name/id/mobile filter.
+func (s *service) resolveParticipantFilter(ctx context.Context, in *ListSchedulingInput) (participantUuids []string, noMatch bool, err error) {
+	if in.ParticipantUuid != "" {
+		// Exact-match filter — caller already knows the UUID, so skip the identity Search entirely.
+		return []string{in.ParticipantUuid}, false, nil
 	}
 
-	// 6. Enrich with identity data (single round-trip for both participants and organizers).
-	// If the identity service is unreachable, log a warning and return the meets un-enriched
-	// rather than failing the whole request — the calendar must remain available even when
-	// the identity service is down.
-	identityMap := map[string]identity.Identity{}
-	if len(uuidsToFetch) > 0 && s.identity != nil {
-		identityMap, err = s.identity.GetByUUIDs(ctx, uuidsToFetch)
-		if err != nil {
-			logger.FromContext(ctx).Warn(
-				"identity service unavailable; returning meets without enrichment",
-				zap.Error(err),
-			)
-			// Return rows un-enriched (no FirstName/LastName/NationalCode/Mobile/ClinicName).
-			return ListSchedulingResult{
-				Meets:    rows,
-				Total:    total,
-				Page:     in.Page,
-				PageSize: in.PageSize,
-			}, nil
-		}
+	needsIdentityFilter := in.FirstName != "" || in.LastName != "" || in.NationalID != "" || in.Mobile != ""
+	if !needsIdentityFilter {
+		return nil, false, nil
 	}
 
-	// 7. Attach identity fields to each row: participant (patient) and organizer (clinic).
+	if s.identity == nil {
+		// identity client is nil only in unit tests; production wiring always injects a real client.
+		// When nil with an active identity filter, return empty rather than erroring.
+		return nil, true, nil
+	}
+
+	uuids, err := s.identity.Search(ctx, identity.IdentityFilter{
+		FirstName:  in.FirstName,
+		LastName:   in.LastName,
+		NationalID: in.NationalID,
+		Mobile:     in.Mobile,
+	})
+	if err != nil {
+		return nil, false, err
+	}
+	if len(uuids) == 0 {
+		// No matching patients → no meets to show.
+		return nil, true, nil
+	}
+	return uuids, false, nil
+}
+
+// buildScopedQueryOptions builds MeetQueryOptions scoped to the caller's allowed
+// clinics. clinicDenied is true when in.Clinic is set but not a member of
+// in.AllowedClinics, meaning the caller asked for a clinic outside their scope.
+func buildScopedQueryOptions(in *ListSchedulingInput, participantUuids []string) (opts *MeetQueryOptions, clinicDenied bool) {
+	opts = &MeetQueryOptions{
+		OrganizerUuids:   in.AllowedClinics,
+		ParticipantUuids: participantUuids,
+		From:             in.From,
+		To:               in.To,
+		Page:             in.Page,
+		PageSize:         in.PageSize,
+	}
+	if in.Clinic != "" {
+		if !slices.Contains(in.AllowedClinics, in.Clinic) {
+			return nil, true
+		}
+		opts.OrganizerUuids = []string{in.Clinic}
+	}
+	return opts, false
+}
+
+// enrichWithIdentity attaches participant (patient) and organizer (clinic) identity
+// fields to rows in place, via a single identity-service round-trip. If the identity
+// service is nil, has nothing to fetch, or is unreachable, rows are left un-enriched.
+func (s *service) enrichWithIdentity(ctx context.Context, rows []*Meet) {
+	if s.identity == nil {
+		return
+	}
+
+	uuidsToFetch := collectIdentityUUIDs(rows)
+	if len(uuidsToFetch) == 0 {
+		return
+	}
+
+	identityMap, err := s.identity.GetByUUIDs(ctx, uuidsToFetch)
+	if err != nil {
+		logger.FromContext(ctx).Warn(
+			"identity service unavailable; returning meets without enrichment",
+			zap.Error(err),
+		)
+		return
+	}
+
 	for _, m := range rows {
 		if len(m.ParticipantUuids) > 0 {
 			if id, ok := identityMap[m.ParticipantUuids[0]]; ok {
@@ -330,11 +352,23 @@ func (s *service) ListScheduling(ctx context.Context, in ListSchedulingInput) (L
 			}
 		}
 	}
+}
 
-	return ListSchedulingResult{
-		Meets:    rows,
-		Total:    total,
-		Page:     in.Page,
-		PageSize: in.PageSize,
-	}, nil
+// collectIdentityUUIDs gathers the distinct participant and organizer UUIDs across
+// rows for a single batched identity lookup.
+func collectIdentityUUIDs(rows []*Meet) []string {
+	uuidSet := make(map[string]struct{}, len(rows)*2)
+	for _, m := range rows {
+		if len(m.ParticipantUuids) > 0 {
+			uuidSet[m.ParticipantUuids[0]] = struct{}{}
+		}
+		if m.OrganizerUuid != "" {
+			uuidSet[m.OrganizerUuid] = struct{}{}
+		}
+	}
+	uuidsToFetch := make([]string, 0, len(uuidSet))
+	for u := range uuidSet {
+		uuidsToFetch = append(uuidsToFetch, u)
+	}
+	return uuidsToFetch
 }

@@ -1,6 +1,7 @@
 package health
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -18,7 +19,7 @@ func (m *mockDB) Ping() error {
 
 func TestHealth(t *testing.T) {
 	h := NewHealthHandler(nil, "1.0.0")
-	req := httptest.NewRequest("GET", "/health", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/health", http.NoBody)
 	w := httptest.NewRecorder()
 
 	h.Health(w, req)
@@ -32,7 +33,7 @@ func TestHealth(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if resp.Status != "healthy" {
+	if resp.Status != statusHealthy {
 		t.Errorf("expected healthy, got %s", resp.Status)
 	}
 	if resp.Version != "1.0.0" {
@@ -51,7 +52,7 @@ func TestReady(t *testing.T) {
 			name:           "Healthy",
 			db:             &mockDB{},
 			expectedStatus: http.StatusOK,
-			expectedHealth: "healthy",
+			expectedHealth: statusHealthy,
 		},
 		{
 			name:           "Unhealthy DB",
@@ -63,14 +64,14 @@ func TestReady(t *testing.T) {
 			name:           "No DB",
 			db:             nil,
 			expectedStatus: http.StatusOK,
-			expectedHealth: "healthy",
+			expectedHealth: statusHealthy,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := NewHealthHandler(tt.db, "1.0.0")
-			req := httptest.NewRequest("GET", "/ready", nil)
+			req := httptest.NewRequestWithContext(context.Background(), "GET", "/ready", http.NoBody)
 			w := httptest.NewRecorder()
 
 			h.Ready(w, req)
@@ -93,7 +94,7 @@ func TestReady(t *testing.T) {
 
 func TestLive(t *testing.T) {
 	h := NewHealthHandler(nil, "1.0.0")
-	req := httptest.NewRequest("GET", "/live", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/live", http.NoBody)
 	w := httptest.NewRecorder()
 
 	h.Live(w, req)

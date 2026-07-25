@@ -553,7 +553,7 @@ func TestListSchedulingEmptyAllowedClinics(t *testing.T) {
 	idClient := &mockIdentityClient{}
 	svc := NewService(mockRepo, idClient)
 
-	result, err := svc.ListScheduling(context.Background(), ListSchedulingInput{
+	result, err := svc.ListScheduling(context.Background(), &ListSchedulingInput{
 		AllowedClinics: []string{},
 		Page:           1,
 		PageSize:       10,
@@ -572,7 +572,7 @@ func TestListSchedulingIdentitySearchEmptyResult(t *testing.T) {
 	}
 	svc := NewService(mockRepo, idClient)
 
-	result, err := svc.ListScheduling(context.Background(), ListSchedulingInput{
+	result, err := svc.ListScheduling(context.Background(), &ListSchedulingInput{
 		AllowedClinics: []string{"clinic-1"},
 		FirstName:      "Ada",
 		Page:           1,
@@ -592,7 +592,7 @@ func TestListSchedulingIdentitySearchError(t *testing.T) {
 	}
 	svc := NewService(mockRepo, idClient)
 
-	_, err := svc.ListScheduling(context.Background(), ListSchedulingInput{
+	_, err := svc.ListScheduling(context.Background(), &ListSchedulingInput{
 		AllowedClinics: []string{"clinic-1"},
 		FirstName:      "Ada",
 		Page:           1,
@@ -623,7 +623,7 @@ func TestListSchedulingEnrichesRows(t *testing.T) {
 	}
 	svc := NewService(mockRepo, idClient)
 
-	result, err := svc.ListScheduling(context.Background(), ListSchedulingInput{
+	result, err := svc.ListScheduling(context.Background(), &ListSchedulingInput{
 		AllowedClinics: []string{"clinic-1"},
 		Page:           1,
 		PageSize:       10,
@@ -656,7 +656,7 @@ func TestListSchedulingGetByUUIDsError(t *testing.T) {
 	}
 	svc := NewService(mockRepo, idClient)
 
-	result, err := svc.ListScheduling(context.Background(), ListSchedulingInput{
+	result, err := svc.ListScheduling(context.Background(), &ListSchedulingInput{
 		AllowedClinics: []string{"clinic-1"},
 		Page:           1,
 		PageSize:       10,
@@ -686,7 +686,7 @@ func TestListSchedulingClinicNotInAllowedReturnsEmpty(t *testing.T) {
 	}
 	svc := NewService(mockRepo, nil)
 
-	result, err := svc.ListScheduling(context.Background(), ListSchedulingInput{
+	result, err := svc.ListScheduling(context.Background(), &ListSchedulingInput{
 		AllowedClinics: []string{"clinic-1"},
 		Clinic:         "clinic-other",
 		Page:           1,
@@ -710,7 +710,7 @@ func TestListSchedulingClinicInAllowedScopes(t *testing.T) {
 	}
 	svc := NewService(mockRepo, nil)
 
-	result, err := svc.ListScheduling(context.Background(), ListSchedulingInput{
+	result, err := svc.ListScheduling(context.Background(), &ListSchedulingInput{
 		AllowedClinics: []string{"clinic-1", "clinic-2"},
 		Clinic:         "clinic-2",
 		Page:           1,
@@ -751,7 +751,7 @@ func TestListSchedulingEnrichesClinicName(t *testing.T) {
 	}
 	svc := NewService(mockRepo, idClient)
 
-	result, err := svc.ListScheduling(context.Background(), ListSchedulingInput{
+	result, err := svc.ListScheduling(context.Background(), &ListSchedulingInput{
 		AllowedClinics: []string{"clinic-1"},
 		Page:           1,
 		PageSize:       10,
@@ -792,7 +792,7 @@ func TestListSchedulingClinicNamePrefersNameFieldOverFirstLastName(t *testing.T)
 	}
 	svc := NewService(mockRepo, idClient)
 
-	result, err := svc.ListScheduling(context.Background(), ListSchedulingInput{
+	result, err := svc.ListScheduling(context.Background(), &ListSchedulingInput{
 		AllowedClinics: []string{"clinic-1"},
 		Page:           1,
 		PageSize:       10,
@@ -830,7 +830,7 @@ func TestListSchedulingClinicNameOrganizerNotInIdentity(t *testing.T) {
 	}
 	svc := NewService(mockRepo, idClient)
 
-	result, err := svc.ListScheduling(context.Background(), ListSchedulingInput{
+	result, err := svc.ListScheduling(context.Background(), &ListSchedulingInput{
 		AllowedClinics: []string{"clinic-unknown"},
 		Page:           1,
 		PageSize:       10,
@@ -854,7 +854,7 @@ func TestListSchedulingSingleClinicFilter(t *testing.T) {
 
 	from := now
 	to := now.Add(24 * time.Hour)
-	_, err := svc.ListScheduling(context.Background(), ListSchedulingInput{
+	_, err := svc.ListScheduling(context.Background(), &ListSchedulingInput{
 		AllowedClinics: []string{"clinic-1"},
 		Clinic:         "clinic-1",
 		From:           &from,
@@ -884,7 +884,7 @@ func TestListSchedulingParticipantUuidBypassesIdentitySearch(t *testing.T) {
 	}
 	svc := NewService(mockRepo, nil) // no identity client — must not be needed for this path
 
-	result, err := svc.ListScheduling(context.Background(), ListSchedulingInput{
+	result, err := svc.ListScheduling(context.Background(), &ListSchedulingInput{
 		AllowedClinics:  []string{"clinic-1"},
 		ParticipantUuid: "patient-1",
 		Page:            1,

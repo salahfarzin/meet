@@ -101,7 +101,7 @@ type MockService struct {
 	// ListSchedulingFn, when non-nil, overrides the default ListScheduling behavior
 	// entirely — used by tests that need to control the returned Meets/inspect the
 	// received ListSchedulingInput (e.g. Settings/CreatedAt/ParticipantUuid mapping).
-	ListSchedulingFn func(ctx context.Context, in ListSchedulingInput) (ListSchedulingResult, error)
+	ListSchedulingFn func(ctx context.Context, in *ListSchedulingInput) (ListSchedulingResult, error)
 }
 
 func (m *MockService) Create(ctx context.Context, meet *Meet) (*Meet, error) {
@@ -222,7 +222,7 @@ func (m *MockService) ParseStartAndEndTimes(start, end string) (startTime, endTi
 	return st, et, nil
 }
 
-func (m *MockService) ListScheduling(ctx context.Context, in ListSchedulingInput) (ListSchedulingResult, error) {
+func (m *MockService) ListScheduling(ctx context.Context, in *ListSchedulingInput) (ListSchedulingResult, error) {
 	if m.ListSchedulingFn != nil {
 		return m.ListSchedulingFn(ctx, in)
 	}
@@ -557,7 +557,7 @@ func TestGetAllMeetsWithPartiallyInvalidDates(t *testing.T) {
 func TestHandlerGetAllMapsSettingsCreatedAtAndParticipantUuid(t *testing.T) {
 	settings := `{"is_absent":true}`
 	svc := NewMockService()
-	svc.ListSchedulingFn = func(ctx context.Context, in ListSchedulingInput) (ListSchedulingResult, error) {
+	svc.ListSchedulingFn = func(ctx context.Context, in *ListSchedulingInput) (ListSchedulingResult, error) {
 		assert.Equal(t, "patient-1", in.ParticipantUuid)
 		return ListSchedulingResult{
 			Meets: []*Meet{{
@@ -989,7 +989,7 @@ type enrichedMockService struct {
 	MockService
 }
 
-func (e *enrichedMockService) ListScheduling(_ context.Context, in ListSchedulingInput) (ListSchedulingResult, error) {
+func (e *enrichedMockService) ListScheduling(_ context.Context, in *ListSchedulingInput) (ListSchedulingResult, error) {
 	now := time.Now()
 	return ListSchedulingResult{
 		Meets: []*Meet{
@@ -1018,7 +1018,7 @@ type enrichedMockServiceWithClinic struct {
 	MockService
 }
 
-func (e *enrichedMockServiceWithClinic) ListScheduling(_ context.Context, in ListSchedulingInput) (ListSchedulingResult, error) {
+func (e *enrichedMockServiceWithClinic) ListScheduling(_ context.Context, in *ListSchedulingInput) (ListSchedulingResult, error) {
 	now := time.Now()
 	return ListSchedulingResult{
 		Meets: []*Meet{

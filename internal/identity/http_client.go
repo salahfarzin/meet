@@ -21,6 +21,11 @@ func NewHTTPClient(baseURL string, hc *http.Client) Client {
 	return &httpClient{baseURL: baseURL, hc: hc}
 }
 
+const (
+	fieldFirstName = "first_name"
+	fieldLastName  = "last_name"
+)
+
 type usersEnvelope struct {
 	Items  []userItem `json:"items"`
 	Return *struct {
@@ -76,8 +81,8 @@ func (c *httpClient) Search(ctx context.Context, f IdentityFilter) ([]string, er
 	q := url.Values{}
 	q.Set("limit", "1000")
 	fields := []struct{ field, val string }{
-		{"first_name", f.FirstName},
-		{"last_name", f.LastName},
+		{fieldFirstName, f.FirstName},
+		{fieldLastName, f.LastName},
 		{"national_code", f.NationalID},
 		{"mobile", f.Mobile},
 	}

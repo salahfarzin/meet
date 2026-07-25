@@ -113,28 +113,16 @@ func (repo *repository) Create(ctx context.Context, meet *Meet) error {
 
 func (repo *repository) GetByID(ctx context.Context, id string) (*Meet, error) {
 	query := `SELECT id, uuid, title, organizer_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at, settings, version, created_at FROM meets WHERE id = ?`
-	row := repo.db.QueryRowContext(ctx, query, id)
-	var a Meet
-	var participantsStr string
-	var start, end time.Time
-	err := row.Scan(&a.ID, &a.UUID, &a.Title, &a.OrganizerUuid, &a.PriceUuid, &participantsStr, &start, &end, &a.Description, &a.Color, &a.Type, &a.BookedAt, &a.Settings, &a.Version, &a.CreatedAt)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("meet not found")
-		}
-		return nil, err
-	}
-	if err := json.Unmarshal([]byte(participantsStr), &a.ParticipantUuids); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal participants: %w", err)
-	}
-	a.Start = start
-	a.End = end
-	return &a, nil
+	return repo.scanOneMeet(ctx, query, id)
 }
 
 func (repo *repository) GetByUUID(ctx context.Context, uuid string) (*Meet, error) {
 	query := `SELECT id, uuid, title, organizer_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at, settings, version, created_at FROM meets WHERE uuid = ?`
-	row := repo.db.QueryRowContext(ctx, query, uuid)
+	return repo.scanOneMeet(ctx, query, uuid)
+}
+
+func (repo *repository) scanOneMeet(ctx context.Context, query, arg string) (*Meet, error) {
+	row := repo.db.QueryRowContext(ctx, query, arg)
 	var a Meet
 	var participantsStr string
 	var start, end time.Time
@@ -244,14 +232,50 @@ func (repo *repository) queryMeetsPaginated(ctx context.Context, options *MeetQu
 	}
 	offset := (page - 1) * pageSize
 
-	// Build WHERE clause with proper IN placeholders for all organizer UUIDs.
+	whereClause, args, err := buildPaginatedWhereClause(options)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// COUNT query
+	countQuery := "SELECT COUNT(*) FROM meets WHERE " + whereClause
+	var total int
+	if err := repo.db.QueryRowContext(ctx, countQuery, args...).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	// Paginated SELECT. whereClause is built from fixed fragments with ? placeholders only; no
+	// value is ever interpolated into the query string itself.
+	selectQuery := "SELECT id, uuid, organizer_uuid, price_uuid, participant_uuids, type, title, start_time, end_time, color, description, booked_at, settings, version, created_at FROM meets WHERE " + //nolint:gosec // G202: placeholders only, no interpolated values
+		whereClause + " ORDER BY start_time LIMIT ? OFFSET ?"
+	selectArgs := make([]any, 0, len(args)+2)
+	selectArgs = append(selectArgs, args...)
+	selectArgs = append(selectArgs, pageSize, offset)
+
+	rows, err := repo.db.QueryContext(ctx, selectQuery, selectArgs...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	result, err := scanPaginatedMeets(rows)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return result, total, nil
+}
+
+// buildPaginatedWhereClause builds the WHERE clause and its bound args for the
+// OrganizerUuids (multi-organizer, paginated) query path.
+func buildPaginatedWhereClause(options *MeetQueryOptions) (whereClause string, args []any, err error) {
 	inPlaceholders := make([]string, len(options.OrganizerUuids))
-	args := make([]any, len(options.OrganizerUuids))
+	args = make([]any, len(options.OrganizerUuids))
 	for i, u := range options.OrganizerUuids {
 		inPlaceholders[i] = "?"
 		args[i] = u
 	}
-	whereClause := "organizer_uuid IN (" + strings.Join(inPlaceholders, ",") + ")"
+	whereClause = "organizer_uuid IN (" + strings.Join(inPlaceholders, ",") + ")"
 
 	if options.From != nil {
 		whereClause += " AND start_time >= ?"
@@ -264,50 +288,36 @@ func (repo *repository) queryMeetsPaginated(ctx context.Context, options *MeetQu
 	if len(options.ParticipantUuids) > 0 {
 		participantJSON, err := json.Marshal(options.ParticipantUuids)
 		if err != nil {
-			return nil, 0, fmt.Errorf("failed to marshal participant uuids: %w", err)
+			return "", nil, fmt.Errorf("failed to marshal participant uuids: %w", err)
 		}
 		whereClause += " AND JSON_OVERLAPS(participant_uuids, ?)"
 		args = append(args, string(participantJSON))
 	}
 
-	// COUNT query
-	countQuery := "SELECT COUNT(*) FROM meets WHERE " + whereClause
-	var total int
-	if err := repo.db.QueryRowContext(ctx, countQuery, args...).Scan(&total); err != nil {
-		return nil, 0, err
-	}
+	return whereClause, args, nil
+}
 
-	// Paginated SELECT
-	selectQuery := `SELECT id, uuid, organizer_uuid, price_uuid, participant_uuids, type, title, start_time, end_time, color, description, booked_at, settings, version, created_at FROM meets WHERE ` +
-		whereClause + ` ORDER BY start_time LIMIT ? OFFSET ?`
-	selectArgs := append(args[:len(args):len(args)], pageSize, offset)
-
-	rows, err := repo.db.QueryContext(ctx, selectQuery, selectArgs...)
-	if err != nil {
-		return nil, 0, err
-	}
-	defer rows.Close()
-
+// scanPaginatedMeets scans the rows produced by the paginated SELECT in queryMeetsPaginated.
+func scanPaginatedMeets(rows *sql.Rows) ([]*Meet, error) {
 	result := make([]*Meet, 0)
 	for rows.Next() {
 		var m Meet
 		var participantsStr string
 		var start, end time.Time
 		if err := rows.Scan(&m.ID, &m.UUID, &m.OrganizerUuid, &m.PriceUuid, &participantsStr, &m.Type, &m.Title, &start, &end, &m.Color, &m.Description, &m.BookedAt, &m.Settings, &m.Version, &m.CreatedAt); err != nil {
-			return nil, 0, err
+			return nil, err
 		}
 		if err := json.Unmarshal([]byte(participantsStr), &m.ParticipantUuids); err != nil {
-			return nil, 0, fmt.Errorf("failed to unmarshal participants: %w", err)
+			return nil, fmt.Errorf("failed to unmarshal participants: %w", err)
 		}
 		m.Start = start
 		m.End = end
 		result = append(result, &m)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, 0, err
+		return nil, err
 	}
-
-	return result, total, nil
+	return result, nil
 }
 
 // buildQueryAndArgs constructs the SQL query and arguments based on options
@@ -360,6 +370,9 @@ func (repo *repository) processRows(rows *sql.Rows) ([]*Meet, error) {
 		a.End = end
 		result = append(result, &a)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 
 	return result, nil
 }
@@ -396,6 +409,9 @@ func (repo *repository) GenerateAvailableSlots(ctx context.Context, organizerID 
 			Start:         start,
 			End:           end,
 		})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return result, nil
 }

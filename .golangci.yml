@@ -47,6 +47,11 @@ linters:
       - linters:
           - errcheck
         source: "defer .+\\.Sync\\(\\)"
+      # Test fixtures intentionally repeat literal values (arrange/assert pairs,
+      # table-driven cases) - that's not the same duplication smell goconst targets.
+      - path: "_test\\.go"
+        linters:
+          - goconst
   settings:
     dupl:
       threshold: 150
