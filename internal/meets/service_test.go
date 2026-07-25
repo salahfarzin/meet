@@ -546,7 +546,65 @@ func TestServiceDeleteError(t *testing.T) {
 	assert.Contains(t, err.Error(), "delete error")
 }
 
+func TestServiceListClinicsNilIdentityClient(t *testing.T) {
+	svc := NewService(&MockRepository{}, nil)
+	got, err := svc.ListClinics(context.Background())
+	assert.NoError(t, err)
+	assert.Nil(t, got)
+}
+
+func TestServiceListClinicsDelegatesToIdentityClient(t *testing.T) {
+	idClient := &mockIdentityClient{
+		listClinicsFunc: func(ctx context.Context) ([]identity.Clinic, error) {
+			return []identity.Clinic{{UUID: "c1", Name: "Clinic One"}}, nil
+		},
+	}
+	svc := NewService(&MockRepository{}, idClient)
+	got, err := svc.ListClinics(context.Background())
+	assert.NoError(t, err)
+	assert.Equal(t, []identity.Clinic{{UUID: "c1", Name: "Clinic One"}}, got)
+}
+
 // ---- ListScheduling tests ----
+
+// TestListSchedulingNilIdentityClientWithFilter verifies that when the identity
+// client is nil (unit-test wiring) and a name/mobile filter is set, ListScheduling
+// returns empty rather than panicking or erroring.
+func TestListSchedulingNilIdentityClientWithFilter(t *testing.T) {
+	mockRepo := &MockRepository{
+		QueryMeetsFunc: func(ctx context.Context, options *MeetQueryOptions) ([]*Meet, int, error) {
+			t.Fatal("repo must NOT be called when identity client is nil and a filter is set")
+			return nil, 0, nil
+		},
+	}
+	svc := NewService(mockRepo, nil)
+
+	result, err := svc.ListScheduling(context.Background(), &ListSchedulingInput{
+		AllowedClinics: []string{"clinic-1"},
+		FirstName:      "Ada",
+		Page:           1,
+		PageSize:       10,
+	})
+	assert.NoError(t, err)
+	assert.Empty(t, result.Meets)
+}
+
+func TestListSchedulingRepoQueryError(t *testing.T) {
+	mockRepo := &MockRepository{
+		QueryMeetsFunc: func(ctx context.Context, options *MeetQueryOptions) ([]*Meet, int, error) {
+			return nil, 0, errors.New("db unreachable")
+		},
+	}
+	svc := NewService(mockRepo, &mockIdentityClient{})
+
+	_, err := svc.ListScheduling(context.Background(), &ListSchedulingInput{
+		AllowedClinics: []string{"clinic-1"},
+		Page:           1,
+		PageSize:       10,
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "db unreachable")
+}
 
 func TestListSchedulingEmptyAllowedClinics(t *testing.T) {
 	mockRepo := &MockRepository{}

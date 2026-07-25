@@ -772,6 +772,97 @@ func TestQueryMeetsPaginatedRowsErr(t *testing.T) {
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
+// TestQueryMeetsPaginatedWithFiltersAndDefaults exercises the From/To and
+// ParticipantUuids WHERE-clause branches, plus the Page<=0/PageSize<=0 defaulting.
+func TestQueryMeetsPaginatedWithFiltersAndDefaults(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+	repo := NewRepository(db)
+
+	from := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2024, 2, 1, 0, 0, 0, 0, time.UTC)
+
+	mock.ExpectQuery("SELECT COUNT").
+		WillReturnRows(sqlmock.NewRows([]string{"c"}).AddRow(1))
+	mock.ExpectQuery("SELECT .* FROM meets").
+		WillReturnRows(sqlmock.NewRows([]string{
+			"id", "uuid", "organizer_uuid", "price_uuid", "participant_uuids",
+			"type", "title", "start_time", "end_time", "color", "description", "booked_at", "settings", "version", "created_at",
+		}).AddRow(1, "m1", "clinic-1", nil, `["p1"]`, 1, "T", time.Now(), time.Now(), "", "", nil, nil, 1, time.Now()))
+
+	rows, total, err := repo.QueryMeets(context.Background(), &MeetQueryOptions{
+		OrganizerUuids:   []string{"clinic-1"},
+		From:             &from,
+		To:               &to,
+		ParticipantUuids: []string{"p1"},
+		Page:             0, // defaults to 1
+		PageSize:         0, // defaults to 50
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 1, total)
+	assert.Len(t, rows, 1)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestQueryMeetsPaginatedCountQueryError(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+	repo := NewRepository(db)
+
+	mock.ExpectQuery("SELECT COUNT").WillReturnError(errors.New("count boom"))
+
+	_, _, err = repo.QueryMeets(context.Background(), &MeetQueryOptions{
+		OrganizerUuids: []string{"clinic-1"}, Page: 1, PageSize: 10,
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "count boom")
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestQueryMeetsPaginatedSelectQueryError(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+	repo := NewRepository(db)
+
+	mock.ExpectQuery("SELECT COUNT").
+		WillReturnRows(sqlmock.NewRows([]string{"c"}).AddRow(1))
+	mock.ExpectQuery("SELECT .* FROM meets").WillReturnError(errors.New("select boom"))
+
+	_, _, err = repo.QueryMeets(context.Background(), &MeetQueryOptions{
+		OrganizerUuids: []string{"clinic-1"}, Page: 1, PageSize: 10,
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "select boom")
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+// TestQueryMeetsPaginatedScanAndUnmarshalErrors covers scanPaginatedMeets' scan-error
+// and unmarshal-error branches.
+func TestQueryMeetsPaginatedScanAndUnmarshalErrors(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+	repo := NewRepository(db)
+
+	mock.ExpectQuery("SELECT COUNT").
+		WillReturnRows(sqlmock.NewRows([]string{"c"}).AddRow(1))
+	mock.ExpectQuery("SELECT .* FROM meets").
+		WillReturnRows(sqlmock.NewRows([]string{
+			"id", "uuid", "organizer_uuid", "price_uuid", "participant_uuids",
+			"type", "title", "start_time", "end_time", "color", "description", "booked_at", "settings", "version", "created_at",
+		}).AddRow(1, "m1", "clinic-1", nil, "invalid", 1, "T", time.Now(), time.Now(), "", "", nil, nil, 1, time.Now()))
+
+	_, _, err = repo.QueryMeets(context.Background(), &MeetQueryOptions{
+		OrganizerUuids: []string{"clinic-1"}, Page: 1, PageSize: 10,
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to unmarshal participants")
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
 func TestRepositoryGenerateAvailableSlotsScanError(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	assert.NoError(t, err)

@@ -3,6 +3,7 @@ package meets
 import (
 	"context"
 	"errors"
+	"math"
 	"testing"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // --- Conflict logic tests ---
@@ -98,6 +100,10 @@ type MockService struct {
 	// ListClinicsErr, when non-nil, is returned by ListClinics so tests can
 	// simulate the identity service being unreachable for admin callers.
 	ListClinicsErr error
+	// ListClinicsEmpty, when true, makes ListClinics return an empty (but
+	// error-free) slice — simulates a misconfigured identity service that
+	// returns zero clinics for an admin caller.
+	ListClinicsEmpty bool
 	// ListSchedulingFn, when non-nil, overrides the default ListScheduling behavior
 	// entirely — used by tests that need to control the returned Meets/inspect the
 	// received ListSchedulingInput (e.g. Settings/CreatedAt/ParticipantUuid mapping).
@@ -270,6 +276,9 @@ func (m *MockService) ListScheduling(ctx context.Context, in *ListSchedulingInpu
 func (m *MockService) ListClinics(ctx context.Context) ([]identity.Clinic, error) {
 	if m.ListClinicsErr != nil {
 		return nil, m.ListClinicsErr
+	}
+	if m.ListClinicsEmpty {
+		return []identity.Clinic{}, nil
 	}
 	// Return two fake clinics so admin-scoped tests have a non-empty AllowedClinics.
 	return []identity.Clinic{
@@ -946,6 +955,31 @@ func TestGetAllReturnsPaginatedEnriched(t *testing.T) {
 	assert.NotEqual(t, "", resp.Meets[0].Uuid+resp.Meets[0].Title) // some field is set
 }
 
+// TestGetAllAdminZeroClinicsDegradesToOwnUUID verifies that when the identity
+// service returns zero clinics for an admin caller (a configuration problem),
+// scope degrades to the admin's own uuid instead of exposing all tenants' data.
+func TestGetAllAdminZeroClinicsDegradesToOwnUUID(t *testing.T) {
+	md := metadata.New(map[string]string{
+		"x-user-roles": "Programmer",
+		"x-user-uuid":  "admin-user",
+	})
+	ctx := metadata.NewIncomingContext(context.Background(), md)
+
+	svc := NewMockService()
+	svc.ListClinicsEmpty = true
+	var gotAllowedClinics []string
+	svc.ListSchedulingFn = func(_ context.Context, in *ListSchedulingInput) (ListSchedulingResult, error) {
+		gotAllowedClinics = in.AllowedClinics
+		return ListSchedulingResult{Meets: []*Meet{}}, nil
+	}
+	h := NewHandler(svc)
+
+	resp, err := h.GetAll(ctx, &pb.GetAllRequest{})
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Equal(t, []string{"admin-user"}, gotAllowedClinics)
+}
+
 // TestGetAllNonAdminClinicScope verifies that a non-admin caller's AllowedClinics
 // is scoped to their own UUID, and requesting a clinic outside that scope returns
 // PermissionDenied.
@@ -1116,4 +1150,45 @@ func TestGetAllAdminListClinicsError(t *testing.T) {
 	// AllowedClinics = ["admin-uuid-1"]. MockService.ListScheduling returns a
 	// default single meet, so resp.Meets must be non-empty.
 	assert.NotEmpty(t, resp.Meets)
+}
+
+func TestSafeInt32(t *testing.T) {
+	assert.Equal(t, int32(42), safeInt32(42))
+	assert.Equal(t, int32(math.MaxInt32), safeInt32(math.MaxInt32+1))
+	assert.Equal(t, int32(math.MinInt32), safeInt32(math.MinInt32-1))
+}
+
+func TestSettingsToStruct(t *testing.T) {
+	assert.Nil(t, settingsToStruct(nil))
+	empty := ""
+	assert.Nil(t, settingsToStruct(&empty))
+	invalid := "not json"
+	assert.Nil(t, settingsToStruct(&invalid))
+	valid := `{"theme":"dark"}`
+	s := settingsToStruct(&valid)
+	assert.NotNil(t, s)
+	assert.Equal(t, "dark", s.Fields["theme"].GetStringValue())
+}
+
+func TestSettingsFromStruct(t *testing.T) {
+	assert.Nil(t, settingsFromStruct(nil))
+	s, err := structpb.NewStruct(map[string]any{"theme": "dark"})
+	assert.NoError(t, err)
+	got := settingsFromStruct(s)
+	assert.NotNil(t, got)
+	assert.Contains(t, *got, "dark")
+}
+
+// TestRetrieveOrganizerUuidProgrammerOverride verifies that a Programmer-role
+// caller's requested organizer_uuid is honored (admin/impersonation), instead
+// of being overridden by the caller's own uuid.
+func TestRetrieveOrganizerUuidProgrammerOverride(t *testing.T) {
+	md := metadata.New(map[string]string{
+		"x-user-roles": "Programmer",
+		"x-user-uuid":  "admin-uuid-1",
+	})
+	ctx := metadata.NewIncomingContext(context.Background(), md)
+
+	got := retrieveOrganizerUuid(ctx, "requested-organizer-uuid")
+	assert.Equal(t, "requested-organizer-uuid", got)
 }
