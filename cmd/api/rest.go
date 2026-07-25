@@ -95,8 +95,18 @@ func (s *RESTServer) Start(ctx context.Context) error {
 
 	var handler http.Handler = mux
 
-	// Skip authentication in test mode for E2E testing
-	if s.App.Configs.AppEnv == "test" {
+	// AUTH_DISABLED=true skips the auth service entirely for this local, non-public
+	// deployment - every request is treated as a fully-privileged local caller.
+	if s.App.Configs.AuthDisabled {
+		log.Println("⚠️  AUTH_DISABLED=true - authentication is DISABLED (local use only)")
+		handler = middlewares.CreateStack(
+			middlewares.JSONHeader,
+			middlewares.CORSMiddleware(s.App.AllowedOrigins),
+			middlewares.LoggingMiddleware(s.App.Logger, s.App.Configs.Log.Level),
+			localAuthBypassMiddleware(),
+		)(handler)
+	} else if s.App.Configs.AppEnv == "test" {
+		// Skip authentication in test mode for E2E testing
 		log.Println("⚠️  Running in TEST mode - authentication is DISABLED")
 		handler = middlewares.CreateStack(
 			middlewares.JSONHeader,
@@ -167,4 +177,30 @@ func (s *RESTServer) Start(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// localAuthBypassMiddleware injects a fixed, fully-privileged local user for
+// every request instead of calling the auth service. Unlike TestAuthMiddleware,
+// it doesn't trust any client-supplied identity headers - there's nothing for a
+// caller to spoof. Only safe when AUTH_DISABLED=true, i.e. the service isn't
+// reachable from outside the local machine/network.
+func localAuthBypassMiddleware() middlewares.Middleware {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			user := &middlewares.User{
+				ID:    "local",
+				Uuid:  "local",
+				Email: "local@local",
+				Roles: []string{"Admin", "Programmer"},
+			}
+
+			ctx := context.WithValue(r.Context(), middlewares.UserKey, user)
+
+			r.Header.Set("x-user-id", user.ID)
+			r.Header.Set("x-user-uuid", user.Uuid)
+			r.Header.Set("x-user-roles", strings.Join(user.Roles, ","))
+
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
 }

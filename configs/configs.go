@@ -43,6 +43,10 @@ type Configs struct {
 	AuthService string `env:"AUTH_SERVICE,required"`
 	UserService string `env:"USER_SERVICE"`
 
+	// AuthDisabled skips the auth service entirely, treating every request as a
+	// fully-privileged local caller. Only for local, non-public deployments.
+	AuthDisabled bool `env:"AUTH_DISABLED,default=false"`
+
 	Log  Log
 	DB   DBDriver
 	CORS CORS
@@ -53,15 +57,16 @@ func Init() *Configs {
 	_ = godotenv.Load()
 
 	return &Configs{
-		AppName:     utils.GetEnv("APP_NAME", "Meet Service"),
-		AppEnv:      utils.GetEnv("APP_ENV", "development"),
-		Version:     utils.GetEnv("APP_VERSION", "0.1.0"),
-		URL:         utils.GetEnv("APP_URL", "http://localhost"),
-		Port:        utils.GetEnvAsInt("APP_PORT", 8080),
-		GRPCPort:    utils.GetEnvAsInt("APP_GRPC_PORT", 50052),
-		RestPrefix:  utils.GetEnv("REST_PREFIX", "/api/v1"),
-		AuthService: utils.GetEnv("AUTH_SERVICE", "localhost:8082"),
-		UserService: utils.GetEnv("USER_SERVICE", "http://localhost:8000/v1"),
+		AppName:      utils.GetEnv("APP_NAME", "Meet Service"),
+		AppEnv:       utils.GetEnv("APP_ENV", "development"),
+		Version:      utils.GetEnv("APP_VERSION", "0.1.0"),
+		URL:          utils.GetEnv("APP_URL", "http://localhost"),
+		Port:         utils.GetEnvAsInt("APP_PORT", 8080),
+		GRPCPort:     utils.GetEnvAsInt("APP_GRPC_PORT", 50052),
+		RestPrefix:   utils.GetEnv("REST_PREFIX", "/api/v1"),
+		AuthService:  utils.GetEnv("AUTH_SERVICE", "localhost:8082"),
+		UserService:  utils.GetEnv("USER_SERVICE", "http://localhost:8000/v1"),
+		AuthDisabled: utils.GetEnvAsBool("AUTH_DISABLED", false),
 		Log: Log{
 			Level: utils.GetEnv("LOG_LEVEL", "debug"),
 			Path:  utils.GetEnv("LOG_PATH", "./storage/logs"),
