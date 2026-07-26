@@ -51,6 +51,7 @@ func (h *handler) Create(ctx context.Context, req *pb.CreateRequest) (*pb.Create
 	meet, err := h.service.Create(ctx, &Meet{
 		Title:            req.Meet.Title,
 		OrganizerUuid:    retrieveOrganizerUuid(ctx, req.Meet.OrganizerUuid),
+		CreatorUuid:      req.Meet.CreatorUuid,
 		PriceUuid:        req.Meet.PriceUuid,
 		ParticipantUuids: req.Meet.ParticipantUuids,
 		Start:            startTime,
@@ -73,6 +74,7 @@ func (h *handler) Create(ctx context.Context, req *pb.CreateRequest) (*pb.Create
 		Meet: &pb.Meet{
 			Uuid:             meet.UUID,
 			OrganizerUuid:    meet.OrganizerUuid,
+			CreatorUuid:      meet.CreatorUuid,
 			PriceUuid:        meet.PriceUuid,
 			ParticipantUuids: meet.ParticipantUuids,
 			Title:            meet.Title,
@@ -102,6 +104,7 @@ func (h *handler) Update(ctx context.Context, req *pb.UpdateRequest) (*pb.Update
 	meet, err := h.service.Update(ctx, &Meet{
 		UUID:             req.Uuid,
 		OrganizerUuid:    retrieveOrganizerUuid(ctx, req.Meet.OrganizerUuid),
+		CreatorUuid:      req.Meet.CreatorUuid,
 		PriceUuid:        req.Meet.PriceUuid,
 		ParticipantUuids: req.Meet.ParticipantUuids,
 		Title:            req.Meet.Title,
@@ -132,6 +135,7 @@ func (h *handler) Update(ctx context.Context, req *pb.UpdateRequest) (*pb.Update
 		Meet: &pb.Meet{
 			Uuid:             meet.UUID,
 			OrganizerUuid:    meet.OrganizerUuid,
+			CreatorUuid:      meet.CreatorUuid,
 			PriceUuid:        meet.PriceUuid,
 			ParticipantUuids: meet.ParticipantUuids,
 			Title:            meet.Title,
@@ -166,6 +170,7 @@ func (h *handler) GetOne(ctx context.Context, req *pb.GetOneRequest) (*pb.GetOne
 		Meet: &pb.Meet{
 			Uuid:             meet.UUID,
 			OrganizerUuid:    meet.OrganizerUuid,
+			CreatorUuid:      meet.CreatorUuid,
 			PriceUuid:        meet.PriceUuid,
 			ParticipantUuids: meet.ParticipantUuids,
 			Title:            meet.Title,
@@ -319,6 +324,7 @@ func (h *handler) GetAll(ctx context.Context, req *pb.GetAllRequest) (*pb.GetAll
 		pbMeets = append(pbMeets, &pb.Meet{
 			Uuid:             a.UUID,
 			OrganizerUuid:    a.OrganizerUuid,
+			CreatorUuid:      a.CreatorUuid,
 			PriceUuid:        a.PriceUuid,
 			ParticipantUuids: a.ParticipantUuids,
 			Title:            a.Title,

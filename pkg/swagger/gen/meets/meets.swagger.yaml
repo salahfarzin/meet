@@ -379,6 +379,13 @@ definitions:
           version is an optimistic-concurrency token. Callers round-trip the value
           read from GetOne/GetAll back into Update; if the row changed since, Update
           fails with ABORTED instead of silently clobbering a concurrent write.
+      creator_uuid:
+        type: string
+        description: |-
+          creator_uuid is the uuid of the user who created this meet, set explicitly
+          by the caller on Create (organizer_uuid may be a clinic, not the creator,
+          or may fall back to a service-account identity when no clinic is picked).
+          Read-only: ignored on Update.
     title: Meet message
   meetsMeetType:
     type: integer

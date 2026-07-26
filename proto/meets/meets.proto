@@ -74,6 +74,11 @@ message Meet {
   // read from GetOne/GetAll back into Update; if the row changed since, Update
   // fails with ABORTED instead of silently clobbering a concurrent write.
   int32 version = 19;
+  // creator_uuid is the uuid of the user who created this meet, set explicitly
+  // by the caller on Create (organizer_uuid may be a clinic, not the creator,
+  // or may fall back to a service-account identity when no clinic is picked).
+  // Read-only: ignored on Update.
+  string creator_uuid = 20;
 }
 
 // Request & Response

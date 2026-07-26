@@ -118,8 +118,8 @@ func TestRepositoryCreate(t *testing.T) {
 		PriceUuid:        &priceID,
 	}
 
-	mock.ExpectExec("INSERT INTO meets \\(uuid, title, organizer_uuid, participant_uuids, start_time, end_time, description, color, type, price_uuid, booked_at, settings, version\\) VALUES \\(\\?, \\?, \\?, \\?, \\?, \\?, \\?, \\?, \\?, \\?, \\?, \\?, \\?\\)").
-		WithArgs(meet.UUID, meet.Title, meet.OrganizerUuid, `["p1","p2"]`, sqlmock.AnyArg(), sqlmock.AnyArg(), meet.Description, meet.Color, meet.Type, meet.PriceUuid, meet.BookedAt, meet.Settings, sqlmock.AnyArg()).
+	mock.ExpectExec("INSERT INTO meets \\(uuid, title, organizer_uuid, creator_uuid, participant_uuids, start_time, end_time, description, color, type, price_uuid, booked_at, settings, version, created_at\\) VALUES \\(\\?, \\?, \\?, \\?, \\?, \\?, \\?, \\?, \\?, \\?, \\?, \\?, \\?, \\?, \\?\\)").
+		WithArgs(meet.UUID, meet.Title, meet.OrganizerUuid, meet.CreatorUuid, `["p1","p2"]`, sqlmock.AnyArg(), sqlmock.AnyArg(), meet.Description, meet.Color, meet.Type, meet.PriceUuid, meet.BookedAt, meet.Settings, sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	err = repo.Create(context.Background(), meet)
@@ -130,7 +130,7 @@ func TestRepositoryCreate(t *testing.T) {
 }
 
 func TestRepositoryGetOne(t *testing.T) {
-	scanCols := []string{"id", "uuid", "title", "organizer_uuid", "price_uuid", "participant_uuids", "start_time", "end_time", "description", "color", "type", "booked_at", "settings", "version", "created_at"}
+	scanCols := []string{"id", "uuid", "title", "organizer_uuid", "creator_uuid", "price_uuid", "participant_uuids", "start_time", "end_time", "description", "color", "type", "booked_at", "settings", "version", "created_at"}
 
 	tests := []struct {
 		name    string
@@ -138,8 +138,8 @@ func TestRepositoryGetOne(t *testing.T) {
 		lookup  string
 		queryRe string
 	}{
-		{name: "ByID", byUUID: false, lookup: "1", queryRe: "SELECT id, uuid, title, organizer_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at, settings, version, created_at FROM meets WHERE id = \\?"},
-		{name: "ByUUID", byUUID: true, lookup: "test-uuid", queryRe: "SELECT id, uuid, title, organizer_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at, settings, version, created_at FROM meets WHERE uuid = \\?"},
+		{name: "ByID", byUUID: false, lookup: "1", queryRe: "SELECT id, uuid, title, organizer_uuid, creator_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at, settings, version, created_at FROM meets WHERE id = \\?"},
+		{name: "ByUUID", byUUID: true, lookup: "test-uuid", queryRe: "SELECT id, uuid, title, organizer_uuid, creator_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at, settings, version, created_at FROM meets WHERE uuid = \\?"},
 	}
 
 	for _, tt := range tests {
@@ -170,7 +170,7 @@ func TestRepositoryGetOne(t *testing.T) {
 			mock.ExpectQuery(tt.queryRe).
 				WithArgs(tt.lookup).
 				WillReturnRows(sqlmock.NewRows(scanCols).
-					AddRow(expectedMeet.ID, expectedMeet.UUID, expectedMeet.Title, expectedMeet.OrganizerUuid, expectedMeet.PriceUuid, string(participantsJSON), expectedMeet.Start, expectedMeet.End, expectedMeet.Description, expectedMeet.Color, expectedMeet.Type, expectedMeet.BookedAt, expectedMeet.Settings, 1, expectedMeet.CreatedAt))
+					AddRow(expectedMeet.ID, expectedMeet.UUID, expectedMeet.Title, expectedMeet.OrganizerUuid, expectedMeet.CreatorUuid, expectedMeet.PriceUuid, string(participantsJSON), expectedMeet.Start, expectedMeet.End, expectedMeet.Description, expectedMeet.Color, expectedMeet.Type, expectedMeet.BookedAt, expectedMeet.Settings, 1, expectedMeet.CreatedAt))
 
 			var result *Meet
 			if tt.byUUID {
@@ -193,7 +193,7 @@ func TestRepositoryGetOne(t *testing.T) {
 }
 
 func TestRepositoryGetOneInvalidParticipants(t *testing.T) {
-	scanCols := []string{"id", "uuid", "title", "organizer_uuid", "price_uuid", "participant_uuids", "start_time", "end_time", "description", "color", "type", "booked_at", "settings", "version", "created_at"}
+	scanCols := []string{"id", "uuid", "title", "organizer_uuid", "creator_uuid", "price_uuid", "participant_uuids", "start_time", "end_time", "description", "color", "type", "booked_at", "settings", "version", "created_at"}
 
 	tests := []struct {
 		name    string
@@ -201,8 +201,8 @@ func TestRepositoryGetOneInvalidParticipants(t *testing.T) {
 		lookup  string
 		queryRe string
 	}{
-		{name: "ByID", byUUID: false, lookup: "1", queryRe: "SELECT id, uuid, title, organizer_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at, settings, version, created_at FROM meets WHERE id = \\?"},
-		{name: "ByUUID", byUUID: true, lookup: "test-uuid", queryRe: "SELECT id, uuid, title, organizer_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at, settings, version, created_at FROM meets WHERE uuid = \\?"},
+		{name: "ByID", byUUID: false, lookup: "1", queryRe: "SELECT id, uuid, title, organizer_uuid, creator_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at, settings, version, created_at FROM meets WHERE id = \\?"},
+		{name: "ByUUID", byUUID: true, lookup: "test-uuid", queryRe: "SELECT id, uuid, title, organizer_uuid, creator_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at, settings, version, created_at FROM meets WHERE uuid = \\?"},
 	}
 
 	for _, tt := range tests {
@@ -216,7 +216,7 @@ func TestRepositoryGetOneInvalidParticipants(t *testing.T) {
 			mock.ExpectQuery(tt.queryRe).
 				WithArgs(tt.lookup).
 				WillReturnRows(sqlmock.NewRows(scanCols).
-					AddRow("1", "test-uuid", "Test Meet", "org1", nil, "invalid", time.Now(), time.Now().Add(time.Hour), "Test description", "#ffffff", 1, nil, nil, 1, time.Now()))
+					AddRow("1", "test-uuid", "Test Meet", "org1", nil, nil, "invalid", time.Now(), time.Now().Add(time.Hour), "Test description", "#ffffff", 1, nil, nil, 1, time.Now()))
 
 			var result *Meet
 			if tt.byUUID {
@@ -366,10 +366,10 @@ func TestRepositoryQueryMeets(t *testing.T) {
 		},
 	}
 
-	mock.ExpectQuery("SELECT id, uuid, title, organizer_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at FROM meets WHERE organizer_uuid = \\? AND end_time > \\? AND start_time < \\?").
+	mock.ExpectQuery("SELECT id, uuid, title, organizer_uuid, creator_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at FROM meets WHERE organizer_uuid = \\? AND end_time > \\? AND start_time < \\?").
 		WithArgs("org1", sqlmock.AnyArg(), sqlmock.AnyArg()).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "uuid", "title", "organizer_uuid", "price_uuid", "participant_uuids", "start_time", "end_time", "description", "color", "type", "booked_at"}).
-			AddRow(expectedMeets[0].ID, expectedMeets[0].UUID, expectedMeets[0].Title, expectedMeets[0].OrganizerUuid, expectedMeets[0].PriceUuid, `["p1"]`, expectedMeets[0].Start, expectedMeets[0].End, expectedMeets[0].Description, expectedMeets[0].Color, expectedMeets[0].Type, expectedMeets[0].BookedAt))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "uuid", "title", "organizer_uuid", "creator_uuid", "price_uuid", "participant_uuids", "start_time", "end_time", "description", "color", "type", "booked_at"}).
+			AddRow(expectedMeets[0].ID, expectedMeets[0].UUID, expectedMeets[0].Title, expectedMeets[0].OrganizerUuid, expectedMeets[0].CreatorUuid, expectedMeets[0].PriceUuid, `["p1"]`, expectedMeets[0].Start, expectedMeets[0].End, expectedMeets[0].Description, expectedMeets[0].Color, expectedMeets[0].Type, expectedMeets[0].BookedAt))
 
 	result, _, err := repo.QueryMeets(context.Background(), opts)
 	assert.NoError(t, err)
@@ -503,8 +503,8 @@ func TestRepositoryCreateError(t *testing.T) {
 		Color:            "#ffffff",
 	}
 
-	mock.ExpectExec("INSERT INTO meets \\(uuid, title, organizer_uuid, participant_uuids, start_time, end_time, description, color, type, price_uuid, booked_at, settings, version\\) VALUES \\(\\?, \\?, \\?, \\?, \\?, \\?, \\?, \\?, \\?, \\?, \\?, \\?, \\?\\)").
-		WithArgs(meet.UUID, meet.Title, meet.OrganizerUuid, `["p1","p2"]`, sqlmock.AnyArg(), sqlmock.AnyArg(), meet.Description, meet.Color, sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
+	mock.ExpectExec("INSERT INTO meets \\(uuid, title, organizer_uuid, creator_uuid, participant_uuids, start_time, end_time, description, color, type, price_uuid, booked_at, settings, version, created_at\\) VALUES \\(\\?, \\?, \\?, \\?, \\?, \\?, \\?, \\?, \\?, \\?, \\?, \\?, \\?, \\?, \\?\\)").
+		WithArgs(meet.UUID, meet.Title, meet.OrganizerUuid, meet.CreatorUuid, `["p1","p2"]`, sqlmock.AnyArg(), sqlmock.AnyArg(), meet.Description, meet.Color, sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnError(errors.New("insert error"))
 
 	err = repo.Create(context.Background(), meet)
@@ -585,7 +585,7 @@ func TestRepositoryQueryMeetsQueryError(t *testing.T) {
 		To:            &to,
 	}
 
-	mock.ExpectQuery("SELECT id, uuid, title, organizer_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at FROM meets WHERE organizer_uuid = \\? AND end_time > \\? AND start_time < \\?").
+	mock.ExpectQuery("SELECT id, uuid, title, organizer_uuid, creator_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at FROM meets WHERE organizer_uuid = \\? AND end_time > \\? AND start_time < \\?").
 		WithArgs("org1", sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnError(errors.New("query error"))
 
@@ -604,7 +604,7 @@ func TestRepositoryGetByIDNotFound(t *testing.T) {
 
 	repo := NewRepository(db)
 
-	mock.ExpectQuery("SELECT id, uuid, title, organizer_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at, settings, version, created_at FROM meets WHERE id = \\?").
+	mock.ExpectQuery("SELECT id, uuid, title, organizer_uuid, creator_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at, settings, version, created_at FROM meets WHERE id = \\?").
 		WithArgs("999").
 		WillReturnError(sql.ErrNoRows)
 
@@ -623,7 +623,7 @@ func TestRepositoryGetByIDQueryError(t *testing.T) {
 
 	repo := NewRepository(db)
 
-	mock.ExpectQuery("SELECT id, uuid, title, organizer_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at, settings, version, created_at FROM meets WHERE id = \\?").
+	mock.ExpectQuery("SELECT id, uuid, title, organizer_uuid, creator_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at, settings, version, created_at FROM meets WHERE id = \\?").
 		WithArgs("1").
 		WillReturnError(errors.New("database error"))
 
@@ -652,10 +652,10 @@ func TestRepositoryProcessRowsScanError(t *testing.T) {
 	}
 
 	// Return invalid data to trigger scan error
-	mock.ExpectQuery("SELECT id, uuid, title, organizer_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at FROM meets WHERE organizer_uuid = \\? AND end_time > \\? AND start_time < \\?").
+	mock.ExpectQuery("SELECT id, uuid, title, organizer_uuid, creator_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at FROM meets WHERE organizer_uuid = \\? AND end_time > \\? AND start_time < \\?").
 		WithArgs("org1", sqlmock.AnyArg(), sqlmock.AnyArg()).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "uuid", "title", "organizer_uuid", "price_uuid", "participant_uuids", "start_time", "end_time", "description", "color", "type", "booked_at"}).
-			AddRow("1", "uuid1", "Meet 1", "org1", nil, `["p1"]`, "invalid-time", "invalid-time", "Desc", "#fff", 1, nil))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "uuid", "title", "organizer_uuid", "creator_uuid", "price_uuid", "participant_uuids", "start_time", "end_time", "description", "color", "type", "booked_at"}).
+			AddRow("1", "uuid1", "Meet 1", "org1", nil, nil, `["p1"]`, "invalid-time", "invalid-time", "Desc", "#fff", 1, nil))
 
 	result, _, err := repo.QueryMeets(context.Background(), opts)
 	assert.Error(t, err)
@@ -681,10 +681,10 @@ func TestRepositoryProcessRowsUnmarshalError(t *testing.T) {
 	}
 
 	// Return invalid JSON to trigger unmarshal error
-	mock.ExpectQuery("SELECT id, uuid, title, organizer_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at FROM meets WHERE organizer_uuid = \\? AND end_time > \\? AND start_time < \\?").
+	mock.ExpectQuery("SELECT id, uuid, title, organizer_uuid, creator_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at FROM meets WHERE organizer_uuid = \\? AND end_time > \\? AND start_time < \\?").
 		WithArgs("org1", sqlmock.AnyArg(), sqlmock.AnyArg()).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "uuid", "title", "organizer_uuid", "price_uuid", "participant_uuids", "start_time", "end_time", "description", "color", "type", "booked_at"}).
-			AddRow("1", "uuid1", "Meet 1", "org1", nil, "invalid-json", time.Now(), time.Now().Add(time.Hour), "Desc", "#fff", 1, nil))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "uuid", "title", "organizer_uuid", "creator_uuid", "price_uuid", "participant_uuids", "start_time", "end_time", "description", "color", "type", "booked_at"}).
+			AddRow("1", "uuid1", "Meet 1", "org1", nil, nil, "invalid-json", time.Now(), time.Now().Add(time.Hour), "Desc", "#fff", 1, nil))
 
 	result, _, err := repo.QueryMeets(context.Background(), opts)
 	assert.Error(t, err)
@@ -728,9 +728,9 @@ func TestQueryMeetsScopesAndPaginates(t *testing.T) {
 	mock.ExpectQuery("SELECT .* FROM meets").
 		WithArgs("clinic-1", 10, 0).
 		WillReturnRows(sqlmock.NewRows([]string{
-			"id", "uuid", "organizer_uuid", "price_uuid", "participant_uuids",
+			"id", "uuid", "organizer_uuid", "creator_uuid", "price_uuid", "participant_uuids",
 			"type", "title", "start_time", "end_time", "color", "description", "booked_at", "settings", "version", "created_at",
-		}).AddRow(1, "m1", "clinic-1", nil, "[\"p1\"]", 1, "T", time.Now(), time.Now(), "", "", nil, nil, 1, time.Now()))
+		}).AddRow(1, "m1", "clinic-1", nil, nil, "[\"p1\"]", 1, "T", time.Now(), time.Now(), "", "", nil, nil, 1, time.Now()))
 
 	rows, total, err := repo.QueryMeets(context.Background(), &MeetQueryOptions{
 		OrganizerUuids: []string{"clinic-1"}, Page: 1, PageSize: 10,
@@ -755,9 +755,9 @@ func TestQueryMeetsPaginatedRowsErr(t *testing.T) {
 
 	// Return rows that produce an error after iteration via RowError.
 	dataRows := sqlmock.NewRows([]string{
-		"id", "uuid", "organizer_uuid", "price_uuid", "participant_uuids",
+		"id", "uuid", "organizer_uuid", "creator_uuid", "price_uuid", "participant_uuids",
 		"type", "title", "start_time", "end_time", "color", "description", "booked_at", "settings", "version", "created_at",
-	}).AddRow(1, "m1", "clinic-1", nil, `["p1"]`, 1, "T", time.Now(), time.Now(), "", "", nil, nil, 1, time.Now()).
+	}).AddRow(1, "m1", "clinic-1", nil, nil, `["p1"]`, 1, "T", time.Now(), time.Now(), "", "", nil, nil, 1, time.Now()).
 		RowError(0, iterErr)
 
 	mock.ExpectQuery("SELECT .* FROM meets").
@@ -787,9 +787,9 @@ func TestQueryMeetsPaginatedWithFiltersAndDefaults(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"c"}).AddRow(1))
 	mock.ExpectQuery("SELECT .* FROM meets").
 		WillReturnRows(sqlmock.NewRows([]string{
-			"id", "uuid", "organizer_uuid", "price_uuid", "participant_uuids",
+			"id", "uuid", "organizer_uuid", "creator_uuid", "price_uuid", "participant_uuids",
 			"type", "title", "start_time", "end_time", "color", "description", "booked_at", "settings", "version", "created_at",
-		}).AddRow(1, "m1", "clinic-1", nil, `["p1"]`, 1, "T", time.Now(), time.Now(), "", "", nil, nil, 1, time.Now()))
+		}).AddRow(1, "m1", "clinic-1", nil, nil, `["p1"]`, 1, "T", time.Now(), time.Now(), "", "", nil, nil, 1, time.Now()))
 
 	rows, total, err := repo.QueryMeets(context.Background(), &MeetQueryOptions{
 		OrganizerUuids:   []string{"clinic-1"},
@@ -851,9 +851,9 @@ func TestQueryMeetsPaginatedScanAndUnmarshalErrors(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"c"}).AddRow(1))
 	mock.ExpectQuery("SELECT .* FROM meets").
 		WillReturnRows(sqlmock.NewRows([]string{
-			"id", "uuid", "organizer_uuid", "price_uuid", "participant_uuids",
+			"id", "uuid", "organizer_uuid", "creator_uuid", "price_uuid", "participant_uuids",
 			"type", "title", "start_time", "end_time", "color", "description", "booked_at", "settings", "version", "created_at",
-		}).AddRow(1, "m1", "clinic-1", nil, "invalid", 1, "T", time.Now(), time.Now(), "", "", nil, nil, 1, time.Now()))
+		}).AddRow(1, "m1", "clinic-1", nil, nil, "invalid", 1, "T", time.Now(), time.Now(), "", "", nil, nil, 1, time.Now()))
 
 	_, _, err = repo.QueryMeets(context.Background(), &MeetQueryOptions{
 		OrganizerUuids: []string{"clinic-1"}, Page: 1, PageSize: 10,
@@ -892,7 +892,7 @@ func TestRepositoryGetByUUIDNotFound(t *testing.T) {
 
 	repo := NewRepository(db)
 
-	mock.ExpectQuery("SELECT id, uuid, title, organizer_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at, settings, version, created_at FROM meets WHERE uuid = \\?").
+	mock.ExpectQuery("SELECT id, uuid, title, organizer_uuid, creator_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at, settings, version, created_at FROM meets WHERE uuid = \\?").
 		WithArgs("999").
 		WillReturnError(sql.ErrNoRows)
 
@@ -911,7 +911,7 @@ func TestRepositoryGetByUUIDQueryError(t *testing.T) {
 
 	repo := NewRepository(db)
 
-	mock.ExpectQuery("SELECT id, uuid, title, organizer_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at, settings, version, created_at FROM meets WHERE uuid = \\?").
+	mock.ExpectQuery("SELECT id, uuid, title, organizer_uuid, creator_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at, settings, version, created_at FROM meets WHERE uuid = \\?").
 		WithArgs("test-uuid").
 		WillReturnError(errors.New("database error"))
 
@@ -930,10 +930,10 @@ func TestRepositoryGetByUUIDInvalidParticipants(t *testing.T) {
 
 	repo := NewRepository(db)
 
-	mock.ExpectQuery("SELECT id, uuid, title, organizer_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at, settings, version, created_at FROM meets WHERE uuid = \\?").
+	mock.ExpectQuery("SELECT id, uuid, title, organizer_uuid, creator_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at, settings, version, created_at FROM meets WHERE uuid = \\?").
 		WithArgs("test-uuid").
-		WillReturnRows(sqlmock.NewRows([]string{"id", "uuid", "title", "organizer_uuid", "price_uuid", "participant_uuids", "start_time", "end_time", "description", "color", "type", "booked_at", "settings", "version", "created_at"}).
-			AddRow("1", "test-uuid", "Test Meet", "org1", nil, "invalid", time.Now(), time.Now().Add(time.Hour), "Test description", "#ffffff", 1, nil, nil, 1, time.Now()))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "uuid", "title", "organizer_uuid", "creator_uuid", "price_uuid", "participant_uuids", "start_time", "end_time", "description", "color", "type", "booked_at", "settings", "version", "created_at"}).
+			AddRow("1", "test-uuid", "Test Meet", "org1", nil, nil, "invalid", time.Now(), time.Now().Add(time.Hour), "Test description", "#ffffff", 1, nil, nil, 1, time.Now()))
 
 	result, err := repo.GetByUUID(context.Background(), "test-uuid")
 	assert.Error(t, err)
@@ -1063,7 +1063,7 @@ func TestRepositoryQueryMeetsNoFilters(t *testing.T) {
 
 	repo := NewRepository(db)
 
-	mock.ExpectQuery("SELECT id, uuid, title, organizer_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at FROM meets WHERE organizer_uuid = \\?").
+	mock.ExpectQuery("SELECT id, uuid, title, organizer_uuid, creator_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at FROM meets WHERE organizer_uuid = \\?").
 		WithArgs("org1").
 		WillReturnRows(sqlmock.NewRows([]string{"id", "uuid", "title", "organizer_uuid", "price_uuid", "participant_uuids", "start_time", "end_time", "description", "color", "type", "booked_at"}))
 
@@ -1108,8 +1108,8 @@ func TestRepositoryCreateAndGetByUUIDPersistsSettingsAndCreatedAt(t *testing.T) 
 	}
 
 	mock.ExpectExec("INSERT INTO meets").
-		WithArgs(meet.UUID, meet.Title, meet.OrganizerUuid, sqlmock.AnyArg(), meet.Start.UTC(), meet.End.UTC(),
-			meet.Description, meet.Color, meet.Type, meet.PriceUuid, meet.BookedAt, settings, sqlmock.AnyArg()).
+		WithArgs(meet.UUID, meet.Title, meet.OrganizerUuid, meet.CreatorUuid, sqlmock.AnyArg(), meet.Start.UTC(), meet.End.UTC(),
+			meet.Description, meet.Color, meet.Type, meet.PriceUuid, meet.BookedAt, settings, sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	err = repo.Create(context.Background(), meet)
@@ -1117,13 +1117,13 @@ func TestRepositoryCreateAndGetByUUIDPersistsSettingsAndCreatedAt(t *testing.T) 
 
 	createdAt := time.Date(2026, 7, 9, 12, 0, 0, 0, time.UTC)
 	rows := sqlmock.NewRows([]string{
-		"id", "uuid", "title", "organizer_uuid", "price_uuid", "participant_uuids",
+		"id", "uuid", "title", "organizer_uuid", "creator_uuid", "price_uuid", "participant_uuids",
 		"start_time", "end_time", "description", "color", "type", "booked_at", "settings", "version", "created_at",
 	}).AddRow(
-		1, "uuid-1", "Session", "clinic-1", nil, `["patient-1"]`,
+		1, "uuid-1", "Session", "clinic-1", nil, nil, `["patient-1"]`,
 		meet.Start.UTC(), meet.End.UTC(), "", "", 0, nil, settings, 1, createdAt,
 	)
-	mock.ExpectQuery("SELECT id, uuid, title, organizer_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at, settings, version, created_at FROM meets WHERE uuid = \\?").
+	mock.ExpectQuery("SELECT id, uuid, title, organizer_uuid, creator_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at, settings, version, created_at FROM meets WHERE uuid = \\?").
 		WithArgs("uuid-1").
 		WillReturnRows(rows)
 
