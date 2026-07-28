@@ -65,8 +65,9 @@ message Meet {
   string mobile = 15;
   // clinic_name is the display name of the meet's organizer (clinic/center identity).
   string clinic_name = 16;
-  // settings holds admin-workflow state (approved_at, is_absent, present_at) — free-form,
-  // owned entirely by the caller (ravanhealth), opaque to this service.
+  // settings holds admin-workflow state (approved_at, is_absent, present_at) and booking rules.
+  // Properties such as `appointmentMinHoursBetweenBookings` are read and enforced by this service,
+  // while other fields are opaque and owned by the caller (ravanhealth).
   google.protobuf.Struct settings = 17;
   // created_at exposes the existing meets.created_at column (RFC3339). Read-only: ignored on input.
   string created_at = 18;

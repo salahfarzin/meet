@@ -28,6 +28,10 @@ type MeetSettings struct {
 	// MinHoursBetweenBookings is the minimum gap (hours) required
 	// between two bookings of the same participant. 0/absent disables the check.
 	MinHoursBetweenBookings int `json:"minHoursBetweenBookings,omitempty"`
+	// PreventMultipleUpcomingBookings, when true, blocks a participant from booking
+	// a new meet while they still have another active (not cancelled) booking whose
+	// start hasn't happened yet.
+	PreventMultipleUpcomingBookings bool `json:"preventMultipleUpcomingBookings,omitempty"`
 	// Participants is the status-tracked booking history for the meet.
 	Participants []ParticipantSetting `json:"participants,omitempty"`
 
@@ -63,6 +67,20 @@ func hasActiveBooking(meet *Meet, pUuid string) bool {
 		}
 	}
 	return true
+}
+
+// hasActiveConflict reports whether any meet in bookings has an active (not
+// cancelled) booking for one of participantUuids - used by booking-restriction
+// rules built on Repository.FindParticipantBookings (service.go).
+func hasActiveConflict(bookings []*Meet, participantUuids []string) bool {
+	for _, b := range bookings {
+		for _, pUuid := range participantUuids {
+			if hasActiveBooking(b, pUuid) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // parseSettings decodes the domain Meet.Settings JSON string into its typed

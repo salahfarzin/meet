@@ -39,14 +39,15 @@ func (m *mockIdentityClient) ListClinics(ctx context.Context) ([]identity.Clinic
 }
 
 type MockRepository struct {
-	CreateFunc        func(ctx context.Context, meet *Meet) error
-	GetByIDFunc       func(ctx context.Context, id string) (*Meet, error)
-	GetByUUIDFunc     func(ctx context.Context, uuid string) (*Meet, error)
-	UpdateFunc        func(ctx context.Context, meet *Meet) error
-	DeleteFunc        func(ctx context.Context, uuid string) error
-	QueryMeetsFunc    func(ctx context.Context, options *MeetQueryOptions) ([]*Meet, int, error)
-	HasConflictFunc   func(ctx context.Context, organizerId string, start, end time.Time, excludeUUID ...string) (bool, error)
-	GenerateSlotsFunc func(ctx context.Context, organizerID string, from, to time.Time, priceUUID *string) ([]*Meet, error)
+	CreateFunc                  func(ctx context.Context, meet *Meet) error
+	GetByIDFunc                 func(ctx context.Context, id string) (*Meet, error)
+	GetByUUIDFunc               func(ctx context.Context, uuid string) (*Meet, error)
+	UpdateFunc                  func(ctx context.Context, meet *Meet) error
+	DeleteFunc                  func(ctx context.Context, uuid string) error
+	QueryMeetsFunc              func(ctx context.Context, options *MeetQueryOptions) ([]*Meet, int, error)
+	HasConflictFunc             func(ctx context.Context, organizerId string, start, end time.Time, excludeUUID ...string) (bool, error)
+	GenerateSlotsFunc           func(ctx context.Context, organizerID string, from, to time.Time, priceUUID *string) ([]*Meet, error)
+	FindParticipantBookingsFunc func(ctx context.Context, participantUuids []string, from, to *time.Time, excludeUUID string) ([]*Meet, error)
 }
 
 func (m *MockRepository) Create(ctx context.Context, meet *Meet) error {
@@ -106,6 +107,13 @@ func (m *MockRepository) GenerateAvailableSlots(ctx context.Context, organizerID
 		return m.GenerateSlotsFunc(ctx, organizerID, from, to, priceUUID)
 	}
 	return []*Meet{}, nil
+}
+
+func (m *MockRepository) FindParticipantBookings(ctx context.Context, participantUuids []string, from, to *time.Time, excludeUUID string) ([]*Meet, error) {
+	if m.FindParticipantBookingsFunc != nil {
+		return m.FindParticipantBookingsFunc(ctx, participantUuids, from, to, excludeUUID)
+	}
+	return nil, nil
 }
 
 func TestServiceGetByID(t *testing.T) {
@@ -952,4 +960,36 @@ func TestListSchedulingParticipantUuidBypassesIdentitySearch(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, result.Meets, 1)
 	assert.Equal(t, "m1", result.Meets[0].UUID)
+}
+
+// TestServiceCreateSkipsCancelledUpcomingBooking is an end-to-end regression test
+// for the bug where CheckMinHoursViolated (now checkMinHoursBetweenBookings) never
+// excluded cancelled participant bookings: a participant who cancelled one meet
+// must still be able to book another nearby one.
+func TestServiceCreateSkipsCancelledUpcomingBooking(t *testing.T) {
+	cancelled := `{"participants":[{"uuid":"p1","status":"cancelled"}]}`
+	settings := `{"minHoursBetweenBookings":2,"preventMultipleUpcomingBookings":true}`
+	mockRepo := &MockRepository{
+		HasConflictFunc: func(ctx context.Context, organizerId string, start, end time.Time, excludeUUID ...string) (bool, error) {
+			return false, nil
+		},
+		FindParticipantBookingsFunc: func(ctx context.Context, participantUuids []string, from, to *time.Time, excludeUUID string) ([]*Meet, error) {
+			return []*Meet{{UUID: "old-cancelled", ParticipantUuids: []string{"p1"}, Settings: &cancelled}}, nil
+		},
+	}
+	svc := NewService(mockRepo, nil)
+
+	meet := &Meet{
+		Title:            "New Meet",
+		OrganizerUuid:    "org1",
+		ParticipantUuids: []string{"p1"},
+		Start:            time.Now().Add(24 * time.Hour),
+		End:              time.Now().Add(25 * time.Hour),
+		Settings:         &settings,
+	}
+
+	result, err := svc.Create(context.Background(), meet)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
 }

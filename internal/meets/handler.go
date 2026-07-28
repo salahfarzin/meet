@@ -70,6 +70,9 @@ func (h *handler) Create(ctx context.Context, req *pb.CreateRequest) (*pb.Create
 		if err.Error() == "minimum hours between bookings violated" {
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
+		if err.Error() == "participant already has an upcoming appointment" {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
 		logger.FromContext(ctx).Error("failed to create meet", zap.Error(err))
 		return nil, status.Error(codes.Internal, errInternalServer)
 	}
@@ -126,6 +129,9 @@ func (h *handler) Update(ctx context.Context, req *pb.UpdateRequest) (*pb.Update
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
 		if err.Error() == "minimum hours between bookings violated" {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		if err.Error() == "participant already has an upcoming appointment" {
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
 		if errors.Is(err, ErrVersionConflict) {

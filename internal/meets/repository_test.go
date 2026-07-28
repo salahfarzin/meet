@@ -97,6 +97,71 @@ func TestRepositoryHasConflict(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
+func TestRepositoryFindParticipantBookings(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer db.Close()
+
+	repo := NewRepository(db)
+	from := time.Now()
+	to := from.Add(2 * time.Hour)
+
+	t.Run("no participant uuids returns nil without querying", func(t *testing.T) {
+		result, err := repo.FindParticipantBookings(context.Background(), nil, &from, &to, "")
+		assert.NoError(t, err)
+		assert.Nil(t, result)
+	})
+
+	t.Run("returns matching rows with settings", func(t *testing.T) {
+		mock.ExpectQuery("SELECT uuid, participant_uuids, settings FROM meets WHERE JSON_OVERLAPS\\(participant_uuids, \\?\\) AND start_time > \\? AND start_time < \\? AND uuid != \\?").
+			WithArgs(sqlmock.AnyArg(), from, to, "exclude-uuid").
+			WillReturnRows(sqlmock.NewRows([]string{"uuid", "participant_uuids", "settings"}).
+				AddRow("m1", `["p1"]`, `{"participants":[{"uuid":"p1","status":"cancelled"}]}`).
+				AddRow("m2", `["p1","p2"]`, nil))
+
+		result, err := repo.FindParticipantBookings(context.Background(), []string{"p1"}, &from, &to, "exclude-uuid")
+		require.NoError(t, err)
+		require.Len(t, result, 2)
+		assert.Equal(t, "m1", result[0].UUID)
+		assert.Equal(t, []string{"p1"}, result[0].ParticipantUuids)
+		require.NotNil(t, result[0].Settings)
+		assert.Contains(t, *result[0].Settings, "cancelled")
+		assert.Equal(t, "m2", result[1].UUID)
+		assert.Nil(t, result[1].Settings)
+	})
+
+	t.Run("only from bound set", func(t *testing.T) {
+		mock.ExpectQuery("SELECT uuid, participant_uuids, settings FROM meets WHERE JSON_OVERLAPS\\(participant_uuids, \\?\\) AND start_time > \\?").
+			WithArgs(sqlmock.AnyArg(), from).
+			WillReturnRows(sqlmock.NewRows([]string{"uuid", "participant_uuids", "settings"}))
+
+		result, err := repo.FindParticipantBookings(context.Background(), []string{"p1"}, &from, nil, "")
+		require.NoError(t, err)
+		assert.Empty(t, result)
+	})
+
+	t.Run("query error", func(t *testing.T) {
+		mock.ExpectQuery("SELECT uuid, participant_uuids, settings FROM meets WHERE JSON_OVERLAPS\\(participant_uuids, \\?\\)").
+			WithArgs(sqlmock.AnyArg()).
+			WillReturnError(errors.New("query error"))
+
+		_, err := repo.FindParticipantBookings(context.Background(), []string{"p1"}, nil, nil, "")
+		assert.Error(t, err)
+	})
+
+	t.Run("unmarshal error", func(t *testing.T) {
+		mock.ExpectQuery("SELECT uuid, participant_uuids, settings FROM meets WHERE JSON_OVERLAPS\\(participant_uuids, \\?\\)").
+			WithArgs(sqlmock.AnyArg()).
+			WillReturnRows(sqlmock.NewRows([]string{"uuid", "participant_uuids", "settings"}).
+				AddRow("m1", `not-json`, nil))
+
+		_, err := repo.FindParticipantBookings(context.Background(), []string{"p1"}, nil, nil, "")
+		assert.Error(t, err)
+	})
+
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
 func TestRepositoryCreate(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	assert.NoError(t, err)

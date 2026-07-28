@@ -38,6 +38,9 @@ func (m *MockRepoConflict) QueryMeets(ctx context.Context, options *MeetQueryOpt
 func (m *MockRepoConflict) GenerateAvailableSlots(ctx context.Context, organizerID string, from, to time.Time, priceUUID *string) ([]*Meet, error) {
 	return nil, nil
 }
+func (m *MockRepoConflict) FindParticipantBookings(ctx context.Context, participantUuids []string, from, to *time.Time, excludeUUID string) ([]*Meet, error) {
+	return nil, nil
+}
 
 func newServiceWithConflict(conflict bool) Service {
 	return &service{repo: &MockRepoConflict{HasConflictResult: conflict}}

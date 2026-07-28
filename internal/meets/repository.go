@@ -14,6 +14,8 @@ import (
 // matches meet.Version — someone else updated it since the caller last read it.
 var ErrVersionConflict = errors.New("meet was modified concurrently")
 
+const sqlAndStartTimeBefore = " AND start_time < ?"
+
 type Meet struct {
 	ID               string     `json:"id" db:"id"`
 	UUID             string     `json:"uuid" db:"uuid"`
@@ -49,6 +51,12 @@ type Repository interface {
 	// QueryMeets: pass nil for no filter; returns rows, total count, error
 	QueryMeets(ctx context.Context, options *MeetQueryOptions) ([]*Meet, int, error)
 	HasConflict(ctx context.Context, organizerId string, start, end time.Time, excludeUUID ...string) (bool, error)
+	// FindParticipantBookings returns meets where any of participantUuids is a
+	// participant, with start_time after from (if set) and before to (if set),
+	// excluding excludeUUID. Used by booking-restriction rules (service.go); callers
+	// filter for cancelled participants themselves via hasActiveBooking, since that
+	// needs the settings JSON this can't filter on in SQL.
+	FindParticipantBookings(ctx context.Context, participantUuids []string, from, to *time.Time, excludeUUID string) ([]*Meet, error)
 }
 type repository struct {
 	db *sql.DB
@@ -86,6 +94,75 @@ func (repo *repository) HasConflict(ctx context.Context, organizerId string, sta
 		return false, err
 	}
 	return count > 0, nil
+}
+
+func (repo *repository) FindParticipantBookings(ctx context.Context, participantUuids []string, from, to *time.Time, excludeUUID string) ([]*Meet, error) {
+	if len(participantUuids) == 0 {
+		return nil, nil
+	}
+
+	query, args, err := buildParticipantBookingsQuery(participantUuids, from, to, excludeUUID)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := repo.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	return scanParticipantBookings(rows)
+}
+
+// buildParticipantBookingsQuery builds the SQL and bound args for
+// FindParticipantBookings: participantUuids is required (checked by the caller),
+// from/to/excludeUUID are each optional filters.
+func buildParticipantBookingsQuery(participantUuids []string, from, to *time.Time, excludeUUID string) (query string, args []any, err error) {
+	participantsJSON, err := json.Marshal(participantUuids)
+	if err != nil {
+		return "", nil, err
+	}
+
+	query = `SELECT uuid, participant_uuids, settings FROM meets WHERE JSON_OVERLAPS(participant_uuids, ?)`
+	args = []any{string(participantsJSON)}
+	if from != nil {
+		query += " AND start_time > ?"
+		args = append(args, *from)
+	}
+	if to != nil {
+		query += sqlAndStartTimeBefore
+		args = append(args, *to)
+	}
+	if excludeUUID != "" {
+		query += " AND uuid != ?"
+		args = append(args, excludeUUID)
+	}
+	return query, args, nil
+}
+
+// scanParticipantBookings scans the rows produced by FindParticipantBookings's query.
+func scanParticipantBookings(rows *sql.Rows) ([]*Meet, error) {
+	var result []*Meet
+	for rows.Next() {
+		var m Meet
+		var participantsStr string
+		var settings sql.NullString
+		if err := rows.Scan(&m.UUID, &participantsStr, &settings); err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal([]byte(participantsStr), &m.ParticipantUuids); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal participants: %w", err)
+		}
+		if settings.Valid {
+			m.Settings = &settings.String
+		}
+		result = append(result, &m)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 func (repo *repository) Create(ctx context.Context, meet *Meet) error {
@@ -292,7 +369,7 @@ func buildPaginatedWhereClause(options *MeetQueryOptions) (whereClause string, a
 		args = append(args, *options.From)
 	}
 	if options.To != nil {
-		whereClause += " AND start_time < ?"
+		whereClause += sqlAndStartTimeBefore
 		args = append(args, *options.To)
 	}
 	if len(options.ParticipantUuids) > 0 {
@@ -342,7 +419,7 @@ func (repo *repository) buildQueryAndArgs(options *MeetQueryOptions) (query stri
 		args = append(args, *options.From)
 	}
 	if options.To != nil {
-		query += " AND start_time < ?"
+		query += sqlAndStartTimeBefore
 		args = append(args, *options.To)
 	}
 

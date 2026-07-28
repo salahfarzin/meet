@@ -101,8 +101,9 @@ type Meet struct {
 	Mobile       string `protobuf:"bytes,15,opt,name=mobile,proto3" json:"mobile,omitempty"`
 	// clinic_name is the display name of the meet's organizer (clinic/center identity).
 	ClinicName string `protobuf:"bytes,16,opt,name=clinic_name,json=clinicName,proto3" json:"clinic_name,omitempty"`
-	// settings holds admin-workflow state (approved_at, is_absent, present_at) — free-form,
-	// owned entirely by the caller (ravanhealth), opaque to this service.
+	// settings holds admin-workflow state (approved_at, is_absent, present_at) and booking rules.
+	// Properties such as `appointmentMinHoursBetweenBookings` are read and enforced by this service,
+	// while other fields are opaque and owned by the caller (ravanhealth).
 	Settings *structpb.Struct `protobuf:"bytes,17,opt,name=settings,proto3" json:"settings,omitempty"`
 	// created_at exposes the existing meets.created_at column (RFC3339). Read-only: ignored on input.
 	CreatedAt string `protobuf:"bytes,18,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
