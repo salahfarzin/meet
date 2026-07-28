@@ -35,10 +35,12 @@ type MeetSettings struct {
 	// Participants is the status-tracked booking history for the meet.
 	Participants []ParticipantSetting `json:"participants,omitempty"`
 
-	// Fields owned and managed by the callers (ravanhealth, dashboard)
-	Eligibility []string `json:"eligibility,omitempty"`
-	Capacity    int      `json:"capacity,omitempty"`
-	ApprovedAt  *string  `json:"approved_at,omitempty"`
+	// Fields owned and managed by the callers (ravanhealth, dashboard). Eligibility
+	// is deliberately not modeled here (it's an object: min_age/max_age/gender/
+	// national_code_starts_with/national_code_ends_with) - this service doesn't
+	// enforce it, callers do, so it just round-trips through the opaque JSON blob.
+	Capacity   int     `json:"capacity,omitempty"`
+	ApprovedAt *string `json:"approved_at,omitempty"`
 	// AttendanceStatus is AttendanceStatusPresent | AttendanceStatusAbsent (unset/omitted means not yet recorded).
 	AttendanceStatus *string `json:"attendance_status,omitempty"`
 	AttendanceAt     *string `json:"attendance_at,omitempty"`
