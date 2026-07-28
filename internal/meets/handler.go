@@ -21,6 +21,8 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
+const errInternalServer = "Internal server error"
+
 type Handler interface {
 	Create(ctx context.Context, req *pb.CreateRequest) (*pb.CreateResponse, error)
 	Update(ctx context.Context, req *pb.UpdateRequest) (*pb.UpdateResponse, error)
@@ -65,8 +67,11 @@ func (h *handler) Create(ctx context.Context, req *pb.CreateRequest) (*pb.Create
 		if err.Error() == "appointment conflict for this organizer and period" {
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
+		if err.Error() == "minimum hours between bookings violated" {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
 		logger.FromContext(ctx).Error("failed to create meet", zap.Error(err))
-		return nil, status.Error(codes.Internal, "Internal server error")
+		return nil, status.Error(codes.Internal, errInternalServer)
 	}
 
 	return &pb.CreateResponse{
@@ -120,6 +125,9 @@ func (h *handler) Update(ctx context.Context, req *pb.UpdateRequest) (*pb.Update
 		if err.Error() == "appointment conflict for this organizer and period" {
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
+		if err.Error() == "minimum hours between bookings violated" {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
 		if errors.Is(err, ErrVersionConflict) {
 			return nil, status.Error(codes.Aborted, err.Error())
 		}
@@ -128,7 +136,7 @@ func (h *handler) Update(ctx context.Context, req *pb.UpdateRequest) (*pb.Update
 		}
 		// Log the internal error with trace context
 		logger.FromContext(ctx).Error("failed to update meet", zap.Error(err), zap.String("uuid", req.Uuid))
-		return nil, status.Error(codes.Internal, "Internal server error")
+		return nil, status.Error(codes.Internal, errInternalServer)
 	}
 
 	return &pb.UpdateResponse{
@@ -163,7 +171,7 @@ func (h *handler) GetOne(ctx context.Context, req *pb.GetOneRequest) (*pb.GetOne
 			return nil, status.Error(codes.NotFound, "meet not found")
 		}
 		logger.FromContext(ctx).Error("failed to fetch meet", zap.Error(err), zap.String("uuid", req.Uuid))
-		return nil, status.Error(codes.Internal, "Internal server error")
+		return nil, status.Error(codes.Internal, errInternalServer)
 	}
 
 	return &pb.GetOneResponse{
@@ -202,7 +210,7 @@ func (h *handler) Delete(ctx context.Context, req *pb.DeleteRequest) (*pb.Delete
 	err := h.service.Delete(ctx, req.Uuid)
 	if err != nil {
 		logger.FromContext(ctx).Error("failed to delete meet", zap.Error(err), zap.String("uuid", req.Uuid))
-		return nil, status.Error(codes.Internal, "Internal server error")
+		return nil, status.Error(codes.Internal, errInternalServer)
 	}
 
 	return &pb.DeleteResponse{}, nil
@@ -222,20 +230,17 @@ func parseOptionalRFC3339(ctx context.Context, field, value string) *time.Time {
 	return &t
 }
 
-// computeAllowedClinics resolves the clinic scope for a GetAll request. Non-admins
-// are scoped to their own uuid. Admins are scoped to every clinic returned by the
-// identity service; if that service is unreachable or returns nothing, scope
-// degrades to the admin's own uuid rather than either failing the request or
-// exposing all tenants' data via an unrestricted scope.
-func (h *handler) computeAllowedClinics(ctx context.Context, user *middlewares.User, isAdmin bool) []string {
-	if !isAdmin {
-		return []string{user.Uuid}
-	}
-
+// computeAllowedClinics resolves the clinic scope for a GetAll request. Every
+// caller is scoped to every clinic returned by the identity service; if that
+// service is unreachable or returns nothing, scope degrades to the caller's own
+// uuid rather than either failing the request or exposing all tenants' data via
+// an unrestricted scope. Role-based gating is intentionally not done here — callers
+// of this internal service are trusted to have already authorized the request.
+func (h *handler) computeAllowedClinics(ctx context.Context, user *middlewares.User) []string {
 	clinics, err := h.service.ListClinics(ctx)
 	if err != nil {
 		logger.FromContext(ctx).Warn(
-			"identity service unavailable for ListClinics; degrading admin scope to own UUID",
+			"identity service unavailable for ListClinics; degrading scope to own UUID",
 			zap.String("user_uuid", user.Uuid),
 			zap.Error(err),
 		)
@@ -243,13 +248,13 @@ func (h *handler) computeAllowedClinics(ctx context.Context, user *middlewares.U
 	}
 
 	if len(clinics) == 0 {
-		// The identity service returned zero clinics for an admin caller.
-		// Switching to an unrestricted (empty AllowedClinics) query would expose
-		// all tenant data, so we degrade scope to the admin's own UUID instead.
-		// This is a configuration problem — the identity service should always
-		// return at least one clinic for an admin — not a normal data-absence case.
+		// The identity service returned zero clinics. Switching to an unrestricted
+		// (empty AllowedClinics) query would expose all tenant data, so we degrade
+		// scope to the caller's own UUID instead. This is a configuration problem —
+		// the identity service should always return at least one clinic — not a
+		// normal data-absence case.
 		logger.FromContext(ctx).Warn(
-			"identity service returned zero clinics for admin; degrading scope to own UUID — check identity service configuration",
+			"identity service returned zero clinics; degrading scope to own UUID — check identity service configuration",
 			zap.String("user_uuid", user.Uuid),
 		)
 		return []string{user.Uuid}
@@ -269,7 +274,6 @@ func (h *handler) computeAllowedClinics(ctx context.Context, user *middlewares.U
 
 func (h *handler) GetAll(ctx context.Context, req *pb.GetAllRequest) (*pb.GetAllResponse, error) {
 	user := middlewares.GetUserFromContext(ctx)
-	isAdmin := slices.Contains(user.Roles, "Programmer") || slices.Contains(user.Roles, "Admin")
 
 	// --- Pagination defaults ---
 	page := int(req.Page)
@@ -292,7 +296,7 @@ func (h *handler) GetAll(ctx context.Context, req *pb.GetAllRequest) (*pb.GetAll
 	toTime := parseOptionalRFC3339(ctx, "to", req.To)
 
 	// --- Compute AllowedClinics ---
-	allowedClinics := h.computeAllowedClinics(ctx, &user, isAdmin)
+	allowedClinics := h.computeAllowedClinics(ctx, &user)
 
 	// --- Validate req.Clinic is within allowed set ---
 	if req.Clinic != "" && !slices.Contains(allowedClinics, req.Clinic) {
@@ -315,7 +319,7 @@ func (h *handler) GetAll(ctx context.Context, req *pb.GetAllRequest) (*pb.GetAll
 	})
 	if err != nil {
 		logger.FromContext(ctx).Error("failed to list scheduling", zap.Error(err))
-		return nil, status.Error(codes.Internal, "Internal server error")
+		return nil, status.Error(codes.Internal, errInternalServer)
 	}
 
 	// --- Map to proto ---
@@ -506,11 +510,14 @@ func settingsFromStruct(s *structpb.Struct) *string {
 	return &str
 }
 
+// retrieveOrganizerUuid lets an explicit organizer_uuid through only for callers
+// with the RoleSuperAdmin (superadmin) role; everyone else is scoped to their own
+// uuid, ignoring any organizer_uuid supplied in the request.
 func retrieveOrganizerUuid(ctx context.Context, organizerUserID string) string {
 	user := middlewares.GetUserFromContext(ctx)
 
 	organizerID := ""
-	if slices.Contains(user.Roles, "Programmer") {
+	if slices.Contains(user.Roles, RoleSuperAdmin) {
 		organizerID = organizerUserID
 	}
 

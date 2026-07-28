@@ -14,6 +14,7 @@ import (
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/salahfarzin/meet/internal/health"
+	"github.com/salahfarzin/meet/internal/meets"
 	"github.com/salahfarzin/meet/pkg/swagger"
 	"github.com/salahfarzin/meet/router"
 	"github.com/salahfarzin/utils/middlewares"
@@ -190,7 +191,7 @@ func localAuthBypassMiddleware() middlewares.Middleware {
 				ID:    "local",
 				Uuid:  "local",
 				Email: "local@local",
-				Roles: []string{"Admin", "Programmer"},
+				Roles: []string{meets.RoleAdmin, meets.RoleSuperAdmin},
 			}
 
 			ctx := context.WithValue(r.Context(), middlewares.UserKey, user)
