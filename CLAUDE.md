@@ -8,3 +8,4 @@ A Go gRPC + REST (grpc-gateway) microservice for managing **meets** (appointment
 - @.claude/context/architecture.md — dual-server boot, request flow, layering, delegated auth
 - @.claude/context/domain.md — Meet entity, RPCs/REST routes, business rules
 - @.claude/context/dashboard-integration.md — how the dashboard-v1 events section consumes this service
+- @.claude/context/eligibility.md — cross-repo booking eligibility rules; meet does NOT enforce them (deliberate)
