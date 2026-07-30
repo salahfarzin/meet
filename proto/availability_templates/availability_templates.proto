@@ -1,0 +1,115 @@
+syntax = "proto3";
+
+package availability_templates;
+
+import "google/api/annotations.proto";
+import "common/common.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
+
+option go_package = "github.com/salahfarzin/meet/proto/availability_templates;availability_templates";
+
+option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
+  info: {
+    title: "Availability Templates API";
+    version: "1.0";
+    description: "API for managing recurring weekly availability templates";
+    contact: {
+      name: "Meets API Support";
+      email: "support@meets.example.com";
+    };
+  };
+  schemes: HTTP;
+  schemes: HTTPS;
+  consumes: "application/json";
+  produces: "application/json";
+  responses: {
+    key: "404";
+    value: {
+      description: "Resource not found";
+    }
+  };
+  responses: {
+    key: "500";
+    value: {
+      description: "Internal server error";
+    }
+  };
+};
+
+// AvailabilityTemplate defines a recurring weekly open-hours rule for an
+// organizer, e.g. "every Monday 09:00-13:00, starting 2026-08-01, until
+// changed". GetAvailability lazily materializes real Meet rows from active
+// templates that overlap the queried date range.
+message AvailabilityTemplate {
+  string uuid = 1;
+  string organizer_uuid = 2;
+  // weekday: 0=Sunday .. 6=Saturday.
+  int32 weekday = 3;
+  string start_time = 4; // "HH:MM", 24h
+  string end_time = 5;   // "HH:MM", 24h
+  optional string price_uuid = 6;
+  string effective_from = 7;          // "YYYY-MM-DD"
+  optional string effective_until = 8; // "YYYY-MM-DD"; unset = repeats until deactivated
+  bool active = 9;
+  string created_at = 10;
+  string updated_at = 11;
+}
+
+// Request & Response
+message CreateRequest {
+  AvailabilityTemplate template = 1;
+}
+message CreateResponse {
+  common.ResponseStatus status = 1;
+  AvailabilityTemplate template = 2;
+}
+
+// Request & Response
+message UpdateRequest {
+  string uuid = 1;
+  AvailabilityTemplate template = 2;
+}
+message UpdateResponse {
+  AvailabilityTemplate template = 1;
+}
+
+// Request & Response
+message DeleteRequest {
+  string uuid = 1;
+}
+message DeleteResponse {
+}
+
+// Request & Response
+message GetAllRequest {
+  string organizer_id = 1;
+}
+message GetAllResponse {
+  repeated AvailabilityTemplate templates = 1;
+}
+
+// Service definition
+service AvailabilityTemplateService {
+  rpc GetAll (GetAllRequest) returns (GetAllResponse) {
+    option (google.api.http) = {
+      get: "/meets/availability-templates"
+    };
+  }
+  rpc Create (CreateRequest) returns (CreateResponse) {
+    option (google.api.http) = {
+      post: "/meets/availability-templates"
+      body: "template"
+    };
+  }
+  rpc Update (UpdateRequest) returns (UpdateResponse) {
+    option (google.api.http) = {
+      put: "/meets/availability-templates/{uuid}"
+      body: "template"
+    };
+  }
+  rpc Delete (DeleteRequest) returns (DeleteResponse) {
+    option (google.api.http) = {
+      delete: "/meets/availability-templates/{uuid}"
+    };
+  }
+}

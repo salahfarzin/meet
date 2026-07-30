@@ -72,13 +72,23 @@ type Service interface {
 	ListClinics(ctx context.Context) ([]identity.Clinic, error)
 }
 
-type service struct {
-	repo     Repository
-	identity identity.Client
+// TemplateMaterializer is the narrow slice of availabilitytemplates.Service
+// that GetAvailability/Delete need. Defined here (not imported from
+// internal/availabilitytemplates) so meets has no dependency on that package —
+// availabilitytemplates depends on meets, not the other way around.
+type TemplateMaterializer interface {
+	Materialize(ctx context.Context, organizerUuid string, from, to time.Time) error
+	RecordSkip(ctx context.Context, templateUuid string, occurrenceDate time.Time) error
 }
 
-func NewService(repo Repository, id identity.Client) Service {
-	return &service{repo: repo, identity: id}
+type service struct {
+	repo      Repository
+	identity  identity.Client
+	templates TemplateMaterializer
+}
+
+func NewService(repo Repository, id identity.Client, templates TemplateMaterializer) Service {
+	return &service{repo: repo, identity: id, templates: templates}
 }
 
 // GetByID implements Service.
@@ -157,13 +167,28 @@ func (s *service) QueryMeets(ctx context.Context, opts *MeetQueryOptions) ([]*Me
 	return meets, err
 }
 
-// Delete implements Service.
+// Delete implements Service. If the meet was materialized from an availability
+// template, the occurrence is recorded as explicitly skipped first, so a later
+// GetAvailability call for the same organizer/window never re-creates it.
 func (s *service) Delete(ctx context.Context, meetUUID string) error {
+	if s.templates != nil {
+		if m, err := s.repo.GetByUUID(ctx, meetUUID); err == nil && m.TemplateUuid != nil && *m.TemplateUuid != "" {
+			if err := s.templates.RecordSkip(ctx, *m.TemplateUuid, m.Start); err != nil {
+				logger.FromContext(ctx).Warn("failed to record availability template skip", zap.Error(err), zap.String("meet_uuid", meetUUID))
+			}
+		}
+	}
 	return s.repo.Delete(ctx, meetUUID)
 }
 
 // GetAvailability returns available datetimes for a user between from and to, optionally filtered by price_uuid
 func (s *service) GetAvailability(ctx context.Context, organizerId string, from, to time.Time, priceUUID *string) (map[string]DateSlot, error) {
+	if s.templates != nil {
+		if err := s.templates.Materialize(ctx, organizerId, from, to); err != nil {
+			logger.FromContext(ctx).Warn("failed to materialize availability templates", zap.Error(err), zap.String("organizer_uuid", organizerId))
+		}
+	}
+
 	opts := &MeetQueryOptions{
 		OrganizerUuid: organizerId,
 		From:          &from,

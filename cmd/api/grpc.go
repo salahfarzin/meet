@@ -105,7 +105,7 @@ func (s *GRPCServer) Start() error {
 		s.app.Configs.UserService,
 		&http.Client{Timeout: 10 * time.Second},
 	)
-	router.SetupGRPCRoutes(s.grpcServer, s.app.DB, idClient)
+	router.SetupGRPCRoutes(s.grpcServer, s.app.DB, idClient, s.app.Configs.AuthDisabled)
 
 	reflection.Register(s.grpcServer) // Register reflection service on gRPC server
 	log.Printf("gRPC server listening on %s", address)

@@ -22,7 +22,7 @@ func TestSetupGRPCRoutes(t *testing.T) {
 
 	// This should not panic; pass nil identity client (service is nil-safe)
 	assert.NotPanics(t, func() {
-		SetupGRPCRoutes(server, db, nil)
+		SetupGRPCRoutes(server, db, nil, false)
 	})
 
 	// The server should have services registered

@@ -31,8 +31,11 @@ type Meet struct {
 	ParticipantUuids []string   `json:"participant_uuids" db:"participant_uuids"`
 	BookedAt         *time.Time `json:"booked_at" db:"booked_at"`
 	Settings         *string    `json:"settings" db:"settings"`
-	Version          int32      `json:"version" db:"version"`
-	CreatedAt        time.Time  `json:"created_at" db:"created_at"`
+	// TemplateUuid, when set, marks this meet as materialized from an
+	// AvailabilityTemplate occurrence (see internal/availabilitytemplates).
+	TemplateUuid *string   `json:"template_uuid,omitempty" db:"template_uuid"`
+	Version      int32     `json:"version" db:"version"`
+	CreatedAt    time.Time `json:"created_at" db:"created_at"`
 	// Display-only fields: populated from identity service, never persisted.
 	FirstName    string `json:"first_name,omitempty" db:"-"`
 	LastName     string `json:"last_name,omitempty" db:"-"`
@@ -181,8 +184,8 @@ func (repo *repository) Create(ctx context.Context, meet *Meet) error {
 	// of the zero time.Time - handler.Create formats meet.CreatedAt straight into
 	// CreateResponse without a re-fetch.
 	meet.CreatedAt = time.Now().UTC()
-	query := `INSERT INTO meets (uuid, title, organizer_uuid, creator_uuid, participant_uuids, start_time, end_time, description, color, type, price_uuid, booked_at, settings, version, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-	res, err := repo.db.ExecContext(ctx, query, meet.UUID, meet.Title, meet.OrganizerUuid, meet.CreatorUuid, string(participantsJSON), startUTC, endUTC, meet.Description, meet.Color, meet.Type, meet.PriceUuid, meet.BookedAt, meet.Settings, meet.Version, meet.CreatedAt)
+	query := `INSERT INTO meets (uuid, title, organizer_uuid, creator_uuid, participant_uuids, start_time, end_time, description, color, type, price_uuid, booked_at, settings, template_uuid, version, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	res, err := repo.db.ExecContext(ctx, query, meet.UUID, meet.Title, meet.OrganizerUuid, meet.CreatorUuid, string(participantsJSON), startUTC, endUTC, meet.Description, meet.Color, meet.Type, meet.PriceUuid, meet.BookedAt, meet.Settings, meet.TemplateUuid, meet.Version, meet.CreatedAt)
 	if err != nil {
 		return err
 	}
@@ -195,12 +198,12 @@ func (repo *repository) Create(ctx context.Context, meet *Meet) error {
 }
 
 func (repo *repository) GetByID(ctx context.Context, id string) (*Meet, error) {
-	query := `SELECT id, uuid, title, organizer_uuid, creator_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at, settings, version, created_at FROM meets WHERE id = ?`
+	query := `SELECT id, uuid, title, organizer_uuid, creator_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at, settings, template_uuid, version, created_at FROM meets WHERE id = ?`
 	return repo.scanOneMeet(ctx, query, id)
 }
 
 func (repo *repository) GetByUUID(ctx context.Context, uuid string) (*Meet, error) {
-	query := `SELECT id, uuid, title, organizer_uuid, creator_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at, settings, version, created_at FROM meets WHERE uuid = ?`
+	query := `SELECT id, uuid, title, organizer_uuid, creator_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at, settings, template_uuid, version, created_at FROM meets WHERE uuid = ?`
 	return repo.scanOneMeet(ctx, query, uuid)
 }
 
@@ -210,7 +213,7 @@ func (repo *repository) scanOneMeet(ctx context.Context, query, arg string) (*Me
 	var creatorUuid sql.NullString
 	var participantsStr string
 	var start, end time.Time
-	err := row.Scan(&a.ID, &a.UUID, &a.Title, &a.OrganizerUuid, &creatorUuid, &a.PriceUuid, &participantsStr, &start, &end, &a.Description, &a.Color, &a.Type, &a.BookedAt, &a.Settings, &a.Version, &a.CreatedAt)
+	err := row.Scan(&a.ID, &a.UUID, &a.Title, &a.OrganizerUuid, &creatorUuid, &a.PriceUuid, &participantsStr, &start, &end, &a.Description, &a.Color, &a.Type, &a.BookedAt, &a.Settings, &a.TemplateUuid, &a.Version, &a.CreatedAt)
 	a.CreatorUuid = creatorUuid.String
 	if err != nil {
 		if err == sql.ErrNoRows {

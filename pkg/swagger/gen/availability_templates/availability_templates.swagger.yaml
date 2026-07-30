@@ -1,0 +1,208 @@
+swagger: "2.0"
+info:
+  title: Availability Templates API
+  description: API for managing recurring weekly availability templates
+  version: "1.0"
+  contact:
+    name: Meets API Support
+    email: support@meets.example.com
+tags:
+  - name: AvailabilityTemplateService
+schemes:
+  - http
+  - https
+consumes:
+  - application/json
+produces:
+  - application/json
+paths:
+  /meets/availability-templates:
+    get:
+      operationId: AvailabilityTemplateService_GetAll
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/availability_templatesGetAllResponse'
+        "404":
+          description: Resource not found
+          schema: {}
+        "500":
+          description: Internal server error
+          schema: {}
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/rpcStatus'
+      parameters:
+        - name: organizer_id
+          in: query
+          required: false
+          type: string
+      tags:
+        - AvailabilityTemplateService
+    post:
+      operationId: AvailabilityTemplateService_Create
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/availability_templatesCreateResponse'
+        "404":
+          description: Resource not found
+          schema: {}
+        "500":
+          description: Internal server error
+          schema: {}
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/rpcStatus'
+      parameters:
+        - name: template
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/availability_templatesAvailabilityTemplate'
+      tags:
+        - AvailabilityTemplateService
+  /meets/availability-templates/{uuid}:
+    delete:
+      operationId: AvailabilityTemplateService_Delete
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/availability_templatesDeleteResponse'
+        "404":
+          description: Resource not found
+          schema: {}
+        "500":
+          description: Internal server error
+          schema: {}
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/rpcStatus'
+      parameters:
+        - name: uuid
+          in: path
+          required: true
+          type: string
+      tags:
+        - AvailabilityTemplateService
+    put:
+      operationId: AvailabilityTemplateService_Update
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/availability_templatesUpdateResponse'
+        "404":
+          description: Resource not found
+          schema: {}
+        "500":
+          description: Internal server error
+          schema: {}
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/rpcStatus'
+      parameters:
+        - name: uuid
+          in: path
+          required: true
+          type: string
+        - name: template
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/availability_templatesAvailabilityTemplate'
+      tags:
+        - AvailabilityTemplateService
+definitions:
+  availability_templatesAvailabilityTemplate:
+    type: object
+    properties:
+      uuid:
+        type: string
+      organizer_uuid:
+        type: string
+      weekday:
+        type: integer
+        format: int32
+        description: 'weekday: 0=Sunday .. 6=Saturday.'
+      start_time:
+        type: string
+        title: '"HH:MM", 24h'
+      end_time:
+        type: string
+        title: '"HH:MM", 24h'
+      price_uuid:
+        type: string
+      effective_from:
+        type: string
+        title: '"YYYY-MM-DD"'
+      effective_until:
+        type: string
+        title: '"YYYY-MM-DD"; unset = repeats until deactivated'
+      active:
+        type: boolean
+      created_at:
+        type: string
+      updated_at:
+        type: string
+    description: |-
+      AvailabilityTemplate defines a recurring weekly open-hours rule for an
+      organizer, e.g. "every Monday 09:00-13:00, starting 2026-08-01, until
+      changed". GetAvailability lazily materializes real Meet rows from active
+      templates that overlap the queried date range.
+  availability_templatesCreateResponse:
+    type: object
+    properties:
+      status:
+        $ref: '#/definitions/commonResponseStatus'
+      template:
+        $ref: '#/definitions/availability_templatesAvailabilityTemplate'
+  availability_templatesDeleteResponse:
+    type: object
+  availability_templatesGetAllResponse:
+    type: object
+    properties:
+      templates:
+        type: array
+        items:
+          type: object
+          $ref: '#/definitions/availability_templatesAvailabilityTemplate'
+  availability_templatesUpdateResponse:
+    type: object
+    properties:
+      template:
+        $ref: '#/definitions/availability_templatesAvailabilityTemplate'
+  commonResponseStatus:
+    type: object
+    properties:
+      code:
+        type: integer
+        format: int32
+      message:
+        type: string
+  protobufAny:
+    type: object
+    properties:
+      '@type':
+        type: string
+    additionalProperties: {}
+  rpcStatus:
+    type: object
+    properties:
+      code:
+        type: integer
+        format: int32
+      message:
+        type: string
+      details:
+        type: array
+        items:
+          type: object
+          $ref: '#/definitions/protobufAny'
