@@ -30,8 +30,15 @@ type TimeSlot struct {
 type ListSchedulingInput struct {
 	// AllowedClinics are the organizer UUIDs this caller is allowed to see.
 	// An empty slice means the caller has no allowed clinics — return empty immediately.
+	// Ignored when Unrestricted is true.
 	AllowedClinics []string
-	// Clinic, when non-empty, restricts to a single clinic within AllowedClinics.
+	// Unrestricted, when true, bypasses AllowedClinics scoping entirely (every
+	// organizer, real clinic or not) - the handler sets this only for callers it has
+	// already verified hold RoleSuperAdmin. Clinic (below) still narrows results to
+	// one specific organizer even when Unrestricted is set.
+	Unrestricted bool
+	// Clinic, when non-empty, restricts to a single clinic within AllowedClinics
+	// (or any organizer at all, when Unrestricted is set).
 	Clinic string
 	// Identity pre-filter fields — if any are set the identity service is queried first.
 	FirstName  string
@@ -60,7 +67,6 @@ type ListSchedulingResult struct {
 type Service interface {
 	Create(ctx context.Context, meet *Meet) (*Meet, error)
 	Update(ctx context.Context, meet *Meet) (*Meet, error)
-	GetByID(ctx context.Context, id string) (*Meet, error)
 	GetByUUID(ctx context.Context, uuid string) (*Meet, error)
 	QueryMeets(ctx context.Context, opts *MeetQueryOptions) ([]*Meet, error)
 	GetAvailability(ctx context.Context, organizerId string, from, to time.Time, priceUUID *string) (map[string]DateSlot, error)
@@ -91,11 +97,6 @@ func NewService(repo Repository, id identity.Client, templates TemplateMateriali
 	return &service{repo: repo, identity: id, templates: templates}
 }
 
-// GetByID implements Service.
-func (s *service) GetByID(ctx context.Context, id string) (*Meet, error) {
-	return s.repo.GetByID(ctx, id)
-}
-
 // GetByUUID implements Service.
 func (s *service) GetByUUID(ctx context.Context, meetUUID string) (*Meet, error) {
 	return s.repo.GetByUUID(ctx, meetUUID)
@@ -115,7 +116,11 @@ func (s *service) Create(ctx context.Context, meet *Meet) (*Meet, error) {
 		return nil, err
 	}
 
-	meet.UUID = uuid.New().String()
+	meetUUID, err := uuid.NewV7()
+	if err != nil {
+		return nil, err
+	}
+	meet.UUID = meetUUID.String()
 	// Type, OldPrice, Discount, Price are already set in meet
 	if err := s.repo.Create(ctx, meet); err != nil {
 		return nil, err
@@ -242,8 +247,9 @@ func (s *service) ListClinics(ctx context.Context) ([]identity.Clinic, error) {
 func (s *service) ListScheduling(ctx context.Context, in *ListSchedulingInput) (ListSchedulingResult, error) {
 	empty := ListSchedulingResult{Meets: []*Meet{}}
 
-	// 1. Empty allowed clinics → empty result (caller has no scope).
-	if len(in.AllowedClinics) == 0 {
+	// 1. Empty allowed clinics → empty result (caller has no scope), unless the
+	// handler already verified this caller is unrestricted (RoleSuperAdmin).
+	if !in.Unrestricted && len(in.AllowedClinics) == 0 {
 		return empty, nil
 	}
 
@@ -329,6 +335,7 @@ func (s *service) resolveParticipantFilter(ctx context.Context, in *ListScheduli
 func buildScopedQueryOptions(in *ListSchedulingInput, participantUuids []string) (opts *MeetQueryOptions, clinicDenied bool) {
 	opts = &MeetQueryOptions{
 		OrganizerUuids:   in.AllowedClinics,
+		Unrestricted:     in.Unrestricted,
 		ParticipantUuids: participantUuids,
 		From:             in.From,
 		To:               in.To,
@@ -336,10 +343,14 @@ func buildScopedQueryOptions(in *ListSchedulingInput, participantUuids []string)
 		PageSize:         in.PageSize,
 	}
 	if in.Clinic != "" {
-		if !slices.Contains(in.AllowedClinics, in.Clinic) {
+		// Unrestricted callers (handler already verified RoleSuperAdmin) may narrow
+		// to any organizer at all - only non-unrestricted callers are checked
+		// against their own AllowedClinics.
+		if !in.Unrestricted && !slices.Contains(in.AllowedClinics, in.Clinic) {
 			return nil, true
 		}
 		opts.OrganizerUuids = []string{in.Clinic}
+		opts.Unrestricted = false
 	}
 	return opts, false
 }

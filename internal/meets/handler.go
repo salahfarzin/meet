@@ -240,9 +240,14 @@ func parseOptionalRFC3339(ctx context.Context, field, value string) *time.Time {
 // caller is scoped to every clinic returned by the identity service; if that
 // service is unreachable or returns nothing, scope degrades to the caller's own
 // uuid rather than either failing the request or exposing all tenants' data via
-// an unrestricted scope. Role-based gating is intentionally not done here — callers
-// of this internal service are trusted to have already authorized the request.
-func (h *handler) computeAllowedClinics(ctx context.Context, user *middlewares.User) []string {
+// an unrestricted scope. RoleSuperAdmin callers are the one exception - the same
+// trust retrieveOrganizerUuid() already gives them on create/update - and get an
+// unrestricted list instead, since they're not scoped to any single tenant.
+func (h *handler) computeAllowedClinics(ctx context.Context, user *middlewares.User) (allowedClinics []string, unrestricted bool) {
+	if slices.Contains(user.Roles, RoleSuperAdmin) {
+		return nil, true
+	}
+
 	clinics, err := h.service.ListClinics(ctx)
 	if err != nil {
 		logger.FromContext(ctx).Warn(
@@ -250,7 +255,7 @@ func (h *handler) computeAllowedClinics(ctx context.Context, user *middlewares.U
 			zap.String("user_uuid", user.Uuid),
 			zap.Error(err),
 		)
-		return []string{user.Uuid}
+		return []string{user.Uuid}, false
 	}
 
 	if len(clinics) == 0 {
@@ -263,19 +268,19 @@ func (h *handler) computeAllowedClinics(ctx context.Context, user *middlewares.U
 			"identity service returned zero clinics; degrading scope to own UUID — check identity service configuration",
 			zap.String("user_uuid", user.Uuid),
 		)
-		return []string{user.Uuid}
+		return []string{user.Uuid}, false
 	}
 
 	// user.Uuid is always included alongside real clinics too - it's the
 	// same identity retrieveOrganizerUuid() falls back to when a meet is
 	// created with no organizer_uuid, so without it those "general"
 	// (no-clinic) meets could never be read back by this same caller.
-	allowedClinics := make([]string, 0, len(clinics)+1)
+	allowedClinics = make([]string, 0, len(clinics)+1)
 	allowedClinics = append(allowedClinics, user.Uuid)
 	for _, c := range clinics {
 		allowedClinics = append(allowedClinics, c.UUID)
 	}
-	return allowedClinics
+	return allowedClinics, false
 }
 
 func (h *handler) GetAll(ctx context.Context, req *pb.GetAllRequest) (*pb.GetAllResponse, error) {
@@ -302,16 +307,18 @@ func (h *handler) GetAll(ctx context.Context, req *pb.GetAllRequest) (*pb.GetAll
 	toTime := parseOptionalRFC3339(ctx, "to", req.To)
 
 	// --- Compute AllowedClinics ---
-	allowedClinics := h.computeAllowedClinics(ctx, &user)
+	allowedClinics, unrestricted := h.computeAllowedClinics(ctx, &user)
 
-	// --- Validate req.Clinic is within allowed set ---
-	if req.Clinic != "" && !slices.Contains(allowedClinics, req.Clinic) {
+	// --- Validate req.Clinic is within allowed set (unrestricted callers may ask
+	// for any clinic at all) ---
+	if req.Clinic != "" && !unrestricted && !slices.Contains(allowedClinics, req.Clinic) {
 		return nil, status.Error(codes.PermissionDenied, "clinic not in allowed scope")
 	}
 
 	// --- Call service ---
 	result, err := h.service.ListScheduling(ctx, &ListSchedulingInput{
 		AllowedClinics:  allowedClinics,
+		Unrestricted:    unrestricted,
 		Clinic:          req.Clinic,
 		FirstName:       firstName,
 		LastName:        lastName,

@@ -936,7 +936,7 @@ func TestGetAllMeetsNonProgrammer(t *testing.T) {
 // TestGetAllReturnsPaginatedEnriched verifies that GetAll maps request filters into
 // ListSchedulingInput and returns enriched meets with Total/Page/PageSize populated.
 func TestGetAllReturnsPaginatedEnriched(t *testing.T) {
-	// Admin context so AllowedClinics comes from ListClinics (["clinic1","clinic2"]).
+	// Programmer (RoleSuperAdmin) context - unrestricted, no clinic scoping.
 	md := metadata.New(map[string]string{
 		"x-user-roles": "Programmer",
 		"x-user-uuid":  "admin-user",
@@ -959,11 +959,14 @@ func TestGetAllReturnsPaginatedEnriched(t *testing.T) {
 }
 
 // TestGetAllAdminZeroClinicsDegradesToOwnUUID verifies that when the identity
-// service returns zero clinics for an admin caller (a configuration problem),
-// scope degrades to the admin's own uuid instead of exposing all tenants' data.
+// service returns zero clinics for a non-superadmin caller (a configuration
+// problem), scope degrades to the caller's own uuid instead of exposing all
+// tenants' data. RoleSuperAdmin ("Programmer") callers are unrestricted
+// unconditionally (see TestGetAllProgrammerIsUnrestricted) and never reach
+// this degrade path at all.
 func TestGetAllAdminZeroClinicsDegradesToOwnUUID(t *testing.T) {
 	md := metadata.New(map[string]string{
-		"x-user-roles": "Programmer",
+		"x-user-roles": "Admin",
 		"x-user-uuid":  "admin-user",
 	})
 	ctx := metadata.NewIncomingContext(context.Background(), md)
@@ -981,6 +984,35 @@ func TestGetAllAdminZeroClinicsDegradesToOwnUUID(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
 	assert.Equal(t, []string{"admin-user"}, gotAllowedClinics)
+}
+
+// TestGetAllProgrammerIsUnrestricted verifies that a RoleSuperAdmin ("Programmer")
+// caller bypasses clinic scoping entirely - Unrestricted is set and ListClinics is
+// never even consulted (ListClinicsEmpty would otherwise force the own-uuid degrade
+// path exercised by TestGetAllAdminZeroClinicsDegradesToOwnUUID above).
+func TestGetAllProgrammerIsUnrestricted(t *testing.T) {
+	md := metadata.New(map[string]string{
+		"x-user-roles": "Programmer",
+		"x-user-uuid":  "admin-user",
+	})
+	ctx := metadata.NewIncomingContext(context.Background(), md)
+
+	svc := NewMockService()
+	svc.ListClinicsEmpty = true
+	var gotUnrestricted bool
+	var gotAllowedClinics []string
+	svc.ListSchedulingFn = func(_ context.Context, in *ListSchedulingInput) (ListSchedulingResult, error) {
+		gotUnrestricted = in.Unrestricted
+		gotAllowedClinics = in.AllowedClinics
+		return ListSchedulingResult{Meets: []*Meet{}}, nil
+	}
+	h := NewHandler(svc)
+
+	resp, err := h.GetAll(ctx, &pb.GetAllRequest{})
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.True(t, gotUnrestricted)
+	assert.Empty(t, gotAllowedClinics)
 }
 
 // TestGetAllNonAdminClinicScope verifies that a non-admin caller's AllowedClinics

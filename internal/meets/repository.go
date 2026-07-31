@@ -17,7 +17,6 @@ var ErrVersionConflict = errors.New("meet was modified concurrently")
 const sqlAndStartTimeBefore = " AND start_time < ?"
 
 type Meet struct {
-	ID               string     `json:"id" db:"id"`
 	UUID             string     `json:"uuid" db:"uuid"`
 	Title            string     `json:"title" db:"title"`
 	OrganizerUuid    string     `json:"organizer_uuid" db:"organizer_uuid"`
@@ -47,7 +46,6 @@ type Meet struct {
 type Repository interface {
 	GenerateAvailableSlots(ctx context.Context, organizerID string, from time.Time, to time.Time, priceUUID *string) ([]*Meet, error)
 	Create(ctx context.Context, meet *Meet) error
-	GetByID(ctx context.Context, id string) (*Meet, error)
 	GetByUUID(ctx context.Context, uuid string) (*Meet, error)
 	Update(ctx context.Context, meet *Meet) error
 	Delete(ctx context.Context, uuid string) error
@@ -74,6 +72,10 @@ func NewRepository(db *sql.DB) Repository {
 type MeetQueryOptions struct {
 	OrganizerUuid    string
 	OrganizerUuids   []string
+	// Unrestricted, when true, drops the organizer_uuid IN (...) filter entirely
+	// (every organizer, real clinic or not) - set only for callers the handler layer
+	// has already verified hold RoleSuperAdmin. OrganizerUuids is ignored in this case.
+	Unrestricted     bool
 	ParticipantUuids []string
 	From             *time.Time
 	To               *time.Time
@@ -185,25 +187,12 @@ func (repo *repository) Create(ctx context.Context, meet *Meet) error {
 	// CreateResponse without a re-fetch.
 	meet.CreatedAt = time.Now().UTC()
 	query := `INSERT INTO meets (uuid, title, organizer_uuid, creator_uuid, participant_uuids, start_time, end_time, description, color, type, price_uuid, booked_at, settings, template_uuid, version, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-	res, err := repo.db.ExecContext(ctx, query, meet.UUID, meet.Title, meet.OrganizerUuid, meet.CreatorUuid, string(participantsJSON), startUTC, endUTC, meet.Description, meet.Color, meet.Type, meet.PriceUuid, meet.BookedAt, meet.Settings, meet.TemplateUuid, meet.Version, meet.CreatedAt)
-	if err != nil {
-		return err
-	}
-	id, err := res.LastInsertId()
-	if err == nil {
-		meet.ID = fmt.Sprintf("%d", id)
-	}
-
-	return nil
-}
-
-func (repo *repository) GetByID(ctx context.Context, id string) (*Meet, error) {
-	query := `SELECT id, uuid, title, organizer_uuid, creator_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at, settings, template_uuid, version, created_at FROM meets WHERE id = ?`
-	return repo.scanOneMeet(ctx, query, id)
+	_, err = repo.db.ExecContext(ctx, query, meet.UUID, meet.Title, meet.OrganizerUuid, meet.CreatorUuid, string(participantsJSON), startUTC, endUTC, meet.Description, meet.Color, meet.Type, meet.PriceUuid, meet.BookedAt, meet.Settings, meet.TemplateUuid, meet.Version, meet.CreatedAt)
+	return err
 }
 
 func (repo *repository) GetByUUID(ctx context.Context, uuid string) (*Meet, error) {
-	query := `SELECT id, uuid, title, organizer_uuid, creator_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at, settings, template_uuid, version, created_at FROM meets WHERE uuid = ?`
+	query := `SELECT uuid, title, organizer_uuid, creator_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at, settings, template_uuid, version, created_at FROM meets WHERE uuid = ?`
 	return repo.scanOneMeet(ctx, query, uuid)
 }
 
@@ -213,7 +202,7 @@ func (repo *repository) scanOneMeet(ctx context.Context, query, arg string) (*Me
 	var creatorUuid sql.NullString
 	var participantsStr string
 	var start, end time.Time
-	err := row.Scan(&a.ID, &a.UUID, &a.Title, &a.OrganizerUuid, &creatorUuid, &a.PriceUuid, &participantsStr, &start, &end, &a.Description, &a.Color, &a.Type, &a.BookedAt, &a.Settings, &a.TemplateUuid, &a.Version, &a.CreatedAt)
+	err := row.Scan(&a.UUID, &a.Title, &a.OrganizerUuid, &creatorUuid, &a.PriceUuid, &participantsStr, &start, &end, &a.Description, &a.Color, &a.Type, &a.BookedAt, &a.Settings, &a.TemplateUuid, &a.Version, &a.CreatedAt)
 	a.CreatorUuid = creatorUuid.String
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -283,8 +272,9 @@ func (repo *repository) Delete(ctx context.Context, uuid string) error {
 }
 
 func (repo *repository) QueryMeets(ctx context.Context, options *MeetQueryOptions) ([]*Meet, int, error) {
-	// New path: OrganizerUuids (multi-organizer) with pagination
-	if options != nil && len(options.OrganizerUuids) > 0 {
+	// New path: OrganizerUuids (multi-organizer) with pagination, or Unrestricted
+	// (every organizer - no IN (...) filter at all).
+	if options != nil && (options.Unrestricted || len(options.OrganizerUuids) > 0) {
 		return repo.queryMeetsPaginated(ctx, options)
 	}
 
@@ -336,7 +326,7 @@ func (repo *repository) queryMeetsPaginated(ctx context.Context, options *MeetQu
 
 	// Paginated SELECT. whereClause is built from fixed fragments with ? placeholders only; no
 	// value is ever interpolated into the query string itself.
-	selectQuery := "SELECT id, uuid, organizer_uuid, creator_uuid, price_uuid, participant_uuids, type, title, start_time, end_time, color, description, booked_at, settings, version, created_at FROM meets WHERE " + //nolint:gosec // G202: placeholders only, no interpolated values
+	selectQuery := "SELECT uuid, organizer_uuid, creator_uuid, price_uuid, participant_uuids, type, title, start_time, end_time, color, description, booked_at, settings, version, created_at FROM meets WHERE " + //nolint:gosec // G202: placeholders only, no interpolated values
 		whereClause + " ORDER BY start_time LIMIT ? OFFSET ?"
 	selectArgs := make([]any, 0, len(args)+2)
 	selectArgs = append(selectArgs, args...)
@@ -357,15 +347,22 @@ func (repo *repository) queryMeetsPaginated(ctx context.Context, options *MeetQu
 }
 
 // buildPaginatedWhereClause builds the WHERE clause and its bound args for the
-// OrganizerUuids (multi-organizer, paginated) query path.
+// OrganizerUuids (multi-organizer, paginated) query path. Unrestricted skips the
+// organizer_uuid filter entirely, so the clause always starts with something -
+// "1=1" keeps the AND-chaining below unconditional.
 func buildPaginatedWhereClause(options *MeetQueryOptions) (whereClause string, args []any, err error) {
-	inPlaceholders := make([]string, len(options.OrganizerUuids))
-	args = make([]any, len(options.OrganizerUuids))
-	for i, u := range options.OrganizerUuids {
-		inPlaceholders[i] = "?"
-		args[i] = u
+	if options.Unrestricted {
+		whereClause = "1=1"
+		args = []any{}
+	} else {
+		inPlaceholders := make([]string, len(options.OrganizerUuids))
+		args = make([]any, len(options.OrganizerUuids))
+		for i, u := range options.OrganizerUuids {
+			inPlaceholders[i] = "?"
+			args[i] = u
+		}
+		whereClause = "organizer_uuid IN (" + strings.Join(inPlaceholders, ",") + ")"
 	}
-	whereClause = "organizer_uuid IN (" + strings.Join(inPlaceholders, ",") + ")"
 
 	if options.From != nil {
 		whereClause += " AND start_time >= ?"
@@ -395,7 +392,7 @@ func scanPaginatedMeets(rows *sql.Rows) ([]*Meet, error) {
 		var creatorUuid sql.NullString
 		var participantsStr string
 		var start, end time.Time
-		if err := rows.Scan(&m.ID, &m.UUID, &m.OrganizerUuid, &creatorUuid, &m.PriceUuid, &participantsStr, &m.Type, &m.Title, &start, &end, &m.Color, &m.Description, &m.BookedAt, &m.Settings, &m.Version, &m.CreatedAt); err != nil {
+		if err := rows.Scan(&m.UUID, &m.OrganizerUuid, &creatorUuid, &m.PriceUuid, &participantsStr, &m.Type, &m.Title, &start, &end, &m.Color, &m.Description, &m.BookedAt, &m.Settings, &m.Version, &m.CreatedAt); err != nil {
 			return nil, err
 		}
 		m.CreatorUuid = creatorUuid.String
@@ -414,7 +411,7 @@ func scanPaginatedMeets(rows *sql.Rows) ([]*Meet, error) {
 
 // buildQueryAndArgs constructs the SQL query and arguments based on options
 func (repo *repository) buildQueryAndArgs(options *MeetQueryOptions) (query string, args []any) {
-	query = `SELECT id, uuid, title, organizer_uuid, creator_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at FROM meets WHERE organizer_uuid = ?`
+	query = `SELECT uuid, title, organizer_uuid, creator_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at FROM meets WHERE organizer_uuid = ?`
 	args = []any{options.OrganizerUuid}
 
 	if options.From != nil {
@@ -453,7 +450,7 @@ func (repo *repository) processRows(rows *sql.Rows) ([]*Meet, error) {
 		var creatorUuid sql.NullString
 		var participantsStr string
 		var start, end time.Time
-		if err := rows.Scan(&a.ID, &a.UUID, &a.Title, &a.OrganizerUuid, &creatorUuid, &a.PriceUuid, &participantsStr, &start, &end, &a.Description, &a.Color, &a.Type, &a.BookedAt); err != nil {
+		if err := rows.Scan(&a.UUID, &a.Title, &a.OrganizerUuid, &creatorUuid, &a.PriceUuid, &participantsStr, &start, &end, &a.Description, &a.Color, &a.Type, &a.BookedAt); err != nil {
 			return nil, err
 		}
 		a.CreatorUuid = creatorUuid.String
