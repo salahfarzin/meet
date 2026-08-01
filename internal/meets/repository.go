@@ -70,8 +70,7 @@ func NewRepository(db *sql.DB) Repository {
 }
 
 type MeetQueryOptions struct {
-	OrganizerUuid    string
-	OrganizerUuids   []string
+	OrganizerUuids []string
 	// Unrestricted, when true, drops the organizer_uuid IN (...) filter entirely
 	// (every organizer, real clinic or not) - set only for callers the handler layer
 	// has already verified hold RoleSuperAdmin. OrganizerUuids is ignored in this case.
@@ -272,32 +271,23 @@ func (repo *repository) Delete(ctx context.Context, uuid string) error {
 }
 
 func (repo *repository) QueryMeets(ctx context.Context, options *MeetQueryOptions) ([]*Meet, int, error) {
-	// New path: OrganizerUuids (multi-organizer) with pagination, or Unrestricted
-	// (every organizer - no IN (...) filter at all).
-	if options != nil && (options.Unrestricted || len(options.OrganizerUuids) > 0) {
-		return repo.queryMeetsPaginated(ctx, options)
-	}
-
-	if options == nil || options.OrganizerUuid == "" {
-		return nil, 0, fmt.Errorf("OrganizerUuid is required")
-	}
-
-	// Handle availability query
-	if options.OnlyAvailable != nil && *options.OnlyAvailable {
+	// Availability queries always target exactly one organizer - GenerateAvailableSlots
+	// has no notion of a multi-clinic union.
+	if options != nil && options.OnlyAvailable != nil && *options.OnlyAvailable {
+		if len(options.OrganizerUuids) != 1 {
+			return nil, 0, fmt.Errorf("exactly one OrganizerUuid is required for availability queries")
+		}
 		meets, err := repo.handleAvailabilityQuery(ctx, options)
 		return meets, len(meets), err
 	}
 
-	// Handle regular query
-	query, args := repo.buildQueryAndArgs(options)
-	rows, err := repo.db.QueryContext(ctx, query, args...)
-	if err != nil {
-		return nil, 0, err
+	// Unrestricted (every organizer, no IN (...) filter) or an explicit OrganizerUuids
+	// list drive the paginated COUNT + SELECT path.
+	if options == nil || (!options.Unrestricted && len(options.OrganizerUuids) == 0) {
+		return nil, 0, fmt.Errorf("OrganizerUuids is required")
 	}
-	defer rows.Close()
 
-	meets, err := repo.processRows(rows)
-	return meets, len(meets), err
+	return repo.queryMeetsPaginated(ctx, options)
 }
 
 // queryMeetsPaginated handles the new OrganizerUuids path with COUNT + paginated SELECT.
@@ -409,23 +399,6 @@ func scanPaginatedMeets(rows *sql.Rows) ([]*Meet, error) {
 	return result, nil
 }
 
-// buildQueryAndArgs constructs the SQL query and arguments based on options
-func (repo *repository) buildQueryAndArgs(options *MeetQueryOptions) (query string, args []any) {
-	query = `SELECT uuid, title, organizer_uuid, creator_uuid, price_uuid, participant_uuids, start_time, end_time, description, color, type, booked_at FROM meets WHERE organizer_uuid = ?`
-	args = []any{options.OrganizerUuid}
-
-	if options.From != nil {
-		query += " AND end_time > ?"
-		args = append(args, *options.From)
-	}
-	if options.To != nil {
-		query += sqlAndStartTimeBefore
-		args = append(args, *options.To)
-	}
-
-	return query, args
-}
-
 // handleAvailabilityQuery handles the availability-specific query logic
 func (repo *repository) handleAvailabilityQuery(ctx context.Context, options *MeetQueryOptions) ([]*Meet, error) {
 	start := time.Now().UTC()
@@ -438,34 +411,7 @@ func (repo *repository) handleAvailabilityQuery(ctx context.Context, options *Me
 		end = *options.To
 	}
 
-	return repo.GenerateAvailableSlots(ctx, options.OrganizerUuid, start, end, options.PriceUuid)
-}
-
-// processRows converts database rows to Meet objects
-func (repo *repository) processRows(rows *sql.Rows) ([]*Meet, error) {
-	result := make([]*Meet, 0)
-
-	for rows.Next() {
-		var a Meet
-		var creatorUuid sql.NullString
-		var participantsStr string
-		var start, end time.Time
-		if err := rows.Scan(&a.UUID, &a.Title, &a.OrganizerUuid, &creatorUuid, &a.PriceUuid, &participantsStr, &start, &end, &a.Description, &a.Color, &a.Type, &a.BookedAt); err != nil {
-			return nil, err
-		}
-		a.CreatorUuid = creatorUuid.String
-		if err := json.Unmarshal([]byte(participantsStr), &a.ParticipantUuids); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal participants: %w", err)
-		}
-		a.Start = start
-		a.End = end
-		result = append(result, &a)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-
-	return result, nil
+	return repo.GenerateAvailableSlots(ctx, options.OrganizerUuids[0], start, end, options.PriceUuid)
 }
 
 // GenerateAvailableSlots returns all available slots for an organizer between from and to, optionally filtered by price_uuid

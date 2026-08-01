@@ -195,11 +195,11 @@ func (s *service) GetAvailability(ctx context.Context, organizerId string, from,
 	}
 
 	opts := &MeetQueryOptions{
-		OrganizerUuid: organizerId,
-		From:          &from,
-		To:            &to,
-		OnlyAvailable: func(b bool) *bool { return &b }(true),
-		PriceUuid:     priceUUID,
+		OrganizerUuids: []string{organizerId},
+		From:           &from,
+		To:             &to,
+		OnlyAvailable:  func(b bool) *bool { return &b }(true),
+		PriceUuid:      priceUUID,
 	}
 	meets, _, err := s.repo.QueryMeets(ctx, opts)
 	if err != nil {

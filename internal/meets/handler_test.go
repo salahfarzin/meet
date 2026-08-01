@@ -25,8 +25,7 @@ func (m *MockRepoConflict) HasConflict(ctx context.Context, organizerUuid string
 	return m.HasConflictResult, nil
 }
 
-func (m *MockRepoConflict) Create(ctx context.Context, meet *Meet) error          { return nil }
-func (m *MockRepoConflict) GetByID(ctx context.Context, id string) (*Meet, error) { return nil, nil }
+func (m *MockRepoConflict) Create(ctx context.Context, meet *Meet) error { return nil }
 func (m *MockRepoConflict) GetByUUID(ctx context.Context, uuid string) (*Meet, error) {
 	return nil, nil
 }
@@ -149,9 +148,6 @@ func (m *MockService) Update(ctx context.Context, meet *Meet) (*Meet, error) {
 	return meet, nil
 }
 
-func (m *MockService) GetByID(ctx context.Context, id string) (*Meet, error) {
-	return &Meet{ID: id, Title: "Dentist"}, nil
-}
 func (m *MockService) GetByUUID(ctx context.Context, uuid string) (*Meet, error) {
 	if uuid == "not-found" {
 		return nil, errors.New("meet not found")
@@ -174,7 +170,7 @@ func (m *MockService) Delete(ctx context.Context, uuid string) error {
 }
 
 func (m *MockService) QueryMeets(ctx context.Context, opts *MeetQueryOptions) ([]*Meet, error) {
-	if opts.OrganizerUuid == "error" {
+	if len(opts.OrganizerUuids) > 0 && opts.OrganizerUuids[0] == "error" {
 		return nil, errors.New("query error")
 	}
 
@@ -182,27 +178,27 @@ func (m *MockService) QueryMeets(ctx context.Context, opts *MeetQueryOptions) ([
 	if opts.From != nil && opts.To != nil {
 		// Date range specified
 		return []*Meet{
-			{ID: "1", Title: "Filtered Meet", Start: *opts.From, End: *opts.To},
+			{UUID: "1", Title: "Filtered Meet", Start: *opts.From, End: *opts.To},
 		}, nil
 	}
 
 	if opts.From != nil {
 		// Only from date specified
 		return []*Meet{
-			{ID: "2", Title: "From Date Meet", Start: *opts.From},
+			{UUID: "2", Title: "From Date Meet", Start: *opts.From},
 		}, nil
 	}
 
 	if opts.To != nil {
 		// Only to date specified
 		return []*Meet{
-			{ID: "3", Title: "To Date Meet", End: *opts.To},
+			{UUID: "3", Title: "To Date Meet", End: *opts.To},
 		}, nil
 	}
 
 	// No date filters
 	now := time.Now()
-	return []*Meet{{ID: "1", Title: "Dentist", BookedAt: &now}}, nil
+	return []*Meet{{UUID: "1", Title: "Dentist", BookedAt: &now}}, nil
 }
 
 func (m *MockService) GetAvailability(ctx context.Context, organizerId string, from, to time.Time, priceUUID *string) (map[string]DateSlot, error) {
@@ -244,7 +240,7 @@ func (m *MockService) ListScheduling(ctx context.Context, in *ListSchedulingInpu
 	// Mirror the date-range logic from the old QueryMeets mock so existing tests pass.
 	if in.From != nil && in.To != nil {
 		return ListSchedulingResult{
-			Meets:    []*Meet{{ID: "1", Title: "Filtered Meet", Start: *in.From, End: *in.To}},
+			Meets:    []*Meet{{UUID: "1", Title: "Filtered Meet", Start: *in.From, End: *in.To}},
 			Total:    1,
 			Page:     in.Page,
 			PageSize: in.PageSize,
@@ -252,7 +248,7 @@ func (m *MockService) ListScheduling(ctx context.Context, in *ListSchedulingInpu
 	}
 	if in.From != nil {
 		return ListSchedulingResult{
-			Meets:    []*Meet{{ID: "2", Title: "From Date Meet", Start: *in.From}},
+			Meets:    []*Meet{{UUID: "2", Title: "From Date Meet", Start: *in.From}},
 			Total:    1,
 			Page:     in.Page,
 			PageSize: in.PageSize,
@@ -260,7 +256,7 @@ func (m *MockService) ListScheduling(ctx context.Context, in *ListSchedulingInpu
 	}
 	if in.To != nil {
 		return ListSchedulingResult{
-			Meets:    []*Meet{{ID: "3", Title: "To Date Meet", End: *in.To}},
+			Meets:    []*Meet{{UUID: "3", Title: "To Date Meet", End: *in.To}},
 			Total:    1,
 			Page:     in.Page,
 			PageSize: in.PageSize,
@@ -269,7 +265,7 @@ func (m *MockService) ListScheduling(ctx context.Context, in *ListSchedulingInpu
 
 	// Default result.
 	return ListSchedulingResult{
-		Meets:    []*Meet{{ID: "1", Title: "Dentist", BookedAt: &now}},
+		Meets:    []*Meet{{UUID: "1", Title: "Dentist", BookedAt: &now}},
 		Total:    1,
 		Page:     in.Page,
 		PageSize: in.PageSize,

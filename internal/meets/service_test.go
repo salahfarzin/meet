@@ -40,7 +40,6 @@ func (m *mockIdentityClient) ListClinics(ctx context.Context) ([]identity.Clinic
 
 type MockRepository struct {
 	CreateFunc                  func(ctx context.Context, meet *Meet) error
-	GetByIDFunc                 func(ctx context.Context, id string) (*Meet, error)
 	GetByUUIDFunc               func(ctx context.Context, uuid string) (*Meet, error)
 	UpdateFunc                  func(ctx context.Context, meet *Meet) error
 	DeleteFunc                  func(ctx context.Context, uuid string) error
@@ -55,13 +54,6 @@ func (m *MockRepository) Create(ctx context.Context, meet *Meet) error {
 		return m.CreateFunc(ctx, meet)
 	}
 	return nil
-}
-
-func (m *MockRepository) GetByID(ctx context.Context, id string) (*Meet, error) {
-	if m.GetByIDFunc != nil {
-		return m.GetByIDFunc(ctx, id)
-	}
-	return &Meet{ID: id, Title: "Test Meet"}, nil
 }
 
 func (m *MockRepository) GetByUUID(ctx context.Context, uuid string) (*Meet, error) {
@@ -90,7 +82,7 @@ func (m *MockRepository) QueryMeets(ctx context.Context, options *MeetQueryOptio
 		return m.QueryMeetsFunc(ctx, options)
 	}
 	meets := []*Meet{
-		{ID: "1", Title: "Meet 1", Start: time.Now(), End: time.Now().Add(time.Hour)},
+		{UUID: "1", Title: "Meet 1", Start: time.Now(), End: time.Now().Add(time.Hour)},
 	}
 	return meets, len(meets), nil
 }
@@ -116,38 +108,11 @@ func (m *MockRepository) FindParticipantBookings(ctx context.Context, participan
 	return nil, nil
 }
 
-func TestServiceGetByID(t *testing.T) {
-	mockRepo := &MockRepository{}
-	svc := NewService(mockRepo, nil, nil)
-
-	meet, err := svc.GetByID(context.Background(), "123")
-
-	assert.NoError(t, err)
-	assert.NotNil(t, meet)
-	assert.Equal(t, "123", meet.ID)
-	assert.Equal(t, "Test Meet", meet.Title)
-}
-
-func TestServiceGetByIDError(t *testing.T) {
-	mockRepo := &MockRepository{
-		GetByIDFunc: func(ctx context.Context, id string) (*Meet, error) {
-			return nil, errors.New("not found")
-		},
-	}
-	svc := NewService(mockRepo, nil, nil)
-
-	meet, err := svc.GetByID(context.Background(), "123")
-
-	assert.Error(t, err)
-	assert.Nil(t, meet)
-	assert.Contains(t, err.Error(), "not found")
-}
-
 func TestServiceQueryMeets(t *testing.T) {
 	mockRepo := &MockRepository{}
 	svc := NewService(mockRepo, nil, nil)
 
-	opts := &MeetQueryOptions{OrganizerUuid: "org1"}
+	opts := &MeetQueryOptions{OrganizerUuids: []string{"org1"}}
 	meets, err := svc.QueryMeets(context.Background(), opts)
 
 	assert.NoError(t, err)

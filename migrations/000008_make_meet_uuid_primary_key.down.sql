@@ -1,0 +1,5 @@
+ALTER TABLE meets
+    DROP PRIMARY KEY,
+    ADD COLUMN id BIGINT AUTO_INCREMENT FIRST,
+    ADD PRIMARY KEY (id),
+    ADD UNIQUE KEY unique_uuid (uuid);
