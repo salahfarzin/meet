@@ -43,7 +43,7 @@ type MeetSettings struct {
 	ApprovedAt *string `json:"approved_at,omitempty"`
 	// AttendanceStatus is AttendanceStatusPresent | AttendanceStatusAbsent (unset/omitted means not yet recorded).
 	AttendanceStatus *string `json:"attendance_status,omitempty"`
-	AttendanceAt     *string `json:"attendance_at,omitempty"`
+	AttendAt         *string `json:"attend_at,omitempty"`
 	CreatedByUuid    string  `json:"created_by_uuid,omitempty"`
 }
 
