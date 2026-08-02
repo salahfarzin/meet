@@ -3,6 +3,7 @@ package availabilitytemplates
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -100,7 +101,7 @@ func (s *service) checkOverlap(ctx context.Context, t *Template) error {
 			continue
 		}
 		if t.StartTime < e.EndTime && e.StartTime < t.EndTime {
-			return errors.New("overlaps with an existing availability template for this weekday")
+			return fmt.Errorf("overlaps with an existing availability template for this weekday (%s-%s)", e.StartTime[:5], e.EndTime[:5])
 		}
 	}
 	return nil
