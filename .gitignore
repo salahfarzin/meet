@@ -1,5 +1,6 @@
 tmp
 cmd/bin
+bin/
 storage/tmp
 storage/keys
 
