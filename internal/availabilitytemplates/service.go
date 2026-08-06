@@ -203,7 +203,13 @@ func (s *service) materializeOccurrence(ctx context.Context, tmpl *Template, day
 		return nil
 	}
 
+	meetUUID, err := uuid.NewV7()
+	if err != nil {
+		return err
+	}
+
 	meet := &meets.Meet{
+		UUID:             meetUUID.String(),
 		Title:            materializedTitle,
 		OrganizerUuid:    tmpl.OrganizerUuid,
 		PriceUuid:        tmpl.PriceUuid,
