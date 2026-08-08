@@ -54,6 +54,10 @@ type ListSchedulingInput struct {
 	// Pagination.
 	Page     int
 	PageSize int
+	// Sort. SortBy is validated against a fixed column allow-list by
+	// buildScopedQueryOptions; SortDir is "asc" or "desc".
+	SortBy  string
+	SortDir string
 }
 
 // ListSchedulingResult is the paginated result of ListScheduling.
@@ -341,6 +345,8 @@ func buildScopedQueryOptions(in *ListSchedulingInput, participantUuids []string)
 		To:               in.To,
 		Page:             in.Page,
 		PageSize:         in.PageSize,
+		SortBy:           in.SortBy,
+		SortDir:          in.SortDir,
 	}
 	if in.Clinic != "" {
 		// Unrestricted callers (handler already verified RoleSuperAdmin) may narrow

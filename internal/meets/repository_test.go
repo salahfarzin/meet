@@ -13,6 +13,23 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestOrderByClause(t *testing.T) {
+	cases := []struct {
+		sortBy, sortDir, want string
+	}{
+		{"", "", "created_at DESC"},
+		{"created_at", "asc", "created_at ASC"},
+		{"created_at", "ASC", "created_at ASC"},
+		{"start", "asc", "start_time ASC"},
+		{"end", "desc", "end_time DESC"},
+		{"not_a_real_column; DROP TABLE meets", "asc", "created_at ASC"},
+		{"start_time", "sideways", "start_time DESC"},
+	}
+	for _, c := range cases {
+		assert.Equal(t, c.want, orderByClause(c.sortBy, c.sortDir))
+	}
+}
+
 func TestRepositoryHasConflict(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	assert.NoError(t, err)

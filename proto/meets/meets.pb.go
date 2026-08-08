@@ -477,8 +477,13 @@ type GetAllRequest struct {
 	// (sole) participant — used for "this user's appointment history". Bypasses the identity
 	// name/mobile search path entirely.
 	ParticipantUuid string `protobuf:"bytes,11,opt,name=participant_uuid,json=participantUuid,proto3" json:"participant_uuid,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// sort_by selects the ORDER BY column; empty defaults to created_at. Only a
+	// fixed allow-list of column names is accepted (see repository.go).
+	SortBy string `protobuf:"bytes,12,opt,name=sort_by,json=sortBy,proto3" json:"sort_by,omitempty"`
+	// sort_dir is "asc" or "desc" (case-insensitive); empty defaults to desc.
+	SortDir       string `protobuf:"bytes,13,opt,name=sort_dir,json=sortDir,proto3" json:"sort_dir,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GetAllRequest) Reset() {
@@ -584,6 +589,20 @@ func (x *GetAllRequest) GetPageSize() int32 {
 func (x *GetAllRequest) GetParticipantUuid() string {
 	if x != nil {
 		return x.ParticipantUuid
+	}
+	return ""
+}
+
+func (x *GetAllRequest) GetSortBy() string {
+	if x != nil {
+		return x.SortBy
+	}
+	return ""
+}
+
+func (x *GetAllRequest) GetSortDir() string {
+	if x != nil {
+		return x.SortDir
 	}
 	return ""
 }
@@ -1236,7 +1255,7 @@ const file_meets_meets_proto_rawDesc = "" +
 	"\x04meet\x18\x01 \x01(\v2\v.meets.MeetR\x04meet\"#\n" +
 	"\rDeleteRequest\x12\x12\n" +
 	"\x04uuid\x18\x01 \x01(\tR\x04uuid\"\x10\n" +
-	"\x0eDeleteResponse\"\xbf\x02\n" +
+	"\x0eDeleteResponse\"\xf3\x02\n" +
 	"\rGetAllRequest\x12!\n" +
 	"\forganizer_id\x18\x01 \x01(\tR\vorganizerId\x12\x12\n" +
 	"\x04from\x18\x02 \x01(\tR\x04from\x12\x0e\n" +
@@ -1251,7 +1270,9 @@ const file_meets_meets_proto_rawDesc = "" +
 	"\x04page\x18\t \x01(\x05R\x04page\x12\x1b\n" +
 	"\tpage_size\x18\n" +
 	" \x01(\x05R\bpageSize\x12)\n" +
-	"\x10participant_uuid\x18\v \x01(\tR\x0fparticipantUuid\"z\n" +
+	"\x10participant_uuid\x18\v \x01(\tR\x0fparticipantUuid\x12\x17\n" +
+	"\asort_by\x18\f \x01(\tR\x06sortBy\x12\x19\n" +
+	"\bsort_dir\x18\r \x01(\tR\asortDir\"z\n" +
 	"\x0eGetAllResponse\x12!\n" +
 	"\x05meets\x18\x01 \x03(\v2\v.meets.MeetR\x05meets\x12\x14\n" +
 	"\x05total\x18\x02 \x01(\x05R\x05total\x12\x12\n" +

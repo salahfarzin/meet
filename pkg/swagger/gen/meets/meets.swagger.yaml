@@ -85,6 +85,18 @@ paths:
           in: query
           required: false
           type: string
+        - name: sort_by
+          description: |-
+            sort_by selects the ORDER BY column; empty defaults to created_at. Only a
+            fixed allow-list of column names is accepted (see repository.go).
+          in: query
+          required: false
+          type: string
+        - name: sort_dir
+          description: sort_dir is "asc" or "desc" (case-insensitive); empty defaults to desc.
+          in: query
+          required: false
+          type: string
       tags:
         - MeetService
     post:

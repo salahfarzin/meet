@@ -329,6 +329,8 @@ func (h *handler) GetAll(ctx context.Context, req *pb.GetAllRequest) (*pb.GetAll
 		To:              toTime,
 		Page:            page,
 		PageSize:        pageSize,
+		SortBy:          req.SortBy,
+		SortDir:         req.SortDir,
 	})
 	if err != nil {
 		logger.FromContext(ctx).Error("failed to list scheduling", zap.Error(err))

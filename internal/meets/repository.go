@@ -82,6 +82,11 @@ type MeetQueryOptions struct {
 	PriceUuid        *string
 	Page             int
 	PageSize         int
+	// SortBy/SortDir control the ORDER BY clause. SortBy must be a key in
+	// sortableColumns (queryMeetsPaginated); anything else falls back to the
+	// default (created_at DESC). SortDir is "asc" or "desc" (case-insensitive).
+	SortBy  string
+	SortDir string
 }
 
 // HasConflict checks if there is an overlapping appointment for the organizer and period
@@ -315,9 +320,11 @@ func (repo *repository) queryMeetsPaginated(ctx context.Context, options *MeetQu
 	}
 
 	// Paginated SELECT. whereClause is built from fixed fragments with ? placeholders only; no
-	// value is ever interpolated into the query string itself.
+	// value is ever interpolated into the query string itself. orderBy() maps
+	// SortBy/SortDir through a fixed column allow-list, so this stays true for
+	// the ORDER BY fragment too even though it isn't parameterized.
 	selectQuery := "SELECT uuid, organizer_uuid, creator_uuid, price_uuid, participant_uuids, type, title, start_time, end_time, color, description, booked_at, settings, version, created_at FROM meets WHERE " + //nolint:gosec // G202: placeholders only, no interpolated values
-		whereClause + " ORDER BY start_time LIMIT ? OFFSET ?"
+		whereClause + " ORDER BY " + orderByClause(options.SortBy, options.SortDir) + " LIMIT ? OFFSET ?"
 	selectArgs := make([]any, 0, len(args)+2)
 	selectArgs = append(selectArgs, args...)
 	selectArgs = append(selectArgs, pageSize, offset)
@@ -334,6 +341,31 @@ func (repo *repository) queryMeetsPaginated(ctx context.Context, options *MeetQu
 	}
 
 	return result, total, nil
+}
+
+// sortableColumns maps the caller-facing sort keys accepted from the API to their
+// real DB column - a fixed allow-list, since SortBy is otherwise attacker-controlled
+// and gets concatenated straight into the query string (no placeholder for ORDER BY).
+var sortableColumns = map[string]string{
+	"created_at": "created_at",
+	"start_time": "start_time",
+	"end_time":   "end_time",
+	"start":      "start_time",
+	"end":        "end_time",
+}
+
+// orderByClause resolves sortBy/sortDir into a safe "column DIRECTION" fragment.
+// Unknown sortBy values fall back to created_at DESC (the prior hardcoded default).
+func orderByClause(sortBy, sortDir string) string {
+	column, ok := sortableColumns[sortBy]
+	if !ok {
+		column = "created_at"
+	}
+	dir := "DESC"
+	if strings.EqualFold(sortDir, "asc") {
+		dir = "ASC"
+	}
+	return column + " " + dir
 }
 
 // buildPaginatedWhereClause builds the WHERE clause and its bound args for the
