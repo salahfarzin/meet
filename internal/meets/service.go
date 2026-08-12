@@ -58,6 +58,11 @@ type ListSchedulingInput struct {
 	// buildScopedQueryOptions; SortDir is "asc" or "desc".
 	SortBy  string
 	SortDir string
+	// UseCursor selects keyset pagination (QueryMeetsCursor) instead of the
+	// Page/PageSize OFFSET path. Cursor is the opaque token from a prior
+	// response's NextCursor; empty on the first page.
+	UseCursor bool
+	Cursor    string
 }
 
 // ListSchedulingResult is the paginated result of ListScheduling.
@@ -66,6 +71,9 @@ type ListSchedulingResult struct {
 	Total    int
 	Page     int
 	PageSize int
+	// NextCursor and HasMore are only populated when UseCursor was requested.
+	NextCursor string
+	HasMore    bool
 }
 
 type Service interface {
@@ -274,13 +282,24 @@ func (s *service) ListScheduling(ctx context.Context, in *ListSchedulingInput) (
 		return ListSchedulingResult{Page: in.Page, PageSize: in.PageSize}, nil
 	}
 
-	// 4. Query repository.
-	rows, total, err := s.repo.QueryMeets(ctx, opts)
+	// 4. Query repository — keyset path when requested, OFFSET path otherwise.
+	var rows []*Meet
+	var total int
+	var nextCursor string
+	var hasMore bool
+	if opts.UseCursor {
+		rows, total, nextCursor, hasMore, err = s.repo.QueryMeetsCursor(ctx, opts)
+	} else {
+		rows, total, err = s.repo.QueryMeets(ctx, opts)
+	}
 	if err != nil {
 		return empty, err
 	}
 	if len(rows) == 0 {
-		return ListSchedulingResult{Meets: []*Meet{}, Total: total, Page: in.Page, PageSize: in.PageSize}, nil
+		return ListSchedulingResult{
+			Meets: []*Meet{}, Total: total, Page: in.Page, PageSize: in.PageSize,
+			NextCursor: nextCursor, HasMore: hasMore,
+		}, nil
 	}
 
 	// 5-7. Enrich with identity data (single round-trip for both participants and
@@ -290,10 +309,12 @@ func (s *service) ListScheduling(ctx context.Context, in *ListSchedulingInput) (
 	s.enrichWithIdentity(ctx, rows)
 
 	return ListSchedulingResult{
-		Meets:    rows,
-		Total:    total,
-		Page:     in.Page,
-		PageSize: in.PageSize,
+		Meets:      rows,
+		Total:      total,
+		Page:       in.Page,
+		PageSize:   in.PageSize,
+		NextCursor: nextCursor,
+		HasMore:    hasMore,
 	}, nil
 }
 
@@ -347,6 +368,8 @@ func buildScopedQueryOptions(in *ListSchedulingInput, participantUuids []string)
 		PageSize:         in.PageSize,
 		SortBy:           in.SortBy,
 		SortDir:          in.SortDir,
+		UseCursor:        in.UseCursor,
+		Cursor:           in.Cursor,
 	}
 	if in.Clinic != "" {
 		// Unrestricted callers (handler already verified RoleSuperAdmin) may narrow

@@ -8,6 +8,7 @@ import (
 
 	"github.com/salahfarzin/meet/internal/identity"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // mockIdentityClient is a test double for identity.Client.
@@ -585,6 +586,78 @@ func TestListSchedulingRepoQueryError(t *testing.T) {
 	})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "db unreachable")
+}
+
+func TestListSchedulingUsesCursorPathWhenRequested(t *testing.T) {
+	var capturedOpts *MeetQueryOptions
+	mockRepo := &MockRepository{
+		QueryMeetsCursorFunc: func(ctx context.Context, options *MeetQueryOptions) ([]*Meet, int, string, bool, error) {
+			capturedOpts = options
+			return []*Meet{{UUID: "m1", Title: "Cursor Meet"}}, 5, "next-token", true, nil
+		},
+	}
+	svc := NewService(mockRepo, &mockIdentityClient{}, nil)
+
+	result, err := svc.ListScheduling(context.Background(), &ListSchedulingInput{
+		AllowedClinics: []string{"clinic-1"},
+		UseCursor:      true,
+		Cursor:         "prev-token",
+		PageSize:       10,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "Cursor Meet", result.Meets[0].Title)
+	assert.Equal(t, 5, result.Total)
+	assert.Equal(t, "next-token", result.NextCursor)
+	assert.True(t, result.HasMore)
+	require.NotNil(t, capturedOpts)
+	assert.True(t, capturedOpts.UseCursor)
+	assert.Equal(t, "prev-token", capturedOpts.Cursor)
+}
+
+func TestListSchedulingCursorPathRepoError(t *testing.T) {
+	mockRepo := &MockRepository{
+		QueryMeetsCursorFunc: func(ctx context.Context, options *MeetQueryOptions) ([]*Meet, int, string, bool, error) {
+			return nil, 0, "", false, errors.New("db unreachable")
+		},
+	}
+	svc := NewService(mockRepo, &mockIdentityClient{}, nil)
+
+	_, err := svc.ListScheduling(context.Background(), &ListSchedulingInput{
+		AllowedClinics: []string{"clinic-1"},
+		UseCursor:      true,
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "db unreachable")
+}
+
+func TestListSchedulingOffsetPathUnaffectedByCursorFields(t *testing.T) {
+	// UseCursor false (default) must still go through QueryMeetsFunc, not
+	// QueryMeetsCursorFunc, even if Cursor happens to be non-empty.
+	offsetCalled := false
+	cursorCalled := false
+	mockRepo := &MockRepository{
+		QueryMeetsFunc: func(ctx context.Context, options *MeetQueryOptions) ([]*Meet, int, error) {
+			offsetCalled = true
+			return []*Meet{{UUID: "m1", Title: "Offset Meet"}}, 1, nil
+		},
+		QueryMeetsCursorFunc: func(ctx context.Context, options *MeetQueryOptions) ([]*Meet, int, string, bool, error) {
+			cursorCalled = true
+			return nil, 0, "", false, nil
+		},
+	}
+	svc := NewService(mockRepo, &mockIdentityClient{}, nil)
+
+	result, err := svc.ListScheduling(context.Background(), &ListSchedulingInput{
+		AllowedClinics: []string{"clinic-1"},
+		Page:           1,
+		PageSize:       10,
+	})
+	require.NoError(t, err)
+	assert.True(t, offsetCalled)
+	assert.False(t, cursorCalled)
+	assert.Equal(t, "Offset Meet", result.Meets[0].Title)
+	assert.Empty(t, result.NextCursor)
+	assert.False(t, result.HasMore)
 }
 
 func TestListSchedulingEmptyAllowedClinics(t *testing.T) {
