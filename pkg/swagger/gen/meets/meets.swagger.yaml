@@ -97,6 +97,22 @@ paths:
           in: query
           required: false
           type: string
+        - name: use_cursor
+          description: |-
+            use_cursor selects keyset pagination instead of page/page_size. Required
+            (not inferred from cursor being empty) because the first page of a
+            cursor-mode request has no cursor yet, which would otherwise be
+            indistinguishable from an offset-mode request with page unset.
+          in: query
+          required: false
+          type: boolean
+        - name: cursor
+          description: |-
+            cursor is the opaque token from a prior response's next_cursor. Empty on
+            the first page of a cursor-mode request. Ignored unless use_cursor is set.
+          in: query
+          required: false
+          type: string
       tags:
         - MeetService
     post:
@@ -317,6 +333,14 @@ definitions:
       page_size:
         type: integer
         format: int32
+      next_cursor:
+        type: string
+        description: |-
+          next_cursor is set when use_cursor was requested and has_more is true;
+          pass it back as cursor on the next request. Empty otherwise.
+      has_more:
+        type: boolean
+        description: has_more is only meaningful when use_cursor was requested.
   meetsGetAvailabilityResponse:
     type: object
     properties:

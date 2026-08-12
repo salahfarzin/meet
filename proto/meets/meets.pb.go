@@ -481,7 +481,15 @@ type GetAllRequest struct {
 	// fixed allow-list of column names is accepted (see repository.go).
 	SortBy string `protobuf:"bytes,12,opt,name=sort_by,json=sortBy,proto3" json:"sort_by,omitempty"`
 	// sort_dir is "asc" or "desc" (case-insensitive); empty defaults to desc.
-	SortDir       string `protobuf:"bytes,13,opt,name=sort_dir,json=sortDir,proto3" json:"sort_dir,omitempty"`
+	SortDir string `protobuf:"bytes,13,opt,name=sort_dir,json=sortDir,proto3" json:"sort_dir,omitempty"`
+	// use_cursor selects keyset pagination instead of page/page_size. Required
+	// (not inferred from cursor being empty) because the first page of a
+	// cursor-mode request has no cursor yet, which would otherwise be
+	// indistinguishable from an offset-mode request with page unset.
+	UseCursor bool `protobuf:"varint,14,opt,name=use_cursor,json=useCursor,proto3" json:"use_cursor,omitempty"`
+	// cursor is the opaque token from a prior response's next_cursor. Empty on
+	// the first page of a cursor-mode request. Ignored unless use_cursor is set.
+	Cursor        string `protobuf:"bytes,15,opt,name=cursor,proto3" json:"cursor,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -607,12 +615,31 @@ func (x *GetAllRequest) GetSortDir() string {
 	return ""
 }
 
+func (x *GetAllRequest) GetUseCursor() bool {
+	if x != nil {
+		return x.UseCursor
+	}
+	return false
+}
+
+func (x *GetAllRequest) GetCursor() string {
+	if x != nil {
+		return x.Cursor
+	}
+	return ""
+}
+
 type GetAllResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Meets         []*Meet                `protobuf:"bytes,1,rep,name=meets,proto3" json:"meets,omitempty"`
-	Total         int32                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
-	Page          int32                  `protobuf:"varint,3,opt,name=page,proto3" json:"page,omitempty"`
-	PageSize      int32                  `protobuf:"varint,4,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Meets    []*Meet                `protobuf:"bytes,1,rep,name=meets,proto3" json:"meets,omitempty"`
+	Total    int32                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	Page     int32                  `protobuf:"varint,3,opt,name=page,proto3" json:"page,omitempty"`
+	PageSize int32                  `protobuf:"varint,4,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	// next_cursor is set when use_cursor was requested and has_more is true;
+	// pass it back as cursor on the next request. Empty otherwise.
+	NextCursor string `protobuf:"bytes,5,opt,name=next_cursor,json=nextCursor,proto3" json:"next_cursor,omitempty"`
+	// has_more is only meaningful when use_cursor was requested.
+	HasMore       bool `protobuf:"varint,6,opt,name=has_more,json=hasMore,proto3" json:"has_more,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -673,6 +700,20 @@ func (x *GetAllResponse) GetPageSize() int32 {
 		return x.PageSize
 	}
 	return 0
+}
+
+func (x *GetAllResponse) GetNextCursor() string {
+	if x != nil {
+		return x.NextCursor
+	}
+	return ""
+}
+
+func (x *GetAllResponse) GetHasMore() bool {
+	if x != nil {
+		return x.HasMore
+	}
+	return false
 }
 
 // Request & Response
@@ -1255,7 +1296,7 @@ const file_meets_meets_proto_rawDesc = "" +
 	"\x04meet\x18\x01 \x01(\v2\v.meets.MeetR\x04meet\"#\n" +
 	"\rDeleteRequest\x12\x12\n" +
 	"\x04uuid\x18\x01 \x01(\tR\x04uuid\"\x10\n" +
-	"\x0eDeleteResponse\"\xf3\x02\n" +
+	"\x0eDeleteResponse\"\xaa\x03\n" +
 	"\rGetAllRequest\x12!\n" +
 	"\forganizer_id\x18\x01 \x01(\tR\vorganizerId\x12\x12\n" +
 	"\x04from\x18\x02 \x01(\tR\x04from\x12\x0e\n" +
@@ -1272,12 +1313,18 @@ const file_meets_meets_proto_rawDesc = "" +
 	" \x01(\x05R\bpageSize\x12)\n" +
 	"\x10participant_uuid\x18\v \x01(\tR\x0fparticipantUuid\x12\x17\n" +
 	"\asort_by\x18\f \x01(\tR\x06sortBy\x12\x19\n" +
-	"\bsort_dir\x18\r \x01(\tR\asortDir\"z\n" +
+	"\bsort_dir\x18\r \x01(\tR\asortDir\x12\x1d\n" +
+	"\n" +
+	"use_cursor\x18\x0e \x01(\bR\tuseCursor\x12\x16\n" +
+	"\x06cursor\x18\x0f \x01(\tR\x06cursor\"\xb6\x01\n" +
 	"\x0eGetAllResponse\x12!\n" +
 	"\x05meets\x18\x01 \x03(\v2\v.meets.MeetR\x05meets\x12\x14\n" +
 	"\x05total\x18\x02 \x01(\x05R\x05total\x12\x12\n" +
 	"\x04page\x18\x03 \x01(\x05R\x04page\x12\x1b\n" +
-	"\tpage_size\x18\x04 \x01(\x05R\bpageSize\"0\n" +
+	"\tpage_size\x18\x04 \x01(\x05R\bpageSize\x12\x1f\n" +
+	"\vnext_cursor\x18\x05 \x01(\tR\n" +
+	"nextCursor\x12\x19\n" +
+	"\bhas_more\x18\x06 \x01(\bR\ahasMore\"0\n" +
 	"\rCreateRequest\x12\x1f\n" +
 	"\x04meet\x18\x01 \x01(\v2\v.meets.MeetR\x04meet\"a\n" +
 	"\x0eCreateResponse\x12.\n" +
