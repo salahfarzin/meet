@@ -354,18 +354,62 @@ var sortableColumns = map[string]string{
 	"end":        "end_time",
 }
 
-// orderByClause resolves sortBy/sortDir into a safe "column DIRECTION" fragment.
-// Unknown sortBy values fall back to created_at DESC (the prior hardcoded default).
-func orderByClause(sortBy, sortDir string) string {
+// resolveSortColumn maps the caller-facing sortBy/sortDir into a safe DB column
+// name (via the sortableColumns allow-list) and a normalized "ASC"/"DESC"
+// direction. Shared by the OFFSET path (orderByClause) and the keyset path
+// (queryMeetsKeyset) so both order rows identically for a given SortBy/SortDir.
+func resolveSortColumn(sortBy, sortDir string) (column, dir string) {
 	column, ok := sortableColumns[sortBy]
 	if !ok {
 		column = "created_at"
 	}
-	dir := "DESC"
+	dir = "DESC"
 	if strings.EqualFold(sortDir, "asc") {
 		dir = "ASC"
 	}
+	return column, dir
+}
+
+// orderByClause resolves sortBy/sortDir into a safe "column DIRECTION" fragment.
+// Unknown sortBy values fall back to created_at DESC (the prior hardcoded default).
+func orderByClause(sortBy, sortDir string) string {
+	column, dir := resolveSortColumn(sortBy, sortDir)
 	return column + " " + dir
+}
+
+// buildSeekClause builds the keyset seek predicate for queryMeetsKeyset: rows
+// strictly past the cursor's (column, uuid) position, in the direction dir
+// already sorts. column comes from resolveSortColumn (allow-listed), so it is
+// safe to interpolate directly - the same trust boundary orderByClause relies on.
+// A malformed or empty cursor yields no clause (start from the beginning).
+func buildSeekClause(column, dir, cursor string) (clause string, args []any) {
+	sortValue, uuid, ok := decodeCursor(cursor)
+	if !ok {
+		return "", nil
+	}
+	t, err := time.Parse(time.RFC3339Nano, sortValue)
+	if err != nil {
+		return "", nil
+	}
+	op := ">"
+	if dir == "DESC" {
+		op = "<"
+	}
+	clause = fmt.Sprintf(" AND (%s %s ? OR (%s = ? AND uuid %s ?))", column, op, column, op)
+	return clause, []any{t, t, uuid}
+}
+
+// sortColumnValue reads the Meet field backing the given sort column, formatted
+// the same way encodeCursor expects to decode it (RFC3339Nano).
+func sortColumnValue(m *Meet, column string) string {
+	switch column {
+	case "start_time":
+		return m.Start.Format(time.RFC3339Nano)
+	case "end_time":
+		return m.End.Format(time.RFC3339Nano)
+	default:
+		return m.CreatedAt.Format(time.RFC3339Nano)
+	}
 }
 
 // buildPaginatedWhereClause builds the WHERE clause and its bound args for the

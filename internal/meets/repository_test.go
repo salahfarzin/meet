@@ -30,6 +30,61 @@ func TestOrderByClause(t *testing.T) {
 	}
 }
 
+func TestResolveSortColumnDefaults(t *testing.T) {
+	column, dir := resolveSortColumn("", "")
+	assert.Equal(t, "created_at", column)
+	assert.Equal(t, "DESC", dir)
+}
+
+func TestResolveSortColumnKnownAscending(t *testing.T) {
+	column, dir := resolveSortColumn("start_time", "asc")
+	assert.Equal(t, "start_time", column)
+	assert.Equal(t, "ASC", dir)
+}
+
+func TestResolveSortColumnUnknownFallsBackToCreatedAt(t *testing.T) {
+	column, _ := resolveSortColumn("not_a_real_column", "desc")
+	assert.Equal(t, "created_at", column)
+}
+
+func TestBuildSeekClauseNoCursor(t *testing.T) {
+	clause, args := buildSeekClause("created_at", "DESC", "")
+	assert.Empty(t, clause)
+	assert.Empty(t, args)
+}
+
+func TestBuildSeekClauseDescending(t *testing.T) {
+	cursor := encodeCursor("2026-01-15T10:30:00Z", "u1")
+	clause, args := buildSeekClause("created_at", "DESC", cursor)
+	assert.Equal(t, " AND (created_at < ? OR (created_at = ? AND uuid < ?))", clause)
+	require.Len(t, args, 3)
+	assert.Equal(t, "u1", args[2])
+}
+
+func TestBuildSeekClauseAscending(t *testing.T) {
+	cursor := encodeCursor("2026-01-15T10:30:00Z", "u1")
+	clause, args := buildSeekClause("start_time", "ASC", cursor)
+	assert.Equal(t, " AND (start_time > ? OR (start_time = ? AND uuid > ?))", clause)
+	require.Len(t, args, 3)
+}
+
+func TestBuildSeekClauseMalformedCursorTreatedAsNoCursor(t *testing.T) {
+	clause, args := buildSeekClause("created_at", "DESC", "not-a-valid-cursor!!!")
+	assert.Empty(t, clause)
+	assert.Empty(t, args)
+}
+
+func TestSortColumnValueSelectsRightField(t *testing.T) {
+	created := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	start := time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 1, 3, 0, 0, 0, 0, time.UTC)
+	m := &Meet{CreatedAt: created, Start: start, End: end}
+
+	assert.Equal(t, created.Format(time.RFC3339Nano), sortColumnValue(m, "created_at"))
+	assert.Equal(t, start.Format(time.RFC3339Nano), sortColumnValue(m, "start_time"))
+	assert.Equal(t, end.Format(time.RFC3339Nano), sortColumnValue(m, "end_time"))
+}
+
 func TestRepositoryHasConflict(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	assert.NoError(t, err)
