@@ -10,6 +10,7 @@ import (
 	"github.com/salahfarzin/meet/internal/identity"
 	pb "github.com/salahfarzin/meet/proto/meets"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
@@ -434,6 +435,53 @@ func TestGetAllMeets(t *testing.T) {
 	assert.NotNil(t, resp)
 	assert.Len(t, resp.Meets, 1)
 	assert.Equal(t, "Dentist", resp.Meets[0].Title)
+}
+
+func TestGetAllMeetsCursorFieldsPassThrough(t *testing.T) {
+	md := metadata.New(map[string]string{
+		"x-user-roles": "Programmer",
+		"x-user-uuid":  "user1",
+	})
+	ctx := metadata.NewIncomingContext(context.Background(), md)
+	svc := NewMockService()
+
+	var captured *ListSchedulingInput
+	svc.ListSchedulingFn = func(_ context.Context, in *ListSchedulingInput) (ListSchedulingResult, error) {
+		captured = in
+		return ListSchedulingResult{
+			Meets:      []*Meet{{UUID: "m1", Title: "Cursor Meet"}},
+			Total:      1,
+			NextCursor: "next-token",
+			HasMore:    true,
+		}, nil
+	}
+	h := NewHandler(svc)
+
+	resp, err := h.GetAll(ctx, &pb.GetAllRequest{UseCursor: true, Cursor: "prev-token"})
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+
+	require.NotNil(t, captured)
+	assert.True(t, captured.UseCursor)
+	assert.Equal(t, "prev-token", captured.Cursor)
+
+	assert.Equal(t, "next-token", resp.NextCursor)
+	assert.True(t, resp.HasMore)
+}
+
+func TestGetAllMeetsOffsetModeLeavesCursorFieldsEmpty(t *testing.T) {
+	md := metadata.New(map[string]string{
+		"x-user-roles": "Programmer",
+		"x-user-uuid":  "user1",
+	})
+	ctx := metadata.NewIncomingContext(context.Background(), md)
+	h := NewHandler(NewMockService())
+
+	resp, err := h.GetAll(ctx, &pb.GetAllRequest{})
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.Empty(t, resp.NextCursor)
+	assert.False(t, resp.HasMore)
 }
 
 func TestGetAllMeetsError(t *testing.T) {

@@ -331,6 +331,8 @@ func (h *handler) GetAll(ctx context.Context, req *pb.GetAllRequest) (*pb.GetAll
 		PageSize:        pageSize,
 		SortBy:          req.SortBy,
 		SortDir:         req.SortDir,
+		UseCursor:       req.UseCursor,
+		Cursor:          req.Cursor,
 	})
 	if err != nil {
 		logger.FromContext(ctx).Error("failed to list scheduling", zap.Error(err))
@@ -371,10 +373,12 @@ func (h *handler) GetAll(ctx context.Context, req *pb.GetAllRequest) (*pb.GetAll
 	}
 
 	return &pb.GetAllResponse{
-		Meets:    pbMeets,
-		Total:    safeInt32(result.Total),
-		Page:     safeInt32(result.Page),
-		PageSize: safeInt32(result.PageSize),
+		Meets:      pbMeets,
+		Total:      safeInt32(result.Total),
+		Page:       safeInt32(result.Page),
+		PageSize:   safeInt32(result.PageSize),
+		NextCursor: result.NextCursor,
+		HasMore:    result.HasMore,
 	}, nil
 }
 
