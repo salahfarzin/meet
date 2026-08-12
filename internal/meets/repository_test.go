@@ -788,6 +788,145 @@ func TestQueryMeetsPaginatedScanAndUnmarshalErrors(t *testing.T) {
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
+func TestQueryMeetsCursorFirstPage(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+	repo := NewRepository(db)
+
+	now := time.Now().UTC()
+	mock.ExpectQuery("SELECT COUNT").
+		WithArgs("clinic-1").
+		WillReturnRows(sqlmock.NewRows([]string{"c"}).AddRow(3))
+	// pageSize=2 requests pageSize+1=3 rows to detect has_more.
+	mock.ExpectQuery("SELECT .* FROM meets").
+		WithArgs("clinic-1", 3).
+		WillReturnRows(sqlmock.NewRows([]string{
+			"uuid", "organizer_uuid", "creator_uuid", "price_uuid", "participant_uuids",
+			"type", "title", "start_time", "end_time", "color", "description", "booked_at", "settings", "version", "created_at",
+		}).
+			AddRow("m1", "clinic-1", nil, nil, `["p1"]`, 1, "T1", now, now, "", "", nil, nil, 1, now).
+			AddRow("m2", "clinic-1", nil, nil, `["p1"]`, 1, "T2", now, now, "", "", nil, nil, 1, now).
+			AddRow("m3", "clinic-1", nil, nil, `["p1"]`, 1, "T3", now, now, "", "", nil, nil, 1, now))
+
+	rows, total, nextCursor, hasMore, err := repo.QueryMeetsCursor(context.Background(), &MeetQueryOptions{
+		OrganizerUuids: []string{"clinic-1"}, UseCursor: true, PageSize: 2,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 3, total)
+	assert.Len(t, rows, 2)
+	assert.True(t, hasMore)
+	assert.NotEmpty(t, nextCursor)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestQueryMeetsCursorLastPageNoMore(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+	repo := NewRepository(db)
+
+	now := time.Now().UTC()
+	mock.ExpectQuery("SELECT COUNT").
+		WithArgs("clinic-1").
+		WillReturnRows(sqlmock.NewRows([]string{"c"}).AddRow(1))
+	mock.ExpectQuery("SELECT .* FROM meets").
+		WillReturnRows(sqlmock.NewRows([]string{
+			"uuid", "organizer_uuid", "creator_uuid", "price_uuid", "participant_uuids",
+			"type", "title", "start_time", "end_time", "color", "description", "booked_at", "settings", "version", "created_at",
+		}).AddRow("m1", "clinic-1", nil, nil, `["p1"]`, 1, "T1", now, now, "", "", nil, nil, 1, now))
+
+	rows, total, nextCursor, hasMore, err := repo.QueryMeetsCursor(context.Background(), &MeetQueryOptions{
+		OrganizerUuids: []string{"clinic-1"}, UseCursor: true, PageSize: 50,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 1, total)
+	assert.Len(t, rows, 1)
+	assert.False(t, hasMore)
+	assert.Empty(t, nextCursor)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestQueryMeetsCursorAppliesSeekPredicate(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+	repo := NewRepository(db)
+
+	cursor := encodeCursor(time.Now().UTC().Format(time.RFC3339Nano), "m1")
+
+	mock.ExpectQuery("SELECT COUNT").
+		WillReturnRows(sqlmock.NewRows([]string{"c"}).AddRow(0))
+	// The seek predicate adds 3 bound args (t, t, uuid) after the WHERE args,
+	// before the LIMIT arg - just assert the query text contains the seek shape.
+	mock.ExpectQuery(`SELECT .* FROM meets WHERE organizer_uuid IN \(\?\) AND \(created_at < \? OR \(created_at = \? AND uuid < \?\)\) ORDER BY created_at DESC, uuid DESC LIMIT \?`).
+		WillReturnRows(sqlmock.NewRows([]string{
+			"uuid", "organizer_uuid", "creator_uuid", "price_uuid", "participant_uuids",
+			"type", "title", "start_time", "end_time", "color", "description", "booked_at", "settings", "version", "created_at",
+		}))
+
+	_, _, _, _, err = repo.QueryMeetsCursor(context.Background(), &MeetQueryOptions{
+		OrganizerUuids: []string{"clinic-1"}, UseCursor: true, PageSize: 10, Cursor: cursor,
+	})
+	require.NoError(t, err)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestQueryMeetsCursorCountError(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+	repo := NewRepository(db)
+
+	mock.ExpectQuery("SELECT COUNT").WillReturnError(errors.New("count boom"))
+
+	_, _, _, _, err = repo.QueryMeetsCursor(context.Background(), &MeetQueryOptions{
+		OrganizerUuids: []string{"clinic-1"}, UseCursor: true, PageSize: 10,
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "count boom")
+}
+
+func TestQueryMeetsCursorSelectError(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+	repo := NewRepository(db)
+
+	mock.ExpectQuery("SELECT COUNT").
+		WillReturnRows(sqlmock.NewRows([]string{"c"}).AddRow(1))
+	mock.ExpectQuery("SELECT .* FROM meets").WillReturnError(errors.New("select boom"))
+
+	_, _, _, _, err = repo.QueryMeetsCursor(context.Background(), &MeetQueryOptions{
+		OrganizerUuids: []string{"clinic-1"}, UseCursor: true, PageSize: 10,
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "select boom")
+}
+
+func TestQueryMeetsCursorDefaultsPageSize(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+	repo := NewRepository(db)
+
+	mock.ExpectQuery("SELECT COUNT").
+		WillReturnRows(sqlmock.NewRows([]string{"c"}).AddRow(0))
+	// PageSize<=0 defaults to 50, so the SELECT should request 51 rows.
+	mock.ExpectQuery("SELECT .* FROM meets").
+		WithArgs("clinic-1", 51).
+		WillReturnRows(sqlmock.NewRows([]string{
+			"uuid", "organizer_uuid", "creator_uuid", "price_uuid", "participant_uuids",
+			"type", "title", "start_time", "end_time", "color", "description", "booked_at", "settings", "version", "created_at",
+		}))
+
+	_, _, _, _, err = repo.QueryMeetsCursor(context.Background(), &MeetQueryOptions{
+		OrganizerUuids: []string{"clinic-1"}, UseCursor: true,
+	})
+	require.NoError(t, err)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
 func TestRepositoryGenerateAvailableSlotsScanError(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	assert.NoError(t, err)

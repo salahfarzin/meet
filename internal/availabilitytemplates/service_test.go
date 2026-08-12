@@ -103,6 +103,9 @@ func (m *MockMeetsRepository) Delete(ctx context.Context, uuid string) error    
 func (m *MockMeetsRepository) QueryMeets(ctx context.Context, options *meets.MeetQueryOptions) ([]*meets.Meet, int, error) {
 	return nil, 0, nil
 }
+func (m *MockMeetsRepository) QueryMeetsCursor(ctx context.Context, options *meets.MeetQueryOptions) ([]*meets.Meet, int, string, bool, error) {
+	return nil, 0, "", false, nil
+}
 func (m *MockMeetsRepository) HasConflict(ctx context.Context, organizerId string, start, end time.Time, excludeUUID ...string) (bool, error) {
 	if m.HasConflictFunc != nil {
 		return m.HasConflictFunc(ctx, organizerId, start, end, excludeUUID...)

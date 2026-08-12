@@ -34,6 +34,9 @@ func (m *MockRepoConflict) Delete(ctx context.Context, uuid string) error { retu
 func (m *MockRepoConflict) QueryMeets(ctx context.Context, options *MeetQueryOptions) ([]*Meet, int, error) {
 	return nil, 0, nil
 }
+func (m *MockRepoConflict) QueryMeetsCursor(ctx context.Context, options *MeetQueryOptions) ([]*Meet, int, string, bool, error) {
+	return nil, 0, "", false, nil
+}
 func (m *MockRepoConflict) GenerateAvailableSlots(ctx context.Context, organizerID string, from, to time.Time, priceUUID *string) ([]*Meet, error) {
 	return nil, nil
 }

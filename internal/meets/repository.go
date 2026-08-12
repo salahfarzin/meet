@@ -51,6 +51,9 @@ type Repository interface {
 	Delete(ctx context.Context, uuid string) error
 	// QueryMeets: pass nil for no filter; returns rows, total count, error
 	QueryMeets(ctx context.Context, options *MeetQueryOptions) ([]*Meet, int, error)
+	// QueryMeetsCursor is the keyset-pagination counterpart to QueryMeets: seeks
+	// on (sort column, uuid) instead of OFFSET, for callers with UseCursor set.
+	QueryMeetsCursor(ctx context.Context, options *MeetQueryOptions) (meets []*Meet, total int, nextCursor string, hasMore bool, err error)
 	HasConflict(ctx context.Context, organizerId string, start, end time.Time, excludeUUID ...string) (bool, error)
 	// FindParticipantBookings returns meets where any of participantUuids is a
 	// participant, with start_time after from (if set) and before to (if set),
@@ -87,6 +90,11 @@ type MeetQueryOptions struct {
 	// default (created_at DESC). SortDir is "asc" or "desc" (case-insensitive).
 	SortBy  string
 	SortDir string
+	// UseCursor selects the keyset pagination path (QueryMeetsCursor) instead
+	// of the OFFSET path. Cursor is the opaque token from a prior response;
+	// empty on the first page.
+	UseCursor bool
+	Cursor    string
 }
 
 // HasConflict checks if there is an overlapping appointment for the organizer and period
@@ -341,6 +349,60 @@ func (repo *repository) queryMeetsPaginated(ctx context.Context, options *MeetQu
 	}
 
 	return result, total, nil
+}
+
+// QueryMeetsCursor is the keyset-pagination counterpart to queryMeetsPaginated.
+// It reuses the same WHERE-clause builder (buildPaginatedWhereClause) and
+// column allow-list (resolveSortColumn) as the OFFSET path, replacing
+// LIMIT/OFFSET with a seek predicate on (sort column, uuid).
+func (repo *repository) QueryMeetsCursor(ctx context.Context, options *MeetQueryOptions) (meets []*Meet, total int, nextCursor string, hasMore bool, err error) {
+	pageSize := options.PageSize
+	if pageSize <= 0 {
+		pageSize = 50
+	}
+
+	whereClause, args, err := buildPaginatedWhereClause(options)
+	if err != nil {
+		return nil, 0, "", false, err
+	}
+
+	countQuery := "SELECT COUNT(*) FROM meets WHERE " + whereClause
+	if err := repo.db.QueryRowContext(ctx, countQuery, args...).Scan(&total); err != nil {
+		return nil, 0, "", false, err
+	}
+
+	column, dir := resolveSortColumn(options.SortBy, options.SortDir)
+	seekClause, seekArgs := buildSeekClause(column, dir, options.Cursor)
+
+	// Fetch one extra row to detect has_more without a second COUNT query.
+	selectQuery := "SELECT uuid, organizer_uuid, creator_uuid, price_uuid, participant_uuids, type, title, start_time, end_time, color, description, booked_at, settings, version, created_at FROM meets WHERE " + //nolint:gosec // G202: placeholders only, column/dir come from the sortableColumns allow-list
+		whereClause + seekClause + " ORDER BY " + column + " " + dir + ", uuid " + dir + " LIMIT ?"
+	selectArgs := make([]any, 0, len(args)+len(seekArgs)+1)
+	selectArgs = append(selectArgs, args...)
+	selectArgs = append(selectArgs, seekArgs...)
+	selectArgs = append(selectArgs, pageSize+1)
+
+	rows, err := repo.db.QueryContext(ctx, selectQuery, selectArgs...)
+	if err != nil {
+		return nil, 0, "", false, err
+	}
+	defer rows.Close()
+
+	result, err := scanPaginatedMeets(rows)
+	if err != nil {
+		return nil, 0, "", false, err
+	}
+
+	hasMore = len(result) > pageSize
+	if hasMore {
+		result = result[:pageSize]
+	}
+	if hasMore && len(result) > 0 {
+		last := result[len(result)-1]
+		nextCursor = encodeCursor(sortColumnValue(last, column), last.UUID)
+	}
+
+	return result, total, nextCursor, hasMore, nil
 }
 
 // sortableColumns maps the caller-facing sort keys accepted from the API to their

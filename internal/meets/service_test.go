@@ -44,6 +44,7 @@ type MockRepository struct {
 	UpdateFunc                  func(ctx context.Context, meet *Meet) error
 	DeleteFunc                  func(ctx context.Context, uuid string) error
 	QueryMeetsFunc              func(ctx context.Context, options *MeetQueryOptions) ([]*Meet, int, error)
+	QueryMeetsCursorFunc        func(ctx context.Context, options *MeetQueryOptions) (meets []*Meet, total int, nextCursor string, hasMore bool, err error)
 	HasConflictFunc             func(ctx context.Context, organizerId string, start, end time.Time, excludeUUID ...string) (bool, error)
 	GenerateSlotsFunc           func(ctx context.Context, organizerID string, from, to time.Time, priceUUID *string) ([]*Meet, error)
 	FindParticipantBookingsFunc func(ctx context.Context, participantUuids []string, from, to *time.Time, excludeUUID string) ([]*Meet, error)
@@ -75,6 +76,13 @@ func (m *MockRepository) Delete(ctx context.Context, uuid string) error {
 		return m.DeleteFunc(ctx, uuid)
 	}
 	return nil
+}
+
+func (m *MockRepository) QueryMeetsCursor(ctx context.Context, options *MeetQueryOptions) ([]*Meet, int, string, bool, error) {
+	if m.QueryMeetsCursorFunc != nil {
+		return m.QueryMeetsCursorFunc(ctx, options)
+	}
+	return []*Meet{}, 0, "", false, nil
 }
 
 func (m *MockRepository) QueryMeets(ctx context.Context, options *MeetQueryOptions) ([]*Meet, int, error) {
