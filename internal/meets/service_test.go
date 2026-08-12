@@ -79,7 +79,7 @@ func (m *MockRepository) Delete(ctx context.Context, uuid string) error {
 	return nil
 }
 
-func (m *MockRepository) QueryMeetsCursor(ctx context.Context, options *MeetQueryOptions) ([]*Meet, int, string, bool, error) {
+func (m *MockRepository) QueryMeetsCursor(ctx context.Context, options *MeetQueryOptions) (meets []*Meet, total int, nextCursor string, hasMore bool, err error) {
 	if m.QueryMeetsCursorFunc != nil {
 		return m.QueryMeetsCursorFunc(ctx, options)
 	}

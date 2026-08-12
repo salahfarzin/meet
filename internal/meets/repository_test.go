@@ -74,6 +74,14 @@ func TestBuildSeekClauseMalformedCursorTreatedAsNoCursor(t *testing.T) {
 	assert.Empty(t, args)
 }
 
+func TestBuildSeekClauseUnparsableSortValueTreatedAsNoCursor(t *testing.T) {
+	// Well-formed cursor (decodes fine), but the sort value isn't RFC3339Nano.
+	cursor := encodeCursor("not-a-timestamp", "u1")
+	clause, args := buildSeekClause("created_at", "DESC", cursor)
+	assert.Empty(t, clause)
+	assert.Empty(t, args)
+}
+
 func TestSortColumnValueSelectsRightField(t *testing.T) {
 	created := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	start := time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC)
@@ -865,7 +873,7 @@ func TestQueryMeetsCursorAppliesSeekPredicate(t *testing.T) {
 			"type", "title", "start_time", "end_time", "color", "description", "booked_at", "settings", "version", "created_at",
 		}))
 
-	_, _, _, _, err = repo.QueryMeetsCursor(context.Background(), &MeetQueryOptions{
+	_, _, _, _, err = repo.QueryMeetsCursor(context.Background(), &MeetQueryOptions{ //nolint:dogsled // error-path test, only err matters
 		OrganizerUuids: []string{"clinic-1"}, UseCursor: true, PageSize: 10, Cursor: cursor,
 	})
 	require.NoError(t, err)
@@ -880,7 +888,7 @@ func TestQueryMeetsCursorCountError(t *testing.T) {
 
 	mock.ExpectQuery("SELECT COUNT").WillReturnError(errors.New("count boom"))
 
-	_, _, _, _, err = repo.QueryMeetsCursor(context.Background(), &MeetQueryOptions{
+	_, _, _, _, err = repo.QueryMeetsCursor(context.Background(), &MeetQueryOptions{ //nolint:dogsled // error-path test, only err matters
 		OrganizerUuids: []string{"clinic-1"}, UseCursor: true, PageSize: 10,
 	})
 	require.Error(t, err)
@@ -897,7 +905,7 @@ func TestQueryMeetsCursorSelectError(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"c"}).AddRow(1))
 	mock.ExpectQuery("SELECT .* FROM meets").WillReturnError(errors.New("select boom"))
 
-	_, _, _, _, err = repo.QueryMeetsCursor(context.Background(), &MeetQueryOptions{
+	_, _, _, _, err = repo.QueryMeetsCursor(context.Background(), &MeetQueryOptions{ //nolint:dogsled // error-path test, only err matters
 		OrganizerUuids: []string{"clinic-1"}, UseCursor: true, PageSize: 10,
 	})
 	require.Error(t, err)
@@ -920,10 +928,32 @@ func TestQueryMeetsCursorDefaultsPageSize(t *testing.T) {
 			"type", "title", "start_time", "end_time", "color", "description", "booked_at", "settings", "version", "created_at",
 		}))
 
-	_, _, _, _, err = repo.QueryMeetsCursor(context.Background(), &MeetQueryOptions{
+	_, _, _, _, err = repo.QueryMeetsCursor(context.Background(), &MeetQueryOptions{ //nolint:dogsled // error-path test, only err matters
 		OrganizerUuids: []string{"clinic-1"}, UseCursor: true,
 	})
 	require.NoError(t, err)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestQueryMeetsCursorScanAndUnmarshalError(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+	repo := NewRepository(db)
+
+	mock.ExpectQuery("SELECT COUNT").
+		WillReturnRows(sqlmock.NewRows([]string{"c"}).AddRow(1))
+	mock.ExpectQuery("SELECT .* FROM meets").
+		WillReturnRows(sqlmock.NewRows([]string{
+			"uuid", "organizer_uuid", "creator_uuid", "price_uuid", "participant_uuids",
+			"type", "title", "start_time", "end_time", "color", "description", "booked_at", "settings", "version", "created_at",
+		}).AddRow("m1", "clinic-1", nil, nil, "invalid", 1, "T", time.Now(), time.Now(), "", "", nil, nil, 1, time.Now()))
+
+	_, _, _, _, err = repo.QueryMeetsCursor(context.Background(), &MeetQueryOptions{ //nolint:dogsled // error-path test, only err matters
+		OrganizerUuids: []string{"clinic-1"}, UseCursor: true, PageSize: 10,
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to unmarshal participants")
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 

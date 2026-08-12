@@ -32,16 +32,16 @@ func TestDecodeCursorMalformedBase64(t *testing.T) {
 }
 
 func TestDecodeCursorMalformedJSON(t *testing.T) {
-	// Valid base64, but the decoded bytes aren't the expected JSON shape.
-	_, _, ok := decodeCursor("bm90LWpzb24=") // base64("not-json")
+	// Valid base64, but the decoded bytes ("not-json") aren't valid JSON at all.
+	_, _, ok := decodeCursor("bm90LWpzb24=")
 	if ok {
 		t.Error("decodeCursor(valid base64, invalid JSON) ok = true, want false")
 	}
 }
 
 func TestDecodeCursorMissingUUID(t *testing.T) {
-	// {"v":"2026-01-15T10:30:00Z"} with no "u" key.
-	token := "eyJ2IjoiMjAyNi0wMS0xNVQxMDozMDowMFoifQ=="
+	// Decodes to valid JSON with a "v" key but no "u" key, so UUID is missing.
+	token := "eyJ2IjoiMjAyNi0wMS0xNVQxMDozMDowMFoifQ==" //nolint:gosec // test fixture, base64 JSON not a credential
 	_, _, ok := decodeCursor(token)
 	if ok {
 		t.Error("decodeCursor(cursor missing uuid) ok = true, want false")

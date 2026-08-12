@@ -405,15 +405,21 @@ func (repo *repository) QueryMeetsCursor(ctx context.Context, options *MeetQuery
 	return result, total, nextCursor, hasMore, nil
 }
 
+const (
+	columnCreatedAt = "created_at"
+	columnStartTime = "start_time"
+	columnEndTime   = "end_time"
+)
+
 // sortableColumns maps the caller-facing sort keys accepted from the API to their
 // real DB column - a fixed allow-list, since SortBy is otherwise attacker-controlled
 // and gets concatenated straight into the query string (no placeholder for ORDER BY).
 var sortableColumns = map[string]string{
-	"created_at": "created_at",
-	"start_time": "start_time",
-	"end_time":   "end_time",
-	"start":      "start_time",
-	"end":        "end_time",
+	columnCreatedAt: columnCreatedAt,
+	columnStartTime: columnStartTime,
+	columnEndTime:   columnEndTime,
+	"start":         columnStartTime,
+	"end":           columnEndTime,
 }
 
 // resolveSortColumn maps the caller-facing sortBy/sortDir into a safe DB column
@@ -423,7 +429,7 @@ var sortableColumns = map[string]string{
 func resolveSortColumn(sortBy, sortDir string) (column, dir string) {
 	column, ok := sortableColumns[sortBy]
 	if !ok {
-		column = "created_at"
+		column = columnCreatedAt
 	}
 	dir = "DESC"
 	if strings.EqualFold(sortDir, "asc") {
@@ -465,9 +471,9 @@ func buildSeekClause(column, dir, cursor string) (clause string, args []any) {
 // the same way encodeCursor expects to decode it (RFC3339Nano).
 func sortColumnValue(m *Meet, column string) string {
 	switch column {
-	case "start_time":
+	case columnStartTime:
 		return m.Start.Format(time.RFC3339Nano)
-	case "end_time":
+	case columnEndTime:
 		return m.End.Format(time.RFC3339Nano)
 	default:
 		return m.CreatedAt.Format(time.RFC3339Nano)
