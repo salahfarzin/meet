@@ -2,6 +2,7 @@ package availabilitytemplates
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -196,6 +197,64 @@ func TestServiceUpdateAllowsOverlapWithItself(t *testing.T) {
 
 	_, err := svc.Update(context.Background(), &Template{UUID: "self", OrganizerUuid: "org1", Weekday: 0, StartTime: "09:00:00", EndTime: "13:00:00", EffectiveFrom: time.Now()})
 	assert.NoError(t, err)
+}
+
+func TestServiceUpdateMissingUUID(t *testing.T) {
+	svc := NewService(&MockRepository{}, &MockMeetsRepository{})
+	_, err := svc.Update(context.Background(), &Template{OrganizerUuid: "org1"})
+	assert.Error(t, err)
+}
+
+func TestServiceUpdateValidationError(t *testing.T) {
+	svc := NewService(&MockRepository{}, &MockMeetsRepository{})
+	_, err := svc.Update(context.Background(), &Template{UUID: "self"})
+	assert.Error(t, err)
+}
+
+func TestServiceUpdateOverlapCheckError(t *testing.T) {
+	repo := &MockRepository{
+		ListActiveByOrganizerFunc: func(ctx context.Context, organizerUuid string, from, to time.Time) ([]*Template, error) {
+			return nil, errors.New("db down")
+		},
+	}
+	svc := NewService(repo, &MockMeetsRepository{})
+	_, err := svc.Update(context.Background(), &Template{UUID: "self", OrganizerUuid: "org1", Weekday: 0, StartTime: "09:00:00", EndTime: "13:00:00", EffectiveFrom: time.Now()})
+	assert.Error(t, err)
+}
+
+func TestServiceUpdateRepoError(t *testing.T) {
+	repo := &MockRepository{
+		UpdateFunc: func(ctx context.Context, t *Template) error { return errors.New("repo error") },
+	}
+	svc := NewService(repo, &MockMeetsRepository{})
+	_, err := svc.Update(context.Background(), &Template{UUID: "self", OrganizerUuid: "org1", Weekday: 0, StartTime: "09:00:00", EndTime: "13:00:00", EffectiveFrom: time.Now()})
+	assert.Error(t, err)
+}
+
+func TestServiceGetByUUIDDelegates(t *testing.T) {
+	repo := &MockRepository{
+		GetByUUIDFunc: func(ctx context.Context, uuid string) (*Template, error) {
+			return &Template{UUID: uuid}, nil
+		},
+	}
+	svc := NewService(repo, &MockMeetsRepository{})
+	got, err := svc.GetByUUID(context.Background(), "abc")
+	require.NoError(t, err)
+	assert.Equal(t, "abc", got.UUID)
+}
+
+func TestServiceDeleteDelegates(t *testing.T) {
+	deleted := ""
+	repo := &MockRepository{
+		DeleteFunc: func(ctx context.Context, uuid string) error {
+			deleted = uuid
+			return nil
+		},
+	}
+	svc := NewService(repo, &MockMeetsRepository{})
+	err := svc.Delete(context.Background(), "abc")
+	require.NoError(t, err)
+	assert.Equal(t, "abc", deleted)
 }
 
 func TestFirstOccurrenceOnOrAfter(t *testing.T) {

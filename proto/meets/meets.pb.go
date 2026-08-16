@@ -94,13 +94,6 @@ type Meet struct {
 	ParticipantUuids []string               `protobuf:"bytes,9,rep,name=participant_uuids,json=participantUuids,proto3" json:"participant_uuids,omitempty"`
 	Type             MeetType               `protobuf:"varint,10,opt,name=type,proto3,enum=meets.MeetType" json:"type,omitempty"`
 	BookedAt         *string                `protobuf:"bytes,11,opt,name=booked_at,json=bookedAt,proto3,oneof" json:"booked_at,omitempty"`
-	// Identity-enriched fields (populated in scheduling list; empty for other endpoints).
-	FirstName    string `protobuf:"bytes,12,opt,name=first_name,json=firstName,proto3" json:"first_name,omitempty"`
-	LastName     string `protobuf:"bytes,13,opt,name=last_name,json=lastName,proto3" json:"last_name,omitempty"`
-	NationalCode string `protobuf:"bytes,14,opt,name=national_code,json=nationalCode,proto3" json:"national_code,omitempty"`
-	Mobile       string `protobuf:"bytes,15,opt,name=mobile,proto3" json:"mobile,omitempty"`
-	// clinic_name is the display name of the meet's organizer (clinic/center identity).
-	ClinicName string `protobuf:"bytes,16,opt,name=clinic_name,json=clinicName,proto3" json:"clinic_name,omitempty"`
 	// settings holds admin-workflow state (approved_at, is_absent, present_at) and booking rules.
 	// Properties such as `appointmentMinHoursBetweenBookings` are read and enforced by this service,
 	// while other fields are opaque and owned by the caller (ravanhealth).
@@ -223,41 +216,6 @@ func (x *Meet) GetType() MeetType {
 func (x *Meet) GetBookedAt() string {
 	if x != nil && x.BookedAt != nil {
 		return *x.BookedAt
-	}
-	return ""
-}
-
-func (x *Meet) GetFirstName() string {
-	if x != nil {
-		return x.FirstName
-	}
-	return ""
-}
-
-func (x *Meet) GetLastName() string {
-	if x != nil {
-		return x.LastName
-	}
-	return ""
-}
-
-func (x *Meet) GetNationalCode() string {
-	if x != nil {
-		return x.NationalCode
-	}
-	return ""
-}
-
-func (x *Meet) GetMobile() string {
-	if x != nil {
-		return x.Mobile
-	}
-	return ""
-}
-
-func (x *Meet) GetClinicName() string {
-	if x != nil {
-		return x.ClinicName
 	}
 	return ""
 }
@@ -1260,7 +1218,7 @@ var File_meets_meets_proto protoreflect.FileDescriptor
 
 const file_meets_meets_proto_rawDesc = "" +
 	"\n" +
-	"\x11meets/meets.proto\x12\x05meets\x1a\x1cgoogle/api/annotations.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x13common/common.proto\x1a.protoc-gen-openapiv2/options/annotations.proto\"\x97\x05\n" +
+	"\x11meets/meets.proto\x12\x05meets\x1a\x1cgoogle/api/annotations.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x13common/common.proto\x1a.protoc-gen-openapiv2/options/annotations.proto\"\xd6\x04\n" +
 	"\x04Meet\x12\x12\n" +
 	"\x04uuid\x18\x01 \x01(\tR\x04uuid\x12%\n" +
 	"\x0eorganizer_uuid\x18\x02 \x01(\tR\rorganizerUuid\x12\"\n" +
@@ -1274,14 +1232,7 @@ const file_meets_meets_proto_rawDesc = "" +
 	"\x11participant_uuids\x18\t \x03(\tR\x10participantUuids\x12#\n" +
 	"\x04type\x18\n" +
 	" \x01(\x0e2\x0f.meets.MeetTypeR\x04type\x12 \n" +
-	"\tbooked_at\x18\v \x01(\tH\x01R\bbookedAt\x88\x01\x01\x12\x1d\n" +
-	"\n" +
-	"first_name\x18\f \x01(\tR\tfirstName\x12\x1b\n" +
-	"\tlast_name\x18\r \x01(\tR\blastName\x12#\n" +
-	"\rnational_code\x18\x0e \x01(\tR\fnationalCode\x12\x16\n" +
-	"\x06mobile\x18\x0f \x01(\tR\x06mobile\x12\x1f\n" +
-	"\vclinic_name\x18\x10 \x01(\tR\n" +
-	"clinicName\x123\n" +
+	"\tbooked_at\x18\v \x01(\tH\x01R\bbookedAt\x88\x01\x01\x123\n" +
 	"\bsettings\x18\x11 \x01(\v2\x17.google.protobuf.StructR\bsettings\x12\x1d\n" +
 	"\n" +
 	"created_at\x18\x12 \x01(\tR\tcreatedAt\x12\x18\n" +
@@ -1289,7 +1240,8 @@ const file_meets_meets_proto_rawDesc = "" +
 	"\fcreator_uuid\x18\x14 \x01(\tR\vcreatorUuidB\r\n" +
 	"\v_price_uuidB\f\n" +
 	"\n" +
-	"_booked_at\"#\n" +
+	"_booked_atJ\x04\b\f\x10\rJ\x04\b\r\x10\x0eJ\x04\b\x0e\x10\x0fJ\x04\b\x0f\x10\x10J\x04\b\x10\x10\x11R\n" +
+	"first_nameR\tlast_nameR\rnational_codeR\x06mobileR\vclinic_name\"#\n" +
 	"\rGetOneRequest\x12\x12\n" +
 	"\x04uuid\x18\x01 \x01(\tR\x04uuid\"1\n" +
 	"\x0eGetOneResponse\x12\x1f\n" +

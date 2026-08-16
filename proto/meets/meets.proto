@@ -58,13 +58,8 @@ message Meet {
   repeated string participant_uuids = 9;
   MeetType type = 10;
   optional string booked_at = 11;
-  // Identity-enriched fields (populated in scheduling list; empty for other endpoints).
-  string first_name = 12;
-  string last_name = 13;
-  string national_code = 14;
-  string mobile = 15;
-  // clinic_name is the display name of the meet's organizer (clinic/center identity).
-  string clinic_name = 16;
+  reserved 12, 13, 14, 15, 16;
+  reserved "first_name", "last_name", "national_code", "mobile", "clinic_name";
   // settings holds admin-workflow state (approved_at, is_absent, present_at) and booking rules.
   // Properties such as `appointmentMinHoursBetweenBookings` are read and enforced by this service,
   // while other fields are opaque and owned by the caller (ravanhealth).

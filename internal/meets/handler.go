@@ -236,51 +236,15 @@ func parseOptionalRFC3339(ctx context.Context, field, value string) *time.Time {
 	return &t
 }
 
-// computeAllowedClinics resolves the clinic scope for a GetAll request. Every
-// caller is scoped to every clinic returned by the identity service; if that
-// service is unreachable or returns nothing, scope degrades to the caller's own
-// uuid rather than either failing the request or exposing all tenants' data via
-// an unrestricted scope. RoleSuperAdmin callers are the one exception - the same
-// trust retrieveOrganizerUuid() already gives them on create/update - and get an
-// unrestricted list instead, since they're not scoped to any single tenant.
-func (h *handler) computeAllowedClinics(ctx context.Context, user *middlewares.User) (allowedClinics []string, unrestricted bool) {
+// computeAllowedClinics resolves the clinic scope for a GetAll request.
+// RoleSuperAdmin callers get an unrestricted scope (every organizer) - the
+// same trust retrieveOrganizerUuid() already gives them on create/update.
+// Every other caller is scoped to just their own uuid.
+func (h *handler) computeAllowedClinics(user *middlewares.User) (allowedClinics []string, unrestricted bool) {
 	if slices.Contains(user.Roles, RoleSuperAdmin) {
 		return nil, true
 	}
-
-	clinics, err := h.service.ListClinics(ctx)
-	if err != nil {
-		logger.FromContext(ctx).Warn(
-			"identity service unavailable for ListClinics; degrading scope to own UUID",
-			zap.String("user_uuid", user.Uuid),
-			zap.Error(err),
-		)
-		return []string{user.Uuid}, false
-	}
-
-	if len(clinics) == 0 {
-		// The identity service returned zero clinics. Switching to an unrestricted
-		// (empty AllowedClinics) query would expose all tenant data, so we degrade
-		// scope to the caller's own UUID instead. This is a configuration problem —
-		// the identity service should always return at least one clinic — not a
-		// normal data-absence case.
-		logger.FromContext(ctx).Warn(
-			"identity service returned zero clinics; degrading scope to own UUID — check identity service configuration",
-			zap.String("user_uuid", user.Uuid),
-		)
-		return []string{user.Uuid}, false
-	}
-
-	// user.Uuid is always included alongside real clinics too - it's the
-	// same identity retrieveOrganizerUuid() falls back to when a meet is
-	// created with no organizer_uuid, so without it those "general"
-	// (no-clinic) meets could never be read back by this same caller.
-	allowedClinics = make([]string, 0, len(clinics)+1)
-	allowedClinics = append(allowedClinics, user.Uuid)
-	for _, c := range clinics {
-		allowedClinics = append(allowedClinics, c.UUID)
-	}
-	return allowedClinics, false
+	return []string{user.Uuid}, false
 }
 
 func (h *handler) GetAll(ctx context.Context, req *pb.GetAllRequest) (*pb.GetAllResponse, error) {
@@ -296,18 +260,12 @@ func (h *handler) GetAll(ctx context.Context, req *pb.GetAllRequest) (*pb.GetAll
 		pageSize = 50
 	}
 
-	// --- Identity filter fields ---
-	firstName := req.FirstName
-	lastName := req.LastName
-	nationalID := req.NationalId
-	mobile := req.Mobile
-
 	// --- Date range ---
 	fromTime := parseOptionalRFC3339(ctx, "from", req.From)
 	toTime := parseOptionalRFC3339(ctx, "to", req.To)
 
 	// --- Compute AllowedClinics ---
-	allowedClinics, unrestricted := h.computeAllowedClinics(ctx, &user)
+	allowedClinics, unrestricted := h.computeAllowedClinics(&user)
 
 	// --- Validate req.Clinic is within allowed set (unrestricted callers may ask
 	// for any clinic at all) ---
@@ -320,10 +278,6 @@ func (h *handler) GetAll(ctx context.Context, req *pb.GetAllRequest) (*pb.GetAll
 		AllowedClinics:  allowedClinics,
 		Unrestricted:    unrestricted,
 		Clinic:          req.Clinic,
-		FirstName:       firstName,
-		LastName:        lastName,
-		NationalID:      nationalID,
-		Mobile:          mobile,
 		ParticipantUuid: req.ParticipantUuid,
 		From:            fromTime,
 		To:              toTime,
@@ -361,14 +315,9 @@ func (h *handler) GetAll(ctx context.Context, req *pb.GetAllRequest) (*pb.GetAll
 				s := a.BookedAt.Format(time.RFC3339)
 				return &s
 			}(),
-			FirstName:    a.FirstName,
-			LastName:     a.LastName,
-			NationalCode: a.NationalCode,
-			Mobile:       a.Mobile,
-			ClinicName:   a.ClinicName,
-			Settings:     settingsToStruct(a.Settings),
-			Version:      a.Version,
-			CreatedAt:    a.CreatedAt.Format(time.RFC3339),
+			Settings:  settingsToStruct(a.Settings),
+			Version:   a.Version,
+			CreatedAt: a.CreatedAt.Format(time.RFC3339),
 		})
 	}
 

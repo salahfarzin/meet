@@ -35,12 +35,6 @@ type Meet struct {
 	TemplateUuid *string   `json:"template_uuid,omitempty" db:"template_uuid"`
 	Version      int32     `json:"version" db:"version"`
 	CreatedAt    time.Time `json:"created_at" db:"created_at"`
-	// Display-only fields: populated from identity service, never persisted.
-	FirstName    string `json:"first_name,omitempty" db:"-"`
-	LastName     string `json:"last_name,omitempty" db:"-"`
-	NationalCode string `json:"national_code,omitempty" db:"-"`
-	Mobile       string `json:"mobile,omitempty" db:"-"`
-	ClinicName   string `json:"clinic_name,omitempty" db:"-"`
 }
 
 type Repository interface {
