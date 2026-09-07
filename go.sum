@@ -71,6 +71,8 @@ github.com/salahfarzin/logger v0.1.2 h1:ovwX8gZI22fcBcgYa1caVBgH9t1z4AztGc6Ww3Il
 github.com/salahfarzin/logger v0.1.2/go.mod h1:ikOo7ZNC989W3mLNrIGv0qPKkeEsxvsN0N32F8xDxos=
 github.com/salahfarzin/utils v1.0.0 h1:N5J0wuGJW5QEMZYP1d281Y44qPIP5iwO8W66glRbMNM=
 github.com/salahfarzin/utils v1.0.0/go.mod h1:g6a2E9imvdBjDnghv1QnfPxYzDFQwZfOxKnGa9eFukU=
+github.com/salahfarzin/utils v1.1.0 h1:cDZ5ktOrYdS2pnyJTjqqsEJzH77QZST52cgjk6UGa5g=
+github.com/salahfarzin/utils v1.1.0/go.mod h1:QutZp5nMQL5tcIEzRFci9OSxMJrnzCYoGi78+5uciH0=
 github.com/sirupsen/logrus v1.4.2/go.mod h1:tLMulIdttU9McNUspp0xgXVQah82FyeX6MwdIuYE2rE=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/objx v0.1.1/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=

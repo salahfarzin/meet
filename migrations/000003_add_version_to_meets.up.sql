@@ -1,1 +1,0 @@
-ALTER TABLE meets ADD COLUMN version INT NOT NULL DEFAULT 1 AFTER settings;
