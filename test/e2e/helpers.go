@@ -125,10 +125,13 @@ func WaitForServer(baseURL string, maxRetries int) error {
 	client := &http.Client{Timeout: 2 * time.Second}
 
 	for i := 0; i < maxRetries; i++ {
-		resp, err := client.Get(baseURL + "/api/v1/meets")
+		req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, baseURL+"/api/v1/meets", http.NoBody)
 		if err == nil {
-			resp.Body.Close()
-			return nil
+			resp, doErr := client.Do(req)
+			if doErr == nil {
+				_ = resp.Body.Close()
+				return nil
+			}
 		}
 		time.Sleep(1 * time.Second)
 	}

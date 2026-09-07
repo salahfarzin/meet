@@ -8,6 +8,8 @@ import (
 	"time"
 )
 
+const statusHealthy = "healthy"
+
 // HealthResponse represents the health check response
 type HealthResponse struct {
 	Status    string            `json:"status"`
@@ -38,20 +40,20 @@ func NewHealthHandler(db DatabasePinger, version string) *HealthHandler {
 // Health returns basic health status (for load balancer/k8s probes)
 func (h *HealthHandler) Health(w http.ResponseWriter, r *http.Request) {
 	response := HealthResponse{
-		Status:    "healthy",
+		Status:    statusHealthy,
 		Timestamp: time.Now().UTC().Format(time.RFC3339),
 		Version:   h.version,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 // Ready returns readiness status including dependency checks
 func (h *HealthHandler) Ready(w http.ResponseWriter, r *http.Request) {
 	checks := make(map[string]string)
-	status := "healthy"
+	status := statusHealthy
 	httpStatus := http.StatusOK
 
 	// Check database connectivity
@@ -77,7 +79,7 @@ func (h *HealthHandler) Ready(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(httpStatus)
-	json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 // Live returns basic liveness status (for k8s liveness probes)
@@ -88,5 +90,5 @@ func (h *HealthHandler) Live(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(response)
 }

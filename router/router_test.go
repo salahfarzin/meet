@@ -20,9 +20,9 @@ func TestSetupGRPCRoutes(t *testing.T) {
 	// Create a mock gRPC server
 	server := grpc.NewServer()
 
-	// This should not panic
+	// This should not panic.
 	assert.NotPanics(t, func() {
-		SetupGRPCRoutes(server, db)
+		SetupGRPCRoutes(server, db, false)
 	})
 
 	// The server should have services registered
@@ -53,4 +53,14 @@ func TestSetupRESTRoutes_InvalidAddr(t *testing.T) {
 	if err != nil {
 		assert.Error(t, err)
 	}
+}
+
+func TestSetupRESTRoutes_MeetHandlerRegistrationError(t *testing.T) {
+	ctx := context.Background()
+	mux := runtime.NewServeMux()
+	grpcAddr := "\x00"
+	opts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+
+	err := SetupRESTRoutes(ctx, mux, grpcAddr, opts)
+	assert.Error(t, err)
 }

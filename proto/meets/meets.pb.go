@@ -12,6 +12,7 @@ import (
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -93,8 +94,23 @@ type Meet struct {
 	ParticipantUuids []string               `protobuf:"bytes,9,rep,name=participant_uuids,json=participantUuids,proto3" json:"participant_uuids,omitempty"`
 	Type             MeetType               `protobuf:"varint,10,opt,name=type,proto3,enum=meets.MeetType" json:"type,omitempty"`
 	BookedAt         *string                `protobuf:"bytes,11,opt,name=booked_at,json=bookedAt,proto3,oneof" json:"booked_at,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// settings holds admin-workflow state (approved_at, is_absent, present_at) and booking rules.
+	// Properties such as `appointmentMinHoursBetweenBookings` are read and enforced by this service,
+	// while other fields are opaque and owned by the caller (ravanhealth).
+	Settings *structpb.Struct `protobuf:"bytes,17,opt,name=settings,proto3" json:"settings,omitempty"`
+	// created_at exposes the existing meets.created_at column (RFC3339). Read-only: ignored on input.
+	CreatedAt string `protobuf:"bytes,18,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// version is an optimistic-concurrency token. Callers round-trip the value
+	// read from GetOne/GetAll back into Update; if the row changed since, Update
+	// fails with ABORTED instead of silently clobbering a concurrent write.
+	Version int32 `protobuf:"varint,19,opt,name=version,proto3" json:"version,omitempty"`
+	// creator_uuid is the uuid of the user who created this meet, set explicitly
+	// by the caller on Create (organizer_uuid may be a clinic, not the creator,
+	// or may fall back to a service-account identity when no clinic is picked).
+	// Read-only: ignored on Update.
+	CreatorUuid   string `protobuf:"bytes,20,opt,name=creator_uuid,json=creatorUuid,proto3" json:"creator_uuid,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Meet) Reset() {
@@ -200,6 +216,34 @@ func (x *Meet) GetType() MeetType {
 func (x *Meet) GetBookedAt() string {
 	if x != nil && x.BookedAt != nil {
 		return *x.BookedAt
+	}
+	return ""
+}
+
+func (x *Meet) GetSettings() *structpb.Struct {
+	if x != nil {
+		return x.Settings
+	}
+	return nil
+}
+
+func (x *Meet) GetCreatedAt() string {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return ""
+}
+
+func (x *Meet) GetVersion() int32 {
+	if x != nil {
+		return x.Version
+	}
+	return 0
+}
+
+func (x *Meet) GetCreatorUuid() string {
+	if x != nil {
+		return x.CreatorUuid
 	}
 	return ""
 }
@@ -376,10 +420,34 @@ func (*DeleteResponse) Descriptor() ([]byte, []int) {
 
 // Request & Response
 type GetAllRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	OrganizerId   string                 `protobuf:"bytes,1,opt,name=organizer_id,json=organizerId,proto3" json:"organizer_id,omitempty"`
-	From          string                 `protobuf:"bytes,2,opt,name=from,proto3" json:"from,omitempty"`
-	To            string                 `protobuf:"bytes,3,opt,name=to,proto3" json:"to,omitempty"`
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	OrganizerId string                 `protobuf:"bytes,1,opt,name=organizer_id,json=organizerId,proto3" json:"organizer_id,omitempty"`
+	From        string                 `protobuf:"bytes,2,opt,name=from,proto3" json:"from,omitempty"`
+	To          string                 `protobuf:"bytes,3,opt,name=to,proto3" json:"to,omitempty"`
+	Clinic      string                 `protobuf:"bytes,4,opt,name=clinic,proto3" json:"clinic,omitempty"`
+	FirstName   string                 `protobuf:"bytes,5,opt,name=first_name,json=firstName,proto3" json:"first_name,omitempty"`
+	LastName    string                 `protobuf:"bytes,6,opt,name=last_name,json=lastName,proto3" json:"last_name,omitempty"`
+	NationalId  string                 `protobuf:"bytes,7,opt,name=national_id,json=nationalId,proto3" json:"national_id,omitempty"`
+	Mobile      string                 `protobuf:"bytes,8,opt,name=mobile,proto3" json:"mobile,omitempty"`
+	Page        int32                  `protobuf:"varint,9,opt,name=page,proto3" json:"page,omitempty"`
+	PageSize    int32                  `protobuf:"varint,10,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	// participant_uuid, when set, restricts results to meets where this exact UUID is the
+	// (sole) participant — used for "this user's appointment history". Bypasses the identity
+	// name/mobile search path entirely.
+	ParticipantUuid string `protobuf:"bytes,11,opt,name=participant_uuid,json=participantUuid,proto3" json:"participant_uuid,omitempty"`
+	// sort_by selects the ORDER BY column; empty defaults to created_at. Only a
+	// fixed allow-list of column names is accepted (see repository.go).
+	SortBy string `protobuf:"bytes,12,opt,name=sort_by,json=sortBy,proto3" json:"sort_by,omitempty"`
+	// sort_dir is "asc" or "desc" (case-insensitive); empty defaults to desc.
+	SortDir string `protobuf:"bytes,13,opt,name=sort_dir,json=sortDir,proto3" json:"sort_dir,omitempty"`
+	// use_cursor selects keyset pagination instead of page/page_size. Required
+	// (not inferred from cursor being empty) because the first page of a
+	// cursor-mode request has no cursor yet, which would otherwise be
+	// indistinguishable from an offset-mode request with page unset.
+	UseCursor bool `protobuf:"varint,14,opt,name=use_cursor,json=useCursor,proto3" json:"use_cursor,omitempty"`
+	// cursor is the opaque token from a prior response's next_cursor. Empty on
+	// the first page of a cursor-mode request. Ignored unless use_cursor is set.
+	Cursor        string `protobuf:"bytes,15,opt,name=cursor,proto3" json:"cursor,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -435,9 +503,101 @@ func (x *GetAllRequest) GetTo() string {
 	return ""
 }
 
+func (x *GetAllRequest) GetClinic() string {
+	if x != nil {
+		return x.Clinic
+	}
+	return ""
+}
+
+func (x *GetAllRequest) GetFirstName() string {
+	if x != nil {
+		return x.FirstName
+	}
+	return ""
+}
+
+func (x *GetAllRequest) GetLastName() string {
+	if x != nil {
+		return x.LastName
+	}
+	return ""
+}
+
+func (x *GetAllRequest) GetNationalId() string {
+	if x != nil {
+		return x.NationalId
+	}
+	return ""
+}
+
+func (x *GetAllRequest) GetMobile() string {
+	if x != nil {
+		return x.Mobile
+	}
+	return ""
+}
+
+func (x *GetAllRequest) GetPage() int32 {
+	if x != nil {
+		return x.Page
+	}
+	return 0
+}
+
+func (x *GetAllRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+func (x *GetAllRequest) GetParticipantUuid() string {
+	if x != nil {
+		return x.ParticipantUuid
+	}
+	return ""
+}
+
+func (x *GetAllRequest) GetSortBy() string {
+	if x != nil {
+		return x.SortBy
+	}
+	return ""
+}
+
+func (x *GetAllRequest) GetSortDir() string {
+	if x != nil {
+		return x.SortDir
+	}
+	return ""
+}
+
+func (x *GetAllRequest) GetUseCursor() bool {
+	if x != nil {
+		return x.UseCursor
+	}
+	return false
+}
+
+func (x *GetAllRequest) GetCursor() string {
+	if x != nil {
+		return x.Cursor
+	}
+	return ""
+}
+
 type GetAllResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Meets         []*Meet                `protobuf:"bytes,1,rep,name=meets,proto3" json:"meets,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Meets    []*Meet                `protobuf:"bytes,1,rep,name=meets,proto3" json:"meets,omitempty"`
+	Total    int32                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	Page     int32                  `protobuf:"varint,3,opt,name=page,proto3" json:"page,omitempty"`
+	PageSize int32                  `protobuf:"varint,4,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	// next_cursor is set when use_cursor was requested and has_more is true;
+	// pass it back as cursor on the next request. Empty otherwise.
+	NextCursor string `protobuf:"bytes,5,opt,name=next_cursor,json=nextCursor,proto3" json:"next_cursor,omitempty"`
+	// has_more is only meaningful when use_cursor was requested.
+	HasMore       bool `protobuf:"varint,6,opt,name=has_more,json=hasMore,proto3" json:"has_more,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -477,6 +637,41 @@ func (x *GetAllResponse) GetMeets() []*Meet {
 		return x.Meets
 	}
 	return nil
+}
+
+func (x *GetAllResponse) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+func (x *GetAllResponse) GetPage() int32 {
+	if x != nil {
+		return x.Page
+	}
+	return 0
+}
+
+func (x *GetAllResponse) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+func (x *GetAllResponse) GetNextCursor() string {
+	if x != nil {
+		return x.NextCursor
+	}
+	return ""
+}
+
+func (x *GetAllResponse) GetHasMore() bool {
+	if x != nil {
+		return x.HasMore
+	}
+	return false
 }
 
 // Request & Response
@@ -1023,7 +1218,7 @@ var File_meets_meets_proto protoreflect.FileDescriptor
 
 const file_meets_meets_proto_rawDesc = "" +
 	"\n" +
-	"\x11meets/meets.proto\x12\x05meets\x1a\x1cgoogle/api/annotations.proto\x1a\x13common/common.proto\x1a.protoc-gen-openapiv2/options/annotations.proto\"\xec\x02\n" +
+	"\x11meets/meets.proto\x12\x05meets\x1a\x1cgoogle/api/annotations.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x13common/common.proto\x1a.protoc-gen-openapiv2/options/annotations.proto\"\xd6\x04\n" +
 	"\x04Meet\x12\x12\n" +
 	"\x04uuid\x18\x01 \x01(\tR\x04uuid\x12%\n" +
 	"\x0eorganizer_uuid\x18\x02 \x01(\tR\rorganizerUuid\x12\"\n" +
@@ -1037,23 +1232,51 @@ const file_meets_meets_proto_rawDesc = "" +
 	"\x11participant_uuids\x18\t \x03(\tR\x10participantUuids\x12#\n" +
 	"\x04type\x18\n" +
 	" \x01(\x0e2\x0f.meets.MeetTypeR\x04type\x12 \n" +
-	"\tbooked_at\x18\v \x01(\tH\x01R\bbookedAt\x88\x01\x01B\r\n" +
+	"\tbooked_at\x18\v \x01(\tH\x01R\bbookedAt\x88\x01\x01\x123\n" +
+	"\bsettings\x18\x11 \x01(\v2\x17.google.protobuf.StructR\bsettings\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\x12 \x01(\tR\tcreatedAt\x12\x18\n" +
+	"\aversion\x18\x13 \x01(\x05R\aversion\x12!\n" +
+	"\fcreator_uuid\x18\x14 \x01(\tR\vcreatorUuidB\r\n" +
 	"\v_price_uuidB\f\n" +
 	"\n" +
-	"_booked_at\"#\n" +
+	"_booked_atJ\x04\b\f\x10\rJ\x04\b\r\x10\x0eJ\x04\b\x0e\x10\x0fJ\x04\b\x0f\x10\x10J\x04\b\x10\x10\x11R\n" +
+	"first_nameR\tlast_nameR\rnational_codeR\x06mobileR\vclinic_name\"#\n" +
 	"\rGetOneRequest\x12\x12\n" +
 	"\x04uuid\x18\x01 \x01(\tR\x04uuid\"1\n" +
 	"\x0eGetOneResponse\x12\x1f\n" +
 	"\x04meet\x18\x01 \x01(\v2\v.meets.MeetR\x04meet\"#\n" +
 	"\rDeleteRequest\x12\x12\n" +
 	"\x04uuid\x18\x01 \x01(\tR\x04uuid\"\x10\n" +
-	"\x0eDeleteResponse\"V\n" +
+	"\x0eDeleteResponse\"\xaa\x03\n" +
 	"\rGetAllRequest\x12!\n" +
 	"\forganizer_id\x18\x01 \x01(\tR\vorganizerId\x12\x12\n" +
 	"\x04from\x18\x02 \x01(\tR\x04from\x12\x0e\n" +
-	"\x02to\x18\x03 \x01(\tR\x02to\"3\n" +
+	"\x02to\x18\x03 \x01(\tR\x02to\x12\x16\n" +
+	"\x06clinic\x18\x04 \x01(\tR\x06clinic\x12\x1d\n" +
+	"\n" +
+	"first_name\x18\x05 \x01(\tR\tfirstName\x12\x1b\n" +
+	"\tlast_name\x18\x06 \x01(\tR\blastName\x12\x1f\n" +
+	"\vnational_id\x18\a \x01(\tR\n" +
+	"nationalId\x12\x16\n" +
+	"\x06mobile\x18\b \x01(\tR\x06mobile\x12\x12\n" +
+	"\x04page\x18\t \x01(\x05R\x04page\x12\x1b\n" +
+	"\tpage_size\x18\n" +
+	" \x01(\x05R\bpageSize\x12)\n" +
+	"\x10participant_uuid\x18\v \x01(\tR\x0fparticipantUuid\x12\x17\n" +
+	"\asort_by\x18\f \x01(\tR\x06sortBy\x12\x19\n" +
+	"\bsort_dir\x18\r \x01(\tR\asortDir\x12\x1d\n" +
+	"\n" +
+	"use_cursor\x18\x0e \x01(\bR\tuseCursor\x12\x16\n" +
+	"\x06cursor\x18\x0f \x01(\tR\x06cursor\"\xb6\x01\n" +
 	"\x0eGetAllResponse\x12!\n" +
-	"\x05meets\x18\x01 \x03(\v2\v.meets.MeetR\x05meets\"0\n" +
+	"\x05meets\x18\x01 \x03(\v2\v.meets.MeetR\x05meets\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\x12\x12\n" +
+	"\x04page\x18\x03 \x01(\x05R\x04page\x12\x1b\n" +
+	"\tpage_size\x18\x04 \x01(\x05R\bpageSize\x12\x1f\n" +
+	"\vnext_cursor\x18\x05 \x01(\tR\n" +
+	"nextCursor\x12\x19\n" +
+	"\bhas_more\x18\x06 \x01(\bR\ahasMore\"0\n" +
 	"\rCreateRequest\x12\x1f\n" +
 	"\x04meet\x18\x01 \x01(\v2\v.meets.MeetR\x04meet\"a\n" +
 	"\x0eCreateResponse\x12.\n" +
@@ -1146,39 +1369,41 @@ var file_meets_meets_proto_goTypes = []any{
 	(*GetAvailabilityResponse)(nil), // 15: meets.GetAvailabilityResponse
 	(*GetMeetTypesRequest)(nil),     // 16: meets.GetMeetTypesRequest
 	(*GetMeetTypesResponse)(nil),    // 17: meets.GetMeetTypesResponse
-	(*common.ResponseStatus)(nil),   // 18: common.ResponseStatus
+	(*structpb.Struct)(nil),         // 18: google.protobuf.Struct
+	(*common.ResponseStatus)(nil),   // 19: common.ResponseStatus
 }
 var file_meets_meets_proto_depIdxs = []int32{
 	0,  // 0: meets.Meet.type:type_name -> meets.MeetType
-	1,  // 1: meets.GetOneResponse.meet:type_name -> meets.Meet
-	1,  // 2: meets.GetAllResponse.meets:type_name -> meets.Meet
-	1,  // 3: meets.CreateRequest.meet:type_name -> meets.Meet
-	18, // 4: meets.CreateResponse.status:type_name -> common.ResponseStatus
-	1,  // 5: meets.CreateResponse.meet:type_name -> meets.Meet
-	1,  // 6: meets.UpdateRequest.meet:type_name -> meets.Meet
-	1,  // 7: meets.UpdateResponse.meet:type_name -> meets.Meet
-	14, // 8: meets.DateSlot.times:type_name -> meets.TimeSlot
-	13, // 9: meets.GetAvailabilityResponse.dates:type_name -> meets.DateSlot
-	0,  // 10: meets.GetMeetTypesResponse.types:type_name -> meets.MeetType
-	6,  // 11: meets.MeetService.GetAll:input_type -> meets.GetAllRequest
-	2,  // 12: meets.MeetService.GetOne:input_type -> meets.GetOneRequest
-	8,  // 13: meets.MeetService.Create:input_type -> meets.CreateRequest
-	10, // 14: meets.MeetService.Update:input_type -> meets.UpdateRequest
-	4,  // 15: meets.MeetService.Delete:input_type -> meets.DeleteRequest
-	12, // 16: meets.MeetService.GetAvailability:input_type -> meets.GetAvailabilityRequest
-	16, // 17: meets.MeetService.GetMeetTypes:input_type -> meets.GetMeetTypesRequest
-	7,  // 18: meets.MeetService.GetAll:output_type -> meets.GetAllResponse
-	3,  // 19: meets.MeetService.GetOne:output_type -> meets.GetOneResponse
-	9,  // 20: meets.MeetService.Create:output_type -> meets.CreateResponse
-	11, // 21: meets.MeetService.Update:output_type -> meets.UpdateResponse
-	5,  // 22: meets.MeetService.Delete:output_type -> meets.DeleteResponse
-	15, // 23: meets.MeetService.GetAvailability:output_type -> meets.GetAvailabilityResponse
-	17, // 24: meets.MeetService.GetMeetTypes:output_type -> meets.GetMeetTypesResponse
-	18, // [18:25] is the sub-list for method output_type
-	11, // [11:18] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	18, // 1: meets.Meet.settings:type_name -> google.protobuf.Struct
+	1,  // 2: meets.GetOneResponse.meet:type_name -> meets.Meet
+	1,  // 3: meets.GetAllResponse.meets:type_name -> meets.Meet
+	1,  // 4: meets.CreateRequest.meet:type_name -> meets.Meet
+	19, // 5: meets.CreateResponse.status:type_name -> common.ResponseStatus
+	1,  // 6: meets.CreateResponse.meet:type_name -> meets.Meet
+	1,  // 7: meets.UpdateRequest.meet:type_name -> meets.Meet
+	1,  // 8: meets.UpdateResponse.meet:type_name -> meets.Meet
+	14, // 9: meets.DateSlot.times:type_name -> meets.TimeSlot
+	13, // 10: meets.GetAvailabilityResponse.dates:type_name -> meets.DateSlot
+	0,  // 11: meets.GetMeetTypesResponse.types:type_name -> meets.MeetType
+	6,  // 12: meets.MeetService.GetAll:input_type -> meets.GetAllRequest
+	2,  // 13: meets.MeetService.GetOne:input_type -> meets.GetOneRequest
+	8,  // 14: meets.MeetService.Create:input_type -> meets.CreateRequest
+	10, // 15: meets.MeetService.Update:input_type -> meets.UpdateRequest
+	4,  // 16: meets.MeetService.Delete:input_type -> meets.DeleteRequest
+	12, // 17: meets.MeetService.GetAvailability:input_type -> meets.GetAvailabilityRequest
+	16, // 18: meets.MeetService.GetMeetTypes:input_type -> meets.GetMeetTypesRequest
+	7,  // 19: meets.MeetService.GetAll:output_type -> meets.GetAllResponse
+	3,  // 20: meets.MeetService.GetOne:output_type -> meets.GetOneResponse
+	9,  // 21: meets.MeetService.Create:output_type -> meets.CreateResponse
+	11, // 22: meets.MeetService.Update:output_type -> meets.UpdateResponse
+	5,  // 23: meets.MeetService.Delete:output_type -> meets.DeleteResponse
+	15, // 24: meets.MeetService.GetAvailability:output_type -> meets.GetAvailabilityResponse
+	17, // 25: meets.MeetService.GetMeetTypes:output_type -> meets.GetMeetTypesResponse
+	19, // [19:26] is the sub-list for method output_type
+	12, // [12:19] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_meets_meets_proto_init() }

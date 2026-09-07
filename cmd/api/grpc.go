@@ -41,7 +41,6 @@ func NewGRPCServer(app *App) *GRPCServer {
 		grpc.UnaryInterceptor(
 			grpc_middleware.ChainUnaryServer(
 				loggingInterceptor(app),
-				// Add more interceptors here
 			),
 		),
 	)
@@ -60,7 +59,7 @@ func (s *GRPCServer) Start() error {
 		return err
 	}
 
-	router.SetupGRPCRoutes(s.grpcServer, s.app.DB)
+	router.SetupGRPCRoutes(s.grpcServer, s.app.DB, s.app.Configs.AuthDisabled)
 
 	reflection.Register(s.grpcServer) // Register reflection service on gRPC server
 	log.Printf("gRPC server listening on %s", address)

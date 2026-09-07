@@ -34,7 +34,7 @@ func setup() (*api.App, func(), error) {
 
 	// Ensure log directory exists
 	logDir := filepath.Join(curPath, cfg.Log.Path)
-	if err := os.MkdirAll(logDir, 0755); err != nil {
+	if err := os.MkdirAll(logDir, 0o750); err != nil {
 		return nil, nil, err
 	}
 
@@ -68,7 +68,7 @@ func setup() (*api.App, func(), error) {
 	cleanup := func() {
 		_ = logger.Sync()
 		if dbConn != nil {
-			dbConn.Close()
+			_ = dbConn.Close()
 		}
 	}
 

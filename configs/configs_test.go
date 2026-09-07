@@ -8,37 +8,39 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestInit(t *testing.T) {
-	// Save original environment
-	originalEnv := make(map[string]string)
-	envVars := []string{
-		"APP_NAME", "APP_ENV", "APP_VERSION", "APP_URL", "APP_PORT", "APP_GRPC_PORT",
-		"REST_PREFIX", "AUTH_SERVICE", "LOG_LEVEL", "LOG_PATH", "DB_DRIVER", "DB_USER", "DB_PASSWORD",
-		"DB_HOST", "DB_PORT", "DB_NAME",
-	}
+// configEnvVars lists every env var read by Init, used to snapshot/restore the
+// environment around tests so they don't leak state into each other.
+var configEnvVars = []string{
+	"APP_NAME", "APP_ENV", "APP_VERSION", "APP_URL", "APP_PORT", "APP_GRPC_PORT",
+	"REST_PREFIX", "AUTH_SERVICE", "LOG_LEVEL", "LOG_PATH", "DB_DRIVER", "DB_USER", "DB_PASSWORD",
+	"DB_HOST", "DB_PORT", "DB_NAME",
+}
 
-	for _, env := range envVars {
+// withClearedConfigEnv clears configEnvVars for the duration of the test and restores
+// the original values (or absence thereof) on cleanup.
+func withClearedConfigEnv(t *testing.T) {
+	t.Helper()
+	originalEnv := make(map[string]string)
+	for _, env := range configEnvVars {
 		if value, exists := os.LookupEnv(env); exists {
 			originalEnv[env] = value
 		}
-	}
-
-	// Clear all environment variables
-	for _, env := range envVars {
 		_ = os.Unsetenv(env)
 	}
 
-	defer func() {
-		// Restore original environment
-		for key, value := range originalEnv {
-			_ = os.Setenv(key, value)
-		}
-		for _, env := range envVars {
-			if _, exists := originalEnv[env]; !exists {
+	t.Cleanup(func() {
+		for _, env := range configEnvVars {
+			if value, exists := originalEnv[env]; exists {
+				_ = os.Setenv(env, value)
+			} else {
 				_ = os.Unsetenv(env)
 			}
 		}
-	}()
+	})
+}
+
+func TestInit(t *testing.T) {
+	withClearedConfigEnv(t)
 
 	// Test with default values
 	config := Init()
@@ -65,24 +67,7 @@ func TestInit(t *testing.T) {
 }
 
 func TestInitWithCustomEnvVars(t *testing.T) {
-	// Save original environment
-	originalEnv := make(map[string]string)
-	envVars := []string{
-		"APP_NAME", "APP_ENV", "APP_VERSION", "APP_URL", "APP_PORT", "APP_GRPC_PORT",
-		"REST_PREFIX", "AUTH_SERVICE", "LOG_LEVEL", "LOG_PATH", "DB_DRIVER", "DB_USER", "DB_PASSWORD",
-		"DB_HOST", "DB_PORT", "DB_NAME",
-	}
-
-	for _, env := range envVars {
-		if value, exists := os.LookupEnv(env); exists {
-			originalEnv[env] = value
-		}
-	}
-
-	// Clear all environment variables
-	for _, env := range envVars {
-		_ = os.Unsetenv(env)
-	}
+	withClearedConfigEnv(t)
 
 	// Set custom environment variables
 	envValues := map[string]string{
@@ -107,18 +92,6 @@ func TestInitWithCustomEnvVars(t *testing.T) {
 	for key, value := range envValues {
 		_ = os.Setenv(key, value)
 	}
-
-	defer func() {
-		// Restore original environment
-		for key, value := range originalEnv {
-			_ = os.Setenv(key, value)
-		}
-		for _, env := range envVars {
-			if _, exists := originalEnv[env]; !exists {
-				_ = os.Unsetenv(env)
-			}
-		}
-	}()
 
 	// Test with custom values
 	config := Init()

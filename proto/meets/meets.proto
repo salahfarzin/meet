@@ -3,6 +3,7 @@ syntax = "proto3";
 package meets;
 
 import "google/api/annotations.proto";
+import "google/protobuf/struct.proto";
 import "common/common.proto";
 import "protoc-gen-openapiv2/options/annotations.proto";
 
@@ -57,6 +58,23 @@ message Meet {
   repeated string participant_uuids = 9;
   MeetType type = 10;
   optional string booked_at = 11;
+  reserved 12, 13, 14, 15, 16;
+  reserved "first_name", "last_name", "national_code", "mobile", "clinic_name";
+  // settings holds admin-workflow state (approved_at, is_absent, present_at) and booking rules.
+  // Properties such as `appointmentMinHoursBetweenBookings` are read and enforced by this service,
+  // while other fields are opaque and owned by the caller (ravanhealth).
+  google.protobuf.Struct settings = 17;
+  // created_at exposes the existing meets.created_at column (RFC3339). Read-only: ignored on input.
+  string created_at = 18;
+  // version is an optimistic-concurrency token. Callers round-trip the value
+  // read from GetOne/GetAll back into Update; if the row changed since, Update
+  // fails with ABORTED instead of silently clobbering a concurrent write.
+  int32 version = 19;
+  // creator_uuid is the uuid of the user who created this meet, set explicitly
+  // by the caller on Create (organizer_uuid may be a clinic, not the creator,
+  // or may fall back to a service-account identity when no clinic is picked).
+  // Read-only: ignored on Update.
+  string creator_uuid = 20;
 }
 
 // Request & Response
@@ -77,9 +95,41 @@ message GetAllRequest {
   string organizer_id = 1;
   string from = 2;
   string to = 3;
+  string clinic = 4;
+  string first_name = 5;
+  string last_name = 6;
+  string national_id = 7;
+  string mobile = 8;
+  int32 page = 9;
+  int32 page_size = 10;
+  // participant_uuid, when set, restricts results to meets where this exact UUID is the
+  // (sole) participant — used for "this user's appointment history". Bypasses the identity
+  // name/mobile search path entirely.
+  string participant_uuid = 11;
+  // sort_by selects the ORDER BY column; empty defaults to created_at. Only a
+  // fixed allow-list of column names is accepted (see repository.go).
+  string sort_by = 12;
+  // sort_dir is "asc" or "desc" (case-insensitive); empty defaults to desc.
+  string sort_dir = 13;
+  // use_cursor selects keyset pagination instead of page/page_size. Required
+  // (not inferred from cursor being empty) because the first page of a
+  // cursor-mode request has no cursor yet, which would otherwise be
+  // indistinguishable from an offset-mode request with page unset.
+  bool use_cursor = 14;
+  // cursor is the opaque token from a prior response's next_cursor. Empty on
+  // the first page of a cursor-mode request. Ignored unless use_cursor is set.
+  string cursor = 15;
 }
 message GetAllResponse {
   repeated Meet meets = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+  // next_cursor is set when use_cursor was requested and has_more is true;
+  // pass it back as cursor on the next request. Empty otherwise.
+  string next_cursor = 5;
+  // has_more is only meaningful when use_cursor was requested.
+  bool has_more = 6;
 }
 // Request & Response
 message CreateRequest {

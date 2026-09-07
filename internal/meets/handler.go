@@ -2,7 +2,9 @@ package meets
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"slices"
 	"sort"
@@ -15,7 +17,11 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/structpb"
 )
+
+const errInternalServer = "Internal server error"
 
 type Handler interface {
 	Create(ctx context.Context, req *pb.CreateRequest) (*pb.CreateResponse, error)
@@ -47,6 +53,7 @@ func (h *handler) Create(ctx context.Context, req *pb.CreateRequest) (*pb.Create
 	meet, err := h.service.Create(ctx, &Meet{
 		Title:            req.Meet.Title,
 		OrganizerUuid:    retrieveOrganizerUuid(ctx, req.Meet.OrganizerUuid),
+		CreatorUuid:      req.Meet.CreatorUuid,
 		PriceUuid:        req.Meet.PriceUuid,
 		ParticipantUuids: req.Meet.ParticipantUuids,
 		Start:            startTime,
@@ -54,13 +61,20 @@ func (h *handler) Create(ctx context.Context, req *pb.CreateRequest) (*pb.Create
 		Description:      req.Meet.Description,
 		Color:            req.Meet.Color,
 		Type:             int32(req.Meet.Type),
+		Settings:         settingsFromStruct(req.Meet.Settings),
 	})
 	if err != nil {
 		if err.Error() == "appointment conflict for this organizer and period" {
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
+		if err.Error() == "minimum hours between bookings violated" {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		if err.Error() == "participant already has an upcoming appointment" {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
 		logger.FromContext(ctx).Error("failed to create meet", zap.Error(err))
-		return nil, status.Error(codes.Internal, "Internal server error")
+		return nil, status.Error(codes.Internal, errInternalServer)
 	}
 
 	return &pb.CreateResponse{
@@ -68,6 +82,7 @@ func (h *handler) Create(ctx context.Context, req *pb.CreateRequest) (*pb.Create
 		Meet: &pb.Meet{
 			Uuid:             meet.UUID,
 			OrganizerUuid:    meet.OrganizerUuid,
+			CreatorUuid:      meet.CreatorUuid,
 			PriceUuid:        meet.PriceUuid,
 			ParticipantUuids: meet.ParticipantUuids,
 			Title:            meet.Title,
@@ -76,6 +91,9 @@ func (h *handler) Create(ctx context.Context, req *pb.CreateRequest) (*pb.Create
 			Color:            meet.Color,
 			Description:      meet.Description,
 			Type:             pb.MeetType(meet.Type),
+			Settings:         settingsToStruct(meet.Settings),
+			Version:          meet.Version,
+			CreatedAt:        meet.CreatedAt.Format(time.RFC3339),
 		},
 	}, nil
 }
@@ -94,6 +112,7 @@ func (h *handler) Update(ctx context.Context, req *pb.UpdateRequest) (*pb.Update
 	meet, err := h.service.Update(ctx, &Meet{
 		UUID:             req.Uuid,
 		OrganizerUuid:    retrieveOrganizerUuid(ctx, req.Meet.OrganizerUuid),
+		CreatorUuid:      req.Meet.CreatorUuid,
 		PriceUuid:        req.Meet.PriceUuid,
 		ParticipantUuids: req.Meet.ParticipantUuids,
 		Title:            req.Meet.Title,
@@ -102,20 +121,35 @@ func (h *handler) Update(ctx context.Context, req *pb.UpdateRequest) (*pb.Update
 		Color:            req.Meet.Color,
 		Description:      req.Meet.Description,
 		Type:             int32(req.Meet.Type),
+		Settings:         settingsFromStruct(req.Meet.Settings),
+		Version:          req.Meet.Version,
 	})
 	if err != nil {
 		if err.Error() == "appointment conflict for this organizer and period" {
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
+		if err.Error() == "minimum hours between bookings violated" {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		if err.Error() == "participant already has an upcoming appointment" {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		if errors.Is(err, ErrVersionConflict) {
+			return nil, status.Error(codes.Aborted, err.Error())
+		}
+		if err.Error() == "meet not found" {
+			return nil, status.Error(codes.NotFound, err.Error())
+		}
 		// Log the internal error with trace context
 		logger.FromContext(ctx).Error("failed to update meet", zap.Error(err), zap.String("uuid", req.Uuid))
-		return nil, status.Error(codes.Internal, "Internal server error")
+		return nil, status.Error(codes.Internal, errInternalServer)
 	}
 
 	return &pb.UpdateResponse{
 		Meet: &pb.Meet{
 			Uuid:             meet.UUID,
 			OrganizerUuid:    meet.OrganizerUuid,
+			CreatorUuid:      meet.CreatorUuid,
 			PriceUuid:        meet.PriceUuid,
 			ParticipantUuids: meet.ParticipantUuids,
 			Title:            meet.Title,
@@ -124,6 +158,9 @@ func (h *handler) Update(ctx context.Context, req *pb.UpdateRequest) (*pb.Update
 			Description:      meet.Description,
 			Color:            meet.Color,
 			Type:             pb.MeetType(meet.Type),
+			Settings:         settingsToStruct(meet.Settings),
+			Version:          meet.Version,
+			CreatedAt:        meet.CreatedAt.Format(time.RFC3339),
 		},
 	}, nil
 }
@@ -140,13 +177,14 @@ func (h *handler) GetOne(ctx context.Context, req *pb.GetOneRequest) (*pb.GetOne
 			return nil, status.Error(codes.NotFound, "meet not found")
 		}
 		logger.FromContext(ctx).Error("failed to fetch meet", zap.Error(err), zap.String("uuid", req.Uuid))
-		return nil, status.Error(codes.Internal, "Internal server error")
+		return nil, status.Error(codes.Internal, errInternalServer)
 	}
 
 	return &pb.GetOneResponse{
 		Meet: &pb.Meet{
 			Uuid:             meet.UUID,
 			OrganizerUuid:    meet.OrganizerUuid,
+			CreatorUuid:      meet.CreatorUuid,
 			PriceUuid:        meet.PriceUuid,
 			ParticipantUuids: meet.ParticipantUuids,
 			Title:            meet.Title,
@@ -155,6 +193,9 @@ func (h *handler) GetOne(ctx context.Context, req *pb.GetOneRequest) (*pb.GetOne
 			End:              meet.End.Format(time.RFC3339),
 			Color:            meet.Color,
 			Type:             pb.MeetType(meet.Type),
+			Settings:         settingsToStruct(meet.Settings),
+			Version:          meet.Version,
+			CreatedAt:        meet.CreatedAt.Format(time.RFC3339),
 			BookedAt: func() *string {
 				if meet.BookedAt == nil {
 					return nil
@@ -175,44 +216,90 @@ func (h *handler) Delete(ctx context.Context, req *pb.DeleteRequest) (*pb.Delete
 	err := h.service.Delete(ctx, req.Uuid)
 	if err != nil {
 		logger.FromContext(ctx).Error("failed to delete meet", zap.Error(err), zap.String("uuid", req.Uuid))
-		return nil, status.Error(codes.Internal, "Internal server error")
+		return nil, status.Error(codes.Internal, errInternalServer)
 	}
 
 	return &pb.DeleteResponse{}, nil
 }
 
-func (h *handler) GetAll(ctx context.Context, req *pb.GetAllRequest) (*pb.GetAllResponse, error) {
-	opts := &MeetQueryOptions{OrganizerUuid: retrieveOrganizerUuid(ctx, req.OrganizerId)}
-
-	// Parse optional date range filters for performance optimization
-	if req.From != "" {
-		fromTime, err := time.Parse(time.RFC3339, req.From)
-		if err != nil {
-			logger.FromContext(ctx).Warn("Invalid from date format", zap.String("from", req.From), zap.Error(err))
-		} else {
-			opts.From = &fromTime
-		}
+// parseOptionalRFC3339 parses an optional RFC3339 timestamp, logging and returning
+// nil (rather than erroring the request) when the value is present but malformed.
+func parseOptionalRFC3339(ctx context.Context, field, value string) *time.Time {
+	if value == "" {
+		return nil
 	}
-
-	if req.To != "" {
-		toTime, err := time.Parse(time.RFC3339, req.To)
-		if err != nil {
-			logger.FromContext(ctx).Warn("Invalid to date format", zap.String("to", req.To), zap.Error(err))
-		} else {
-			opts.To = &toTime
-		}
-	}
-
-	meetsList, err := h.service.QueryMeets(ctx, opts)
+	t, err := time.Parse(time.RFC3339, value)
 	if err != nil {
-		logger.FromContext(ctx).Error("failed to query meets", zap.Error(err))
-		return nil, status.Error(codes.Internal, "Internal server error")
+		logger.FromContext(ctx).Warn("Invalid "+field+" date format", zap.String(field, value), zap.Error(err))
+		return nil
 	}
-	pbMeets := make([]*pb.Meet, 0, len(meetsList))
-	for _, a := range meetsList {
+	return &t
+}
+
+// computeAllowedClinics resolves the clinic scope for a GetAll request.
+// RoleSuperAdmin callers get an unrestricted scope (every organizer) - the
+// same trust retrieveOrganizerUuid() already gives them on create/update.
+// Every other caller is scoped to just their own uuid.
+func (h *handler) computeAllowedClinics(user *middlewares.User) (allowedClinics []string, unrestricted bool) {
+	if slices.Contains(user.Roles, RoleSuperAdmin) {
+		return nil, true
+	}
+	return []string{user.Uuid}, false
+}
+
+func (h *handler) GetAll(ctx context.Context, req *pb.GetAllRequest) (*pb.GetAllResponse, error) {
+	user := middlewares.GetUserFromContext(ctx)
+
+	// --- Pagination defaults ---
+	page := int(req.Page)
+	if page <= 0 {
+		page = 1
+	}
+	pageSize := int(req.PageSize)
+	if pageSize <= 0 {
+		pageSize = 50
+	}
+
+	// --- Date range ---
+	fromTime := parseOptionalRFC3339(ctx, "from", req.From)
+	toTime := parseOptionalRFC3339(ctx, "to", req.To)
+
+	// --- Compute AllowedClinics ---
+	allowedClinics, unrestricted := h.computeAllowedClinics(&user)
+
+	// --- Validate req.Clinic is within allowed set (unrestricted callers may ask
+	// for any clinic at all) ---
+	if req.Clinic != "" && !unrestricted && !slices.Contains(allowedClinics, req.Clinic) {
+		return nil, status.Error(codes.PermissionDenied, "clinic not in allowed scope")
+	}
+
+	// --- Call service ---
+	result, err := h.service.ListScheduling(ctx, &ListSchedulingInput{
+		AllowedClinics:  allowedClinics,
+		Unrestricted:    unrestricted,
+		Clinic:          req.Clinic,
+		ParticipantUuid: req.ParticipantUuid,
+		From:            fromTime,
+		To:              toTime,
+		Page:            page,
+		PageSize:        pageSize,
+		SortBy:          req.SortBy,
+		SortDir:         req.SortDir,
+		UseCursor:       req.UseCursor,
+		Cursor:          req.Cursor,
+	})
+	if err != nil {
+		logger.FromContext(ctx).Error("failed to list scheduling", zap.Error(err))
+		return nil, status.Error(codes.Internal, errInternalServer)
+	}
+
+	// --- Map to proto ---
+	pbMeets := make([]*pb.Meet, 0, len(result.Meets))
+	for _, a := range result.Meets {
 		pbMeets = append(pbMeets, &pb.Meet{
 			Uuid:             a.UUID,
 			OrganizerUuid:    a.OrganizerUuid,
+			CreatorUuid:      a.CreatorUuid,
 			PriceUuid:        a.PriceUuid,
 			ParticipantUuids: a.ParticipantUuids,
 			Title:            a.Title,
@@ -228,9 +315,33 @@ func (h *handler) GetAll(ctx context.Context, req *pb.GetAllRequest) (*pb.GetAll
 				s := a.BookedAt.Format(time.RFC3339)
 				return &s
 			}(),
+			Settings:  settingsToStruct(a.Settings),
+			Version:   a.Version,
+			CreatedAt: a.CreatedAt.Format(time.RFC3339),
 		})
 	}
-	return &pb.GetAllResponse{Meets: pbMeets}, nil
+
+	return &pb.GetAllResponse{
+		Meets:      pbMeets,
+		Total:      safeInt32(result.Total),
+		Page:       safeInt32(result.Page),
+		PageSize:   safeInt32(result.PageSize),
+		NextCursor: result.NextCursor,
+		HasMore:    result.HasMore,
+	}, nil
+}
+
+// safeInt32 clamps to MaxInt32 instead of wrapping. Total/Page/PageSize come from
+// paginated queries bounded by pageSize, so realistic values never approach this
+// limit — the clamp only guards against overflow, not against a valid large value.
+func safeInt32(n int) int32 {
+	if n > math.MaxInt32 {
+		return math.MaxInt32
+	}
+	if n < math.MinInt32 {
+		return math.MinInt32
+	}
+	return int32(n)
 }
 
 // GetAvailability returns next 7 days of availability for a organizer user
@@ -339,11 +450,42 @@ func validateUpdateRequest(req *pb.UpdateRequest) *common.ResponseStatus {
 	return nil
 }
 
+// settingsToStruct converts the domain Meet.Settings (a JSON string) into a
+// *structpb.Struct for the proto response. Returns nil if settings is nil, empty,
+// or fails to parse as JSON.
+func settingsToStruct(settings *string) *structpb.Struct {
+	if settings == nil || *settings == "" {
+		return nil
+	}
+	s := &structpb.Struct{}
+	if err := protojson.Unmarshal([]byte(*settings), s); err != nil {
+		return nil
+	}
+	return s
+}
+
+// settingsFromStruct converts a *structpb.Struct from the proto request into the
+// domain Meet.Settings JSON string. Returns nil if s is nil.
+func settingsFromStruct(s *structpb.Struct) *string {
+	if s == nil {
+		return nil
+	}
+	b, err := protojson.Marshal(s)
+	if err != nil {
+		return nil
+	}
+	str := string(b)
+	return &str
+}
+
+// retrieveOrganizerUuid lets an explicit organizer_uuid through only for callers
+// with the RoleSuperAdmin (superadmin) role; everyone else is scoped to their own
+// uuid, ignoring any organizer_uuid supplied in the request.
 func retrieveOrganizerUuid(ctx context.Context, organizerUserID string) string {
 	user := middlewares.GetUserFromContext(ctx)
 
 	organizerID := ""
-	if slices.Contains(user.Roles, "Programmer") {
+	if slices.Contains(user.Roles, RoleSuperAdmin) {
 		organizerID = organizerUserID
 	}
 

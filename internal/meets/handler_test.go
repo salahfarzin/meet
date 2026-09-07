@@ -3,14 +3,17 @@ package meets
 import (
 	"context"
 	"errors"
+	"math"
 	"testing"
 	"time"
 
 	pb "github.com/salahfarzin/meet/proto/meets"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // --- Conflict logic tests ---
@@ -22,17 +25,22 @@ func (m *MockRepoConflict) HasConflict(ctx context.Context, organizerUuid string
 	return m.HasConflictResult, nil
 }
 
-func (m *MockRepoConflict) Create(ctx context.Context, meet *Meet) error          { return nil }
-func (m *MockRepoConflict) GetByID(ctx context.Context, id string) (*Meet, error) { return nil, nil }
+func (m *MockRepoConflict) Create(ctx context.Context, meet *Meet) error { return nil }
 func (m *MockRepoConflict) GetByUUID(ctx context.Context, uuid string) (*Meet, error) {
 	return nil, nil
 }
 func (m *MockRepoConflict) Update(ctx context.Context, meet *Meet) error  { return nil }
 func (m *MockRepoConflict) Delete(ctx context.Context, uuid string) error { return nil }
-func (m *MockRepoConflict) QueryMeets(ctx context.Context, options *MeetQueryOptions) ([]*Meet, error) {
-	return nil, nil
+func (m *MockRepoConflict) QueryMeets(ctx context.Context, options *MeetQueryOptions) ([]*Meet, int, error) {
+	return nil, 0, nil
+}
+func (m *MockRepoConflict) QueryMeetsCursor(ctx context.Context, options *MeetQueryOptions) (meets []*Meet, total int, nextCursor string, hasMore bool, err error) {
+	return nil, 0, "", false, nil
 }
 func (m *MockRepoConflict) GenerateAvailableSlots(ctx context.Context, organizerID string, from, to time.Time, priceUUID *string) ([]*Meet, error) {
+	return nil, nil
+}
+func (m *MockRepoConflict) FindParticipantBookings(ctx context.Context, participantUuids []string, from, to *time.Time, excludeUUID string) ([]*Meet, error) {
 	return nil, nil
 }
 
@@ -90,7 +98,15 @@ func TestHandlerUpdateNoConflict(t *testing.T) {
 	assert.NotNil(t, got)
 }
 
-type MockService struct{}
+type MockService struct {
+	// ListSchedulingErr, when non-nil, is returned by ListScheduling so tests
+	// can exercise the error path without embedding magic strings in UUIDs.
+	ListSchedulingErr error
+	// ListSchedulingFn, when non-nil, overrides the default ListScheduling behavior
+	// entirely — used by tests that need to control the returned Meets/inspect the
+	// received ListSchedulingInput (e.g. Settings/CreatedAt/ParticipantUuid mapping).
+	ListSchedulingFn func(ctx context.Context, in *ListSchedulingInput) (ListSchedulingResult, error)
+}
 
 func (m *MockService) Create(ctx context.Context, meet *Meet) (*Meet, error) {
 	if meet.Title == "" {
@@ -119,12 +135,15 @@ func (m *MockService) Update(ctx context.Context, meet *Meet) (*Meet, error) {
 	if meet.Title == "conflict" {
 		return nil, errors.New("appointment conflict for this organizer and period")
 	}
+	if meet.Title == "version-conflict" {
+		return nil, ErrVersionConflict
+	}
+	if meet.Title == "not-found" {
+		return nil, errors.New("meet not found")
+	}
 	return meet, nil
 }
 
-func (m *MockService) GetByID(ctx context.Context, id string) (*Meet, error) {
-	return &Meet{ID: id, Title: "Dentist"}, nil
-}
 func (m *MockService) GetByUUID(ctx context.Context, uuid string) (*Meet, error) {
 	if uuid == "not-found" {
 		return nil, errors.New("meet not found")
@@ -147,7 +166,7 @@ func (m *MockService) Delete(ctx context.Context, uuid string) error {
 }
 
 func (m *MockService) QueryMeets(ctx context.Context, opts *MeetQueryOptions) ([]*Meet, error) {
-	if opts.OrganizerUuid == "error" {
+	if len(opts.OrganizerUuids) > 0 && opts.OrganizerUuids[0] == "error" {
 		return nil, errors.New("query error")
 	}
 
@@ -155,27 +174,27 @@ func (m *MockService) QueryMeets(ctx context.Context, opts *MeetQueryOptions) ([
 	if opts.From != nil && opts.To != nil {
 		// Date range specified
 		return []*Meet{
-			{ID: "1", Title: "Filtered Meet", Start: *opts.From, End: *opts.To},
+			{UUID: "1", Title: "Filtered Meet", Start: *opts.From, End: *opts.To},
 		}, nil
 	}
 
 	if opts.From != nil {
 		// Only from date specified
 		return []*Meet{
-			{ID: "2", Title: "From Date Meet", Start: *opts.From},
+			{UUID: "2", Title: "From Date Meet", Start: *opts.From},
 		}, nil
 	}
 
 	if opts.To != nil {
 		// Only to date specified
 		return []*Meet{
-			{ID: "3", Title: "To Date Meet", End: *opts.To},
+			{UUID: "3", Title: "To Date Meet", End: *opts.To},
 		}, nil
 	}
 
 	// No date filters
 	now := time.Now()
-	return []*Meet{{ID: "1", Title: "Dentist", BookedAt: &now}}, nil
+	return []*Meet{{UUID: "1", Title: "Dentist", BookedAt: &now}}, nil
 }
 
 func (m *MockService) GetAvailability(ctx context.Context, organizerId string, from, to time.Time, priceUUID *string) (map[string]DateSlot, error) {
@@ -202,6 +221,51 @@ func (m *MockService) ParseStartAndEndTimes(start, end string) (startTime, endTi
 		return time.Time{}, time.Time{}, errors.New("invalid end time format")
 	}
 	return st, et, nil
+}
+
+func (m *MockService) ListScheduling(ctx context.Context, in *ListSchedulingInput) (ListSchedulingResult, error) {
+	if m.ListSchedulingFn != nil {
+		return m.ListSchedulingFn(ctx, in)
+	}
+	// Return the injected error when the test has set ListSchedulingErr.
+	if m.ListSchedulingErr != nil {
+		return ListSchedulingResult{}, m.ListSchedulingErr
+	}
+
+	now := time.Now()
+	// Mirror the date-range logic from the old QueryMeets mock so existing tests pass.
+	if in.From != nil && in.To != nil {
+		return ListSchedulingResult{
+			Meets:    []*Meet{{UUID: "1", Title: "Filtered Meet", Start: *in.From, End: *in.To}},
+			Total:    1,
+			Page:     in.Page,
+			PageSize: in.PageSize,
+		}, nil
+	}
+	if in.From != nil {
+		return ListSchedulingResult{
+			Meets:    []*Meet{{UUID: "2", Title: "From Date Meet", Start: *in.From}},
+			Total:    1,
+			Page:     in.Page,
+			PageSize: in.PageSize,
+		}, nil
+	}
+	if in.To != nil {
+		return ListSchedulingResult{
+			Meets:    []*Meet{{UUID: "3", Title: "To Date Meet", End: *in.To}},
+			Total:    1,
+			Page:     in.Page,
+			PageSize: in.PageSize,
+		}, nil
+	}
+
+	// Default result.
+	return ListSchedulingResult{
+		Meets:    []*Meet{{UUID: "1", Title: "Dentist", BookedAt: &now}},
+		Total:    1,
+		Page:     in.Page,
+		PageSize: in.PageSize,
+	}, nil
 }
 
 func NewMockService() *MockService {
@@ -351,14 +415,65 @@ func TestGetAllMeets(t *testing.T) {
 	assert.Equal(t, "Dentist", resp.Meets[0].Title)
 }
 
-func TestGetAllMeetsError(t *testing.T) {
+func TestGetAllMeetsCursorFieldsPassThrough(t *testing.T) {
+	md := metadata.New(map[string]string{
+		"x-user-roles": "Programmer",
+		"x-user-uuid":  "user1",
+	})
+	ctx := metadata.NewIncomingContext(context.Background(), md)
+	svc := NewMockService()
+
+	var captured *ListSchedulingInput
+	svc.ListSchedulingFn = func(_ context.Context, in *ListSchedulingInput) (ListSchedulingResult, error) {
+		captured = in
+		return ListSchedulingResult{
+			Meets:      []*Meet{{UUID: "m1", Title: "Cursor Meet"}},
+			Total:      1,
+			NextCursor: "next-token",
+			HasMore:    true,
+		}, nil
+	}
+	h := NewHandler(svc)
+
+	resp, err := h.GetAll(ctx, &pb.GetAllRequest{UseCursor: true, Cursor: "prev-token"})
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+
+	require.NotNil(t, captured)
+	assert.True(t, captured.UseCursor)
+	assert.Equal(t, "prev-token", captured.Cursor)
+
+	assert.Equal(t, "next-token", resp.NextCursor)
+	assert.True(t, resp.HasMore)
+}
+
+func TestGetAllMeetsOffsetModeLeavesCursorFieldsEmpty(t *testing.T) {
 	md := metadata.New(map[string]string{
 		"x-user-roles": "Programmer",
 		"x-user-uuid":  "user1",
 	})
 	ctx := metadata.NewIncomingContext(context.Background(), md)
 	h := NewHandler(NewMockService())
-	resp, err := h.GetAll(ctx, &pb.GetAllRequest{OrganizerId: "error"})
+
+	resp, err := h.GetAll(ctx, &pb.GetAllRequest{})
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.Empty(t, resp.NextCursor)
+	assert.False(t, resp.HasMore)
+}
+
+func TestGetAllMeetsError(t *testing.T) {
+	// Set ListSchedulingErr directly on the mock so the error path is exercised
+	// without relying on magic sentinel values embedded in user UUIDs.
+	md := metadata.New(map[string]string{
+		"x-user-roles": "User",
+		"x-user-uuid":  "user1",
+	})
+	ctx := metadata.NewIncomingContext(context.Background(), md)
+	svc := NewMockService()
+	svc.ListSchedulingErr = errors.New("query error")
+	h := NewHandler(svc)
+	resp, err := h.GetAll(ctx, &pb.GetAllRequest{})
 	assert.Nil(t, resp)
 	st, ok := status.FromError(err)
 	assert.True(t, ok)
@@ -473,6 +588,39 @@ func TestGetAllMeetsWithPartiallyInvalidDates(t *testing.T) {
 	assert.Equal(t, "From Date Meet", resp.Meets[0].Title)
 }
 
+// TestHandlerGetAllMapsSettingsCreatedAtAndParticipantUuid verifies that GetAll
+// forwards req.ParticipantUuid into ListSchedulingInput, and maps the domain
+// Meet.Settings/CreatedAt fields onto the response's pb.Meet.Settings/CreatedAt.
+func TestHandlerGetAllMapsSettingsCreatedAtAndParticipantUuid(t *testing.T) {
+	settings := `{"is_absent":true}`
+	svc := NewMockService()
+	svc.ListSchedulingFn = func(ctx context.Context, in *ListSchedulingInput) (ListSchedulingResult, error) {
+		assert.Equal(t, "patient-1", in.ParticipantUuid)
+		return ListSchedulingResult{
+			Meets: []*Meet{{
+				UUID: "m1", OrganizerUuid: "clinic-1",
+				Settings:  &settings,
+				CreatedAt: time.Date(2026, 7, 1, 8, 0, 0, 0, time.UTC),
+			}},
+			Total: 1, Page: 1, PageSize: 20,
+		}, nil
+	}
+	h := NewHandler(svc)
+
+	md := metadata.New(map[string]string{
+		"x-user-roles": "Programmer",
+		"x-user-uuid":  "clinic-1",
+	})
+	ctx := metadata.NewIncomingContext(context.Background(), md)
+
+	resp, err := h.GetAll(ctx, &pb.GetAllRequest{ParticipantUuid: "patient-1"})
+
+	assert.NoError(t, err)
+	assert.Len(t, resp.Meets, 1)
+	assert.Equal(t, "2026-07-01T08:00:00Z", resp.Meets[0].CreatedAt)
+	assert.True(t, resp.Meets[0].Settings.Fields["is_absent"].GetBoolValue())
+}
+
 func TestUpdateMeet(t *testing.T) {
 	h := NewHandler(NewMockService())
 	resp, err := h.Update(context.Background(), &pb.UpdateRequest{
@@ -486,6 +634,39 @@ func TestUpdateMeet(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
 	assert.Equal(t, "Updated Dentist", resp.Meet.Title)
+}
+
+func TestUpdateMeetVersionConflict(t *testing.T) {
+	h := NewHandler(NewMockService())
+	resp, err := h.Update(context.Background(), &pb.UpdateRequest{
+		Uuid: "test-uuid",
+		Meet: &pb.Meet{
+			Title:   "version-conflict",
+			Start:   "2023-01-01T10:00:00Z",
+			End:     "2023-01-01T11:00:00Z",
+			Version: 1,
+		},
+	})
+	assert.Nil(t, resp)
+	st, ok := status.FromError(err)
+	assert.True(t, ok)
+	assert.Equal(t, codes.Aborted, st.Code())
+}
+
+func TestUpdateMeetNotFound(t *testing.T) {
+	h := NewHandler(NewMockService())
+	resp, err := h.Update(context.Background(), &pb.UpdateRequest{
+		Uuid: "test-uuid",
+		Meet: &pb.Meet{
+			Title: "not-found",
+			Start: "2023-01-01T10:00:00Z",
+			End:   "2023-01-01T11:00:00Z",
+		},
+	})
+	assert.Nil(t, resp)
+	st, ok := status.FromError(err)
+	assert.True(t, ok)
+	assert.Equal(t, codes.NotFound, st.Code())
 }
 
 func TestUpdateMeetValidationError(t *testing.T) {
@@ -775,4 +956,157 @@ func TestGetAllMeetsNonProgrammer(t *testing.T) {
 	resp, err := h.GetAll(ctx, &pb.GetAllRequest{OrganizerId: "other-org"})
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
+}
+
+// TestGetAllReturnsPaginatedEnriched verifies that GetAll maps request filters into
+// ListSchedulingInput and returns enriched meets with Total/Page/PageSize populated.
+func TestGetAllReturnsPaginatedEnriched(t *testing.T) {
+	// Programmer (RoleSuperAdmin) context - unrestricted, no clinic scoping.
+	md := metadata.New(map[string]string{
+		"x-user-roles": "Programmer",
+		"x-user-uuid":  "admin-user",
+	})
+	ctx := metadata.NewIncomingContext(context.Background(), md)
+
+	svc := NewMockService()
+	h := NewHandler(svc)
+
+	resp, err := h.GetAll(ctx, &pb.GetAllRequest{
+		PageSize:   50,
+		NationalId: "123456789",
+	})
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	// Total must be set (non-zero indicates ListScheduling was called, not old QueryMeets).
+	assert.Equal(t, int32(1), resp.Total)
+	assert.NotEmpty(t, resp.Meets)
+	assert.NotEqual(t, "", resp.Meets[0].Uuid+resp.Meets[0].Title) // some field is set
+}
+
+// TestGetAllNonSuperAdminScopedToOwnUUID verifies that a non-superadmin caller's
+// AllowedClinics is scoped to just their own uuid (computeAllowedClinics no longer
+// consults an identity service; every non-superadmin caller is scoped this way).
+func TestGetAllNonSuperAdminScopedToOwnUUID(t *testing.T) {
+	md := metadata.New(map[string]string{
+		"x-user-roles": "Admin",
+		"x-user-uuid":  "admin-user",
+	})
+	ctx := metadata.NewIncomingContext(context.Background(), md)
+
+	svc := NewMockService()
+	var gotAllowedClinics []string
+	svc.ListSchedulingFn = func(_ context.Context, in *ListSchedulingInput) (ListSchedulingResult, error) {
+		gotAllowedClinics = in.AllowedClinics
+		return ListSchedulingResult{Meets: []*Meet{}}, nil
+	}
+	h := NewHandler(svc)
+
+	resp, err := h.GetAll(ctx, &pb.GetAllRequest{})
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Equal(t, []string{"admin-user"}, gotAllowedClinics)
+}
+
+// TestGetAllProgrammerIsUnrestricted verifies that a RoleSuperAdmin ("Programmer")
+// caller bypasses clinic scoping entirely - Unrestricted is set and AllowedClinics
+// is empty.
+func TestGetAllProgrammerIsUnrestricted(t *testing.T) {
+	md := metadata.New(map[string]string{
+		"x-user-roles": "Programmer",
+		"x-user-uuid":  "admin-user",
+	})
+	ctx := metadata.NewIncomingContext(context.Background(), md)
+
+	svc := NewMockService()
+	var gotUnrestricted bool
+	var gotAllowedClinics []string
+	svc.ListSchedulingFn = func(_ context.Context, in *ListSchedulingInput) (ListSchedulingResult, error) {
+		gotUnrestricted = in.Unrestricted
+		gotAllowedClinics = in.AllowedClinics
+		return ListSchedulingResult{Meets: []*Meet{}}, nil
+	}
+	h := NewHandler(svc)
+
+	resp, err := h.GetAll(ctx, &pb.GetAllRequest{})
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.True(t, gotUnrestricted)
+	assert.Empty(t, gotAllowedClinics)
+}
+
+// TestGetAllNonAdminClinicScope verifies that a non-admin caller's AllowedClinics
+// is scoped to their own UUID, and requesting a clinic outside that scope returns
+// PermissionDenied.
+func TestGetAllNonAdminClinicScope(t *testing.T) {
+	md := metadata.New(map[string]string{
+		"x-user-roles": "User",
+		"x-user-uuid":  "user1",
+	})
+	ctx := metadata.NewIncomingContext(context.Background(), md)
+	h := NewHandler(NewMockService())
+
+	// Requesting a clinic the user doesn't own → PermissionDenied.
+	resp, err := h.GetAll(ctx, &pb.GetAllRequest{Clinic: "other-clinic"})
+	assert.Nil(t, resp)
+	st, ok := status.FromError(err)
+	assert.True(t, ok)
+	assert.Equal(t, codes.PermissionDenied, st.Code())
+}
+
+// TestGetAllAdminDefaultsPage verifies page defaults (1/50) are applied.
+func TestGetAllAdminDefaultsPage(t *testing.T) {
+	md := metadata.New(map[string]string{
+		"x-user-roles": "Admin",
+		"x-user-uuid":  "admin1",
+	})
+	ctx := metadata.NewIncomingContext(context.Background(), md)
+	h := NewHandler(NewMockService())
+
+	resp, err := h.GetAll(ctx, &pb.GetAllRequest{})
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	// default page=1, page_size=50
+	assert.Equal(t, int32(1), resp.Page)
+	assert.Equal(t, int32(50), resp.PageSize)
+}
+
+func TestSafeInt32(t *testing.T) {
+	assert.Equal(t, int32(42), safeInt32(42))
+	assert.Equal(t, int32(math.MaxInt32), safeInt32(math.MaxInt32+1))
+	assert.Equal(t, int32(math.MinInt32), safeInt32(math.MinInt32-1))
+}
+
+func TestSettingsToStruct(t *testing.T) {
+	assert.Nil(t, settingsToStruct(nil))
+	empty := ""
+	assert.Nil(t, settingsToStruct(&empty))
+	invalid := "not json"
+	assert.Nil(t, settingsToStruct(&invalid))
+	valid := `{"theme":"dark"}`
+	s := settingsToStruct(&valid)
+	assert.NotNil(t, s)
+	assert.Equal(t, "dark", s.Fields["theme"].GetStringValue())
+}
+
+func TestSettingsFromStruct(t *testing.T) {
+	assert.Nil(t, settingsFromStruct(nil))
+	s, err := structpb.NewStruct(map[string]any{"theme": "dark"})
+	assert.NoError(t, err)
+	got := settingsFromStruct(s)
+	assert.NotNil(t, got)
+	assert.Contains(t, *got, "dark")
+}
+
+// TestRetrieveOrganizerUuidProgrammerOverride verifies that a Programmer-role
+// caller's requested organizer_uuid is honored (admin/impersonation), instead
+// of being overridden by the caller's own uuid.
+func TestRetrieveOrganizerUuidProgrammerOverride(t *testing.T) {
+	md := metadata.New(map[string]string{
+		"x-user-roles": "Programmer",
+		"x-user-uuid":  "admin-uuid-1",
+	})
+	ctx := metadata.NewIncomingContext(context.Background(), md)
+
+	got := retrieveOrganizerUuid(ctx, "requested-organizer-uuid")
+	assert.Equal(t, "requested-organizer-uuid", got)
 }
