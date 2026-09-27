@@ -38,3 +38,16 @@ The proto (`proto/meets/meets.proto`) is the source of truth for the API contrac
 ## JSON serialization quirk
 
 The gateway marshals with `UseProtoNames: true` → responses are **snake_case** (`organizer_uuid`, `participant_uuids`). Unmarshal uses `DiscardUnknown: true`, so unknown request fields are silently dropped — watch for client/server field-name drift.
+
+## Specialties catalogue (`SpecialtyService`, `internal/specialties`)
+
+Admin-managed list trappists pick from for their public profile (dashboard Settings → Appointments → Public Profile; managed in dashboard Events → Specialties). Table `specialties` (`migrations/000003_*`): `uuid` (v7 PK), `kind` (`specialty` | `approach`), `slug` (unique per kind), `names` JSON (`{"en": "...", "fa": "..."}`), `sort_order`, `active`.
+
+| RPC | REST | who |
+|-----|------|-----|
+| `GetAll` | `GET /meets/specialties?kind=&include_inactive=` | any authenticated caller; `include_inactive` honored for admins only |
+| `Create` | `POST /meets/specialties` (body=specialty) | Admin / Programmer; always created active |
+| `Update` | `PUT /meets/specialties/{uuid}` | Admin / Programmer |
+| `Delete` | `DELETE /meets/specialties/{uuid}` | Admin / Programmer; hard delete |
+
+Trappists store only the uuids, in psychometrist `users.center_details.appointments.profile.{specialties,approaches}`; rawej resolves them against `GetAll` (active only), so hidden or deleted entries drop off patient-facing profiles. Registered after `MeetService` so the literal route beats `/meets/{uuid}`.
