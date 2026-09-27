@@ -135,6 +135,52 @@ func TestRepositoryPurgeUnbookedOccurrences(t *testing.T) {
 	})
 }
 
+func TestRepositoryWithTxUpdateAndPurgeAreAtomic(t *testing.T) {
+	after := time.Date(2026, 9, 27, 10, 0, 0, 0, time.UTC)
+	tmpl := &Template{UUID: "tmpl-1", Weekday: 1, StartTime: "08:00:00", EndTime: "08:45:00", EffectiveFrom: after, Active: true}
+	updateSQL := "UPDATE availability_templates SET weekday=\\?, start_time=\\?, end_time=\\?, price_uuid=\\?, effective_from=\\?, effective_until=\\?, active=\\? WHERE uuid=\\?"
+	lockSQL := "SELECT uuid FROM meets\\s+WHERE template_uuid = \\? AND start_time > \\?"
+
+	updateThenPurge := func(r Repository) error {
+		if err := r.Update(context.Background(), tmpl); err != nil {
+			return err
+		}
+		_, err := r.PurgeUnbookedOccurrences(context.Background(), tmpl.UUID, after)
+		return err
+	}
+
+	t.Run("commits both in a single transaction", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		mock.ExpectBegin()
+		mock.ExpectExec(updateSQL).WillReturnResult(sqlmock.NewResult(0, 1))
+		mock.ExpectQuery(lockSQL).WithArgs("tmpl-1", after).WillReturnRows(sqlmock.NewRows([]string{"uuid"}).AddRow("m1"))
+		mock.ExpectExec("DELETE FROM availability_template_occurrences").WithArgs("m1").WillReturnResult(sqlmock.NewResult(0, 1))
+		mock.ExpectExec("DELETE FROM meets").WithArgs("m1").WillReturnResult(sqlmock.NewResult(0, 1))
+		mock.ExpectCommit()
+
+		require.NoError(t, NewRepository(db).WithTx(context.Background(), updateThenPurge))
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("a failed purge rolls back the template update", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		mock.ExpectBegin()
+		mock.ExpectExec(updateSQL).WillReturnResult(sqlmock.NewResult(0, 1))
+		mock.ExpectQuery(lockSQL).WillReturnError(errors.New("lock wait timeout"))
+		mock.ExpectRollback()
+
+		err = NewRepository(db).WithTx(context.Background(), updateThenPurge)
+		assert.ErrorContains(t, err, "lock wait timeout")
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
+}
+
 func TestRepositoryGetByUUID(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)

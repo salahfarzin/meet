@@ -25,10 +25,27 @@ type MockRepository struct {
 
 	RecordedOccurrences []recordedOccurrence
 	PurgedTemplates     []string
+	// Writes logs each mutating call, prefixed "tx:" when made inside WithTx.
+	Writes []string
+	inTx   bool
+}
+
+func (m *MockRepository) logWrite(op string) {
+	if m.inTx {
+		op = "tx:" + op
+	}
+	m.Writes = append(m.Writes, op)
+}
+
+func (m *MockRepository) WithTx(_ context.Context, fn func(Repository) error) error {
+	m.inTx = true
+	defer func() { m.inTx = false }()
+	return fn(m)
 }
 
 func (m *MockRepository) PurgeUnbookedOccurrences(ctx context.Context, templateUuid string, after time.Time) (int64, error) {
 	m.PurgedTemplates = append(m.PurgedTemplates, templateUuid)
+	m.logWrite("purge")
 	if m.PurgeFunc != nil {
 		return m.PurgeFunc(ctx, templateUuid, after)
 	}
@@ -49,6 +66,7 @@ func (m *MockRepository) Create(ctx context.Context, t *Template) error {
 	return nil
 }
 func (m *MockRepository) Update(ctx context.Context, t *Template) error {
+	m.logWrite("update")
 	if m.UpdateFunc != nil {
 		return m.UpdateFunc(ctx, t)
 	}
@@ -61,6 +79,7 @@ func (m *MockRepository) GetByUUID(ctx context.Context, uuid string) (*Template,
 	return &Template{UUID: uuid}, nil
 }
 func (m *MockRepository) Delete(ctx context.Context, uuid string) error {
+	m.logWrite("delete")
 	if m.DeleteFunc != nil {
 		return m.DeleteFunc(ctx, uuid)
 	}
@@ -269,9 +288,9 @@ func TestServiceUpdatePurgesOnlyWhenScheduleChanged(t *testing.T) {
 			require.NoError(t, err)
 
 			if tt.wantPurge {
-				assert.Equal(t, []string{"tmpl"}, repo.PurgedTemplates)
+				assert.Equal(t, []string{"tx:update", "tx:purge"}, repo.Writes, "update and purge must share one transaction")
 			} else {
-				assert.Empty(t, repo.PurgedTemplates)
+				assert.Equal(t, []string{"tx:update"}, repo.Writes)
 			}
 		})
 	}
@@ -301,7 +320,7 @@ func TestServiceDeletePurgesFromNow(t *testing.T) {
 	svc := &service{repo: repo, meetsRepo: &MockMeetsRepository{}, now: func() time.Time { return now }}
 
 	require.NoError(t, svc.Delete(context.Background(), "tmpl"))
-	assert.Equal(t, []string{"tmpl"}, repo.PurgedTemplates)
+	assert.Equal(t, []string{"tx:delete", "tx:purge"}, repo.Writes, "deactivate and purge must share one transaction")
 	assert.Equal(t, now, gotAfter)
 }
 
