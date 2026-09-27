@@ -79,6 +79,62 @@ func TestRepositoryDelete(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
+func TestRepositoryPurgeUnbookedOccurrences(t *testing.T) {
+	after := time.Date(2026, 9, 27, 10, 0, 0, 0, time.UTC)
+	selectSQL := "SELECT uuid FROM meets\\s+WHERE template_uuid = \\? AND start_time > \\? AND booked_at IS NULL AND JSON_LENGTH\\(participant_uuids\\) = 0\\s+FOR UPDATE"
+
+	t.Run("deletes occurrences then meets in one tx", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		mock.ExpectBegin()
+		mock.ExpectQuery(selectSQL).WithArgs("tmpl-1", after).
+			WillReturnRows(sqlmock.NewRows([]string{"uuid"}).AddRow("m1").AddRow("m2"))
+		mock.ExpectExec("DELETE FROM availability_template_occurrences WHERE meet_uuid IN \\(\\?,\\?\\)").
+			WithArgs("m1", "m2").WillReturnResult(sqlmock.NewResult(0, 2))
+		mock.ExpectExec("DELETE FROM meets WHERE uuid IN \\(\\?,\\?\\)").
+			WithArgs("m1", "m2").WillReturnResult(sqlmock.NewResult(0, 2))
+		mock.ExpectCommit()
+
+		n, err := NewRepository(db).PurgeUnbookedOccurrences(context.Background(), "tmpl-1", after)
+		require.NoError(t, err)
+		assert.Equal(t, int64(2), n)
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("nothing to purge", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		mock.ExpectBegin()
+		mock.ExpectQuery(selectSQL).WithArgs("tmpl-1", after).WillReturnRows(sqlmock.NewRows([]string{"uuid"}))
+		mock.ExpectCommit()
+
+		n, err := NewRepository(db).PurgeUnbookedOccurrences(context.Background(), "tmpl-1", after)
+		require.NoError(t, err)
+		assert.Zero(t, n)
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("rolls back on delete error", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		mock.ExpectBegin()
+		mock.ExpectQuery(selectSQL).WithArgs("tmpl-1", after).WillReturnRows(sqlmock.NewRows([]string{"uuid"}).AddRow("m1"))
+		mock.ExpectExec("DELETE FROM availability_template_occurrences").WillReturnResult(sqlmock.NewResult(0, 1))
+		mock.ExpectExec("DELETE FROM meets").WillReturnError(errors.New("db error"))
+		mock.ExpectRollback()
+
+		_, err = NewRepository(db).PurgeUnbookedOccurrences(context.Background(), "tmpl-1", after)
+		assert.Error(t, err)
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
+}
+
 func TestRepositoryGetByUUID(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)

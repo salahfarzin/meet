@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -49,6 +50,11 @@ type Repository interface {
 	HasOccurrence(ctx context.Context, templateUuid, occurrenceDate string) (bool, error)
 	// RecordOccurrence tracks the outcome of one weekly occurrence.
 	RecordOccurrence(ctx context.Context, templateUuid, occurrenceDate string, status OccurrenceStatus, meetUuid *string) error
+	// PurgeUnbookedOccurrences deletes templateUuid's materialized meets starting
+	// after `after` that nobody has booked, plus their occurrence records, so the
+	// next Materialize rebuilds them from the template's current config. Booked
+	// meets and explicit skips are kept. Returns the number of meets removed.
+	PurgeUnbookedOccurrences(ctx context.Context, templateUuid string, after time.Time) (int64, error)
 }
 
 type repository struct {
@@ -140,4 +146,60 @@ func (repo *repository) RecordOccurrence(ctx context.Context, templateUuid, occu
 		ON DUPLICATE KEY UPDATE status = VALUES(status), meet_uuid = VALUES(meet_uuid)`
 	_, err := repo.db.ExecContext(ctx, query, templateUuid, occurrenceDate, string(status), meetUuid)
 	return err
+}
+
+func (repo *repository) PurgeUnbookedOccurrences(ctx context.Context, templateUuid string, after time.Time) (purged int64, err error) {
+	tx, err := repo.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	meetUuids, err := lockUnbookedMeets(ctx, tx, templateUuid, after)
+	if err != nil {
+		return 0, err
+	}
+	if len(meetUuids) == 0 {
+		return 0, tx.Commit()
+	}
+
+	in := "?" + strings.Repeat(",?", len(meetUuids)-1)
+	if _, err = tx.ExecContext(ctx, "DELETE FROM availability_template_occurrences WHERE meet_uuid IN ("+in+")", meetUuids...); err != nil { //nolint:gosec // G202: placeholders only
+		return 0, err
+	}
+	res, err := tx.ExecContext(ctx, "DELETE FROM meets WHERE uuid IN ("+in+")", meetUuids...) //nolint:gosec // G202: placeholders only
+	if err != nil {
+		return 0, err
+	}
+	if purged, err = res.RowsAffected(); err != nil {
+		return 0, err
+	}
+	return purged, tx.Commit()
+}
+
+// lockUnbookedMeets selects FOR UPDATE so a concurrent booking (meets.Update's
+// version CAS) either lands first and is excluded here, or blocks until commit
+// and then fails cleanly with "meet not found".
+func lockUnbookedMeets(ctx context.Context, tx *sql.Tx, templateUuid string, after time.Time) ([]any, error) {
+	rows, err := tx.QueryContext(ctx, `SELECT uuid FROM meets
+		WHERE template_uuid = ? AND start_time > ? AND booked_at IS NULL AND JSON_LENGTH(participant_uuids) = 0
+		FOR UPDATE`, templateUuid, after.UTC())
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	var uuids []any
+	for rows.Next() {
+		var u string
+		if err := rows.Scan(&u); err != nil {
+			return nil, err
+		}
+		uuids = append(uuids, u)
+	}
+	return uuids, rows.Err()
 }
