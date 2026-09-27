@@ -21,8 +21,35 @@ type MockRepository struct {
 	ListActiveByOrganizerFunc func(ctx context.Context, organizerUuid string, from, to time.Time) ([]*Template, error)
 	HasOccurrenceFunc         func(ctx context.Context, templateUuid, occurrenceDate string) (bool, error)
 	RecordOccurrenceFunc      func(ctx context.Context, templateUuid, occurrenceDate string, status OccurrenceStatus, meetUuid *string) error
+	PurgeFunc                 func(ctx context.Context, templateUuid string, after time.Time) (int64, error)
 
 	RecordedOccurrences []recordedOccurrence
+	PurgedTemplates     []string
+	// Writes logs each mutating call, prefixed "tx:" when made inside WithTx.
+	Writes []string
+	inTx   bool
+}
+
+func (m *MockRepository) logWrite(op string) {
+	if m.inTx {
+		op = "tx:" + op
+	}
+	m.Writes = append(m.Writes, op)
+}
+
+func (m *MockRepository) WithTx(_ context.Context, fn func(Repository) error) error {
+	m.inTx = true
+	defer func() { m.inTx = false }()
+	return fn(m)
+}
+
+func (m *MockRepository) PurgeUnbookedOccurrences(ctx context.Context, templateUuid string, after time.Time) (int64, error) {
+	m.PurgedTemplates = append(m.PurgedTemplates, templateUuid)
+	m.logWrite("purge")
+	if m.PurgeFunc != nil {
+		return m.PurgeFunc(ctx, templateUuid, after)
+	}
+	return 0, nil
 }
 
 type recordedOccurrence struct {
@@ -39,6 +66,7 @@ func (m *MockRepository) Create(ctx context.Context, t *Template) error {
 	return nil
 }
 func (m *MockRepository) Update(ctx context.Context, t *Template) error {
+	m.logWrite("update")
 	if m.UpdateFunc != nil {
 		return m.UpdateFunc(ctx, t)
 	}
@@ -51,6 +79,7 @@ func (m *MockRepository) GetByUUID(ctx context.Context, uuid string) (*Template,
 	return &Template{UUID: uuid}, nil
 }
 func (m *MockRepository) Delete(ctx context.Context, uuid string) error {
+	m.logWrite("delete")
 	if m.DeleteFunc != nil {
 		return m.DeleteFunc(ctx, uuid)
 	}
@@ -229,6 +258,79 @@ func TestServiceUpdateRepoError(t *testing.T) {
 	svc := NewService(repo, &MockMeetsRepository{})
 	_, err := svc.Update(context.Background(), &Template{UUID: "self", OrganizerUuid: "org1", Weekday: 0, StartTime: "09:00:00", EndTime: "13:00:00", EffectiveFrom: time.Now()})
 	assert.Error(t, err)
+}
+
+func TestServiceUpdatePurgesOnlyWhenScheduleChanged(t *testing.T) {
+	from := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
+	stored := &Template{UUID: "tmpl", OrganizerUuid: "org1", Weekday: 0, StartTime: "08:00:00", EndTime: "11:00:00", PriceUuid: priceUUID("p60"), EffectiveFrom: from, Active: true}
+
+	tests := []struct {
+		name      string
+		mutate    func(*Template)
+		wantPurge bool
+	}{
+		{"unchanged", func(*Template) {}, false},
+		{"price changed", func(t *Template) { t.PriceUuid = priceUUID("p45") }, true},
+		{"window changed", func(t *Template) { t.EndTime = "12:00:00" }, true},
+		{"deactivated", func(t *Template) { t.Active = false }, true},
+		{"until set", func(t *Template) { u := from.AddDate(0, 1, 0); t.EffectiveUntil = &u }, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := &MockRepository{
+				GetByUUIDFunc: func(context.Context, string) (*Template, error) { cp := *stored; return &cp, nil },
+			}
+			svc := NewService(repo, &MockMeetsRepository{})
+
+			next := *stored
+			tt.mutate(&next)
+			_, err := svc.Update(context.Background(), &next)
+			require.NoError(t, err)
+
+			if tt.wantPurge {
+				assert.Equal(t, []string{"tx:update", "tx:purge"}, repo.Writes, "update and purge must share one transaction")
+			} else {
+				assert.Equal(t, []string{"tx:update"}, repo.Writes)
+			}
+		})
+	}
+}
+
+func TestServiceUpdatePurgeErrorSurfaces(t *testing.T) {
+	repo := &MockRepository{
+		GetByUUIDFunc: func(context.Context, string) (*Template, error) {
+			return &Template{UUID: "tmpl", StartTime: "08:00:00", EndTime: "11:00:00"}, nil
+		},
+		PurgeFunc: func(context.Context, string, time.Time) (int64, error) { return 0, errors.New("db down") },
+	}
+	svc := NewService(repo, &MockMeetsRepository{})
+	_, err := svc.Update(context.Background(), &Template{UUID: "tmpl", OrganizerUuid: "org1", StartTime: "09:00:00", EndTime: "11:00:00", EffectiveFrom: time.Now()})
+	assert.ErrorContains(t, err, "db down")
+}
+
+func TestServiceDeletePurgesFromNow(t *testing.T) {
+	now := time.Date(2026, 9, 27, 10, 0, 0, 0, time.UTC)
+	var gotAfter time.Time
+	repo := &MockRepository{
+		PurgeFunc: func(_ context.Context, _ string, after time.Time) (int64, error) {
+			gotAfter = after
+			return 3, nil
+		},
+	}
+	svc := &service{repo: repo, meetsRepo: &MockMeetsRepository{}, now: func() time.Time { return now }}
+
+	require.NoError(t, svc.Delete(context.Background(), "tmpl"))
+	assert.Equal(t, []string{"tx:delete", "tx:purge"}, repo.Writes, "deactivate and purge must share one transaction")
+	assert.Equal(t, now, gotAfter)
+}
+
+func TestServiceDeleteSkipsPurgeWhenDeactivateFails(t *testing.T) {
+	repo := &MockRepository{
+		DeleteFunc: func(context.Context, string) error { return errors.New("repo error") },
+	}
+	svc := NewService(repo, &MockMeetsRepository{})
+	assert.Error(t, svc.Delete(context.Background(), "tmpl"))
+	assert.Empty(t, repo.PurgedTemplates)
 }
 
 func TestServiceGetByUUIDDelegates(t *testing.T) {

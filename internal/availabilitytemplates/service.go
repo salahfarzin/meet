@@ -39,10 +39,11 @@ type Service interface {
 type service struct {
 	repo      Repository
 	meetsRepo meets.Repository
+	now       func() time.Time
 }
 
 func NewService(repo Repository, meetsRepo meets.Repository) Service {
-	return &service{repo: repo, meetsRepo: meetsRepo}
+	return &service{repo: repo, meetsRepo: meetsRepo, now: time.Now}
 }
 
 func (s *service) Create(ctx context.Context, t *Template) (*Template, error) {
@@ -74,10 +75,61 @@ func (s *service) Update(ctx context.Context, t *Template) (*Template, error) {
 	if err := s.checkOverlap(ctx, t); err != nil {
 		return nil, err
 	}
-	if err := s.repo.Update(ctx, t); err != nil {
+	err := s.repo.WithTx(ctx, func(r Repository) error {
+		prev, err := r.GetByUUID(ctx, t.UUID)
+		if err != nil {
+			return err
+		}
+		if err := r.Update(ctx, t); err != nil {
+			return err
+		}
+		if !scheduleChanged(prev, t) {
+			return nil
+		}
+		return s.purgeFutureOccurrences(ctx, r, t.UUID)
+	})
+	if err != nil {
 		return nil, err
 	}
 	return t, nil
+}
+
+// scheduleChanged reports whether any field that shapes materialized meets
+// differs between prev and next.
+func scheduleChanged(prev, next *Template) bool {
+	return prev.Weekday != next.Weekday ||
+		prev.StartTime != next.StartTime ||
+		prev.EndTime != next.EndTime ||
+		!equalPtr(prev.PriceUuid, next.PriceUuid) ||
+		!prev.EffectiveFrom.Equal(next.EffectiveFrom) ||
+		!equalTimePtr(prev.EffectiveUntil, next.EffectiveUntil) ||
+		prev.Active != next.Active
+}
+
+func equalPtr[T comparable](a, b *T) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return *a == *b
+}
+
+func equalTimePtr(a, b *time.Time) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return a.Equal(*b)
+}
+
+// purgeFutureOccurrences drops the template's not-yet-booked future meets.
+// Without this, stale meets keep being served by GetAvailability, and because
+// their dates are already tracked (and they block HasConflict), Materialize
+// never rebuilds them from the new config. Callers pass the transaction-bound
+// r so the template change and the purge commit together.
+func (s *service) purgeFutureOccurrences(ctx context.Context, r Repository, templateUuid string) error {
+	if _, err := r.PurgeUnbookedOccurrences(ctx, templateUuid, s.now()); err != nil {
+		return fmt.Errorf("purge stale occurrences of template %s: %w", templateUuid, err)
+	}
+	return nil
 }
 
 // checkOverlap rejects a template whose weekday + time-of-day range overlaps
@@ -112,7 +164,12 @@ func (s *service) GetByUUID(ctx context.Context, templateUUID string) (*Template
 }
 
 func (s *service) Delete(ctx context.Context, templateUUID string) error {
-	return s.repo.Delete(ctx, templateUUID)
+	return s.repo.WithTx(ctx, func(r Repository) error {
+		if err := r.Delete(ctx, templateUUID); err != nil {
+			return err
+		}
+		return s.purgeFutureOccurrences(ctx, r, templateUUID)
+	})
 }
 
 func (s *service) GetAll(ctx context.Context, organizerUuid string) ([]*Template, error) {
