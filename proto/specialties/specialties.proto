@@ -1,0 +1,116 @@
+syntax = "proto3";
+
+package specialties;
+
+import "google/api/annotations.proto";
+import "common/common.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
+
+option go_package = "github.com/salahfarzin/meet/proto/specialties;specialties";
+
+option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
+  info: {
+    title: "Specialties API";
+    version: "1.0";
+    description: "Admin-managed catalogue of specialties and therapy approaches trappists pick for their public profile";
+    contact: {
+      name: "Meets API Support";
+      email: "support@meets.example.com";
+    };
+  };
+  schemes: HTTP;
+  schemes: HTTPS;
+  consumes: "application/json";
+  produces: "application/json";
+  responses: {
+    key: "404";
+    value: {
+      description: "Resource not found";
+    }
+  };
+  responses: {
+    key: "500";
+    value: {
+      description: "Internal server error";
+    }
+  };
+};
+
+// Specialty is one catalogue entry. Trappists reference it by uuid from
+// their profile (psychometrist users.center_details.appointments.profile).
+message Specialty {
+  string uuid = 1;
+  // kind: "specialty" (what they treat, e.g. anxiety) or "approach" (how, e.g. CBT).
+  string kind = 2;
+  // slug: stable, lowercase machine key, unique per kind, e.g. "anxiety".
+  string slug = 3;
+  // names: display label per UI language code, e.g. {"en": "Anxiety", "fa": "اضطراب"}.
+  map<string, string> names = 4;
+  int32 sort_order = 5;
+  bool active = 6;
+  string created_at = 7;
+  string updated_at = 8;
+}
+
+// Request & Response
+message GetAllRequest {
+  // kind: optional filter, "specialty" or "approach".
+  string kind = 1;
+  // include_inactive: admins managing the catalogue see deactivated entries too.
+  bool include_inactive = 2;
+}
+message GetAllResponse {
+  repeated Specialty specialties = 1;
+}
+
+// Request & Response
+message CreateRequest {
+  Specialty specialty = 1;
+}
+message CreateResponse {
+  common.ResponseStatus status = 1;
+  Specialty specialty = 2;
+}
+
+// Request & Response
+message UpdateRequest {
+  string uuid = 1;
+  Specialty specialty = 2;
+}
+message UpdateResponse {
+  Specialty specialty = 1;
+}
+
+// Request & Response
+message DeleteRequest {
+  string uuid = 1;
+}
+message DeleteResponse {
+}
+
+// Service definition. Registered after MeetService so the literal
+// /meets/specialties route wins over MeetService's /meets/{uuid}.
+service SpecialtyService {
+  rpc GetAll (GetAllRequest) returns (GetAllResponse) {
+    option (google.api.http) = {
+      get: "/meets/specialties"
+    };
+  }
+  rpc Create (CreateRequest) returns (CreateResponse) {
+    option (google.api.http) = {
+      post: "/meets/specialties"
+      body: "specialty"
+    };
+  }
+  rpc Update (UpdateRequest) returns (UpdateResponse) {
+    option (google.api.http) = {
+      put: "/meets/specialties/{uuid}"
+      body: "specialty"
+    };
+  }
+  rpc Delete (DeleteRequest) returns (DeleteResponse) {
+    option (google.api.http) = {
+      delete: "/meets/specialties/{uuid}"
+    };
+  }
+}

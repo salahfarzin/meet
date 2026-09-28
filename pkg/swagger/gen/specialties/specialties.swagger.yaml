@@ -1,0 +1,206 @@
+swagger: "2.0"
+info:
+  title: Specialties API
+  description: Admin-managed catalogue of specialties and therapy approaches trappists pick for their public profile
+  version: "1.0"
+  contact:
+    name: Meets API Support
+    email: support@meets.example.com
+tags:
+  - name: SpecialtyService
+schemes:
+  - http
+  - https
+consumes:
+  - application/json
+produces:
+  - application/json
+paths:
+  /meets/specialties:
+    get:
+      operationId: SpecialtyService_GetAll
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/specialtiesGetAllResponse'
+        "404":
+          description: Resource not found
+          schema: {}
+        "500":
+          description: Internal server error
+          schema: {}
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/rpcStatus'
+      parameters:
+        - name: kind
+          description: 'kind: optional filter, "specialty" or "approach".'
+          in: query
+          required: false
+          type: string
+        - name: include_inactive
+          description: 'include_inactive: admins managing the catalogue see deactivated entries too.'
+          in: query
+          required: false
+          type: boolean
+      tags:
+        - SpecialtyService
+    post:
+      operationId: SpecialtyService_Create
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/specialtiesCreateResponse'
+        "404":
+          description: Resource not found
+          schema: {}
+        "500":
+          description: Internal server error
+          schema: {}
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/rpcStatus'
+      parameters:
+        - name: specialty
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/specialtiesSpecialty'
+      tags:
+        - SpecialtyService
+  /meets/specialties/{uuid}:
+    delete:
+      operationId: SpecialtyService_Delete
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/specialtiesDeleteResponse'
+        "404":
+          description: Resource not found
+          schema: {}
+        "500":
+          description: Internal server error
+          schema: {}
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/rpcStatus'
+      parameters:
+        - name: uuid
+          in: path
+          required: true
+          type: string
+      tags:
+        - SpecialtyService
+    put:
+      operationId: SpecialtyService_Update
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/specialtiesUpdateResponse'
+        "404":
+          description: Resource not found
+          schema: {}
+        "500":
+          description: Internal server error
+          schema: {}
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/rpcStatus'
+      parameters:
+        - name: uuid
+          in: path
+          required: true
+          type: string
+        - name: specialty
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/specialtiesSpecialty'
+      tags:
+        - SpecialtyService
+definitions:
+  commonResponseStatus:
+    type: object
+    properties:
+      code:
+        type: integer
+        format: int32
+      message:
+        type: string
+  protobufAny:
+    type: object
+    properties:
+      '@type':
+        type: string
+    additionalProperties: {}
+  rpcStatus:
+    type: object
+    properties:
+      code:
+        type: integer
+        format: int32
+      message:
+        type: string
+      details:
+        type: array
+        items:
+          type: object
+          $ref: '#/definitions/protobufAny'
+  specialtiesCreateResponse:
+    type: object
+    properties:
+      status:
+        $ref: '#/definitions/commonResponseStatus'
+      specialty:
+        $ref: '#/definitions/specialtiesSpecialty'
+  specialtiesDeleteResponse:
+    type: object
+  specialtiesGetAllResponse:
+    type: object
+    properties:
+      specialties:
+        type: array
+        items:
+          type: object
+          $ref: '#/definitions/specialtiesSpecialty'
+  specialtiesSpecialty:
+    type: object
+    properties:
+      uuid:
+        type: string
+      kind:
+        type: string
+        description: 'kind: "specialty" (what they treat, e.g. anxiety) or "approach" (how, e.g. CBT).'
+      slug:
+        type: string
+        description: 'slug: stable, lowercase machine key, unique per kind, e.g. "anxiety".'
+      names:
+        type: object
+        additionalProperties:
+          type: string
+        description: 'names: display label per UI language code, e.g. {"en": "Anxiety", "fa": "اضطراب"}.'
+      sort_order:
+        type: integer
+        format: int32
+      active:
+        type: boolean
+      created_at:
+        type: string
+      updated_at:
+        type: string
+    description: |-
+      Specialty is one catalogue entry. Trappists reference it by uuid from
+      their profile (psychometrist users.center_details.appointments.profile).
+  specialtiesUpdateResponse:
+    type: object
+    properties:
+      specialty:
+        $ref: '#/definitions/specialtiesSpecialty'
