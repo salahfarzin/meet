@@ -1,0 +1,145 @@
+syntax = "proto3";
+
+package gooyai;
+
+import "google/api/annotations.proto";
+import "google/protobuf/struct.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
+
+option go_package = "github.com/salahfarzin/meet/proto/gooyai;gooyai";
+
+option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
+  info: {
+    title: "Gooyai API";
+    version: "1.0";
+    description: "Calls and providers from Gooyai, the AI phone receptionist, for clinics connected to it";
+    contact: {
+      name: "Meets API Support";
+      email: "support@meets.example.com";
+    };
+  };
+  schemes: HTTP;
+  schemes: HTTPS;
+  consumes: "application/json";
+  produces: "application/json";
+  responses: {
+    key: "400";
+    value: {
+      description: "Clinic not connected to Gooyai (FAILED_PRECONDITION), or an invalid filter";
+    }
+  };
+  responses: {
+    key: "404";
+    value: {
+      description: "Resource not found";
+    }
+  };
+  responses: {
+    key: "500";
+    value: {
+      description: "Internal server error";
+    }
+  };
+};
+
+// TranscriptMessage is one turn of the call's conversation.
+message TranscriptMessage {
+  // role: who spoke, e.g. "assistant" (the AI agent) or "user" (the caller).
+  string role = 1;
+  string content = 2;
+}
+
+// IncomingCall is one call answered by the clinic's Gooyai AI agent.
+message IncomingCall {
+  // id: Gooyai's call id. A string because the dashboard treats ids as opaque.
+  string id = 1;
+  string from_number = 2;
+  string to_number = 3;
+  // start_at / end_at: RFC3339, UTC.
+  string start_at = 4;
+  string end_at = 5;
+  int32 duration_seconds = 6;
+  string recording_url = 7;
+  // call_forward: the agent forwarded the call to a person.
+  bool call_forward = 8;
+  // should_recall_user: the agent flagged that staff should call the caller back.
+  bool should_recall_user = 9;
+  // transcript: empty when Gooyai returned no transcript or one in an unknown shape.
+  repeated TranscriptMessage transcript = 10;
+  // analytics: Gooyai's free-form call analytics, e.g. {"sentiment": "neutral", "resolved": true}.
+  google.protobuf.Struct analytics = 11;
+  // assistant_name: name of the Gooyai agent that answered.
+  string assistant_name = 12;
+}
+
+// Provider is a schedulable person in Gooyai. Managed in Gooyai's panel only.
+message Provider {
+  string id = 1;
+  string first_name = 2;
+  string last_name = 3;
+  string specialty = 4;
+  string phone = 5;
+  string profile_image_url = 6;
+  bool is_active = 7;
+}
+
+// Request & Response
+message ListIncomingCallsRequest {
+  // page: 1-based, default 1.
+  int32 page = 1;
+  // page_size: 1-100, default 20.
+  int32 page_size = 2;
+  // from / to: inclusive date range, YYYY-MM-DD (Gregorian).
+  string from = 3;
+  string to = 4;
+  // phone: partial match on the caller's number.
+  string phone = 5;
+  // should_recall: only calls flagged (true) or not flagged (false) for a call back; unset = all.
+  optional bool should_recall = 6;
+  // organizer_id: superadmins only, to read another clinic's calls. Ignored for everyone else.
+  string organizer_id = 7;
+}
+message ListIncomingCallsResponse {
+  repeated IncomingCall calls = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+  int32 total_pages = 5;
+}
+
+// Request & Response
+message GetIncomingCallRequest {
+  string id = 1;
+  // organizer_id: superadmins only. Ignored for everyone else.
+  string organizer_id = 2;
+}
+
+// Request & Response
+message ListProvidersRequest {
+  // organizer_id: superadmins only. Ignored for everyone else.
+  string organizer_id = 1;
+}
+message ListProvidersResponse {
+  repeated Provider providers = 1;
+}
+
+// Service definition. Registered after MeetService so the literal
+// /meets/incoming-calls and /meets/gooyai routes win over /meets/{uuid}.
+service GooyaiService {
+  rpc ListIncomingCalls (ListIncomingCallsRequest) returns (ListIncomingCallsResponse) {
+    option (google.api.http) = {
+      get: "/meets/incoming-calls"
+    };
+  }
+  // GetIncomingCall returns the call itself, not wrapped in a response message.
+  rpc GetIncomingCall (GetIncomingCallRequest) returns (IncomingCall) {
+    option (google.api.http) = {
+      get: "/meets/incoming-calls/{id}"
+    };
+  }
+  rpc ListProviders (ListProvidersRequest) returns (ListProvidersResponse) {
+    option (google.api.http) = {
+      get: "/meets/gooyai/providers"
+    };
+  }
+}

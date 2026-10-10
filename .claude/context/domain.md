@@ -51,3 +51,19 @@ Admin-managed list trappists pick from for their public profile (dashboard Setti
 | `Delete` | `DELETE /meets/specialties/{uuid}` | Admin / Programmer; hard delete |
 
 Trappists store only the uuids, in psychometrist `users.center_details.appointments.profile.{specialties,approaches}`; rawej resolves them against `GetAll` (active only), so hidden or deleted entries drop off patient-facing profiles. Registered after `MeetService` so the literal route beats `/meets/{uuid}`.
+
+## Gooyai integration (`GooyaiService`, `internal/gooyai` + `pkg/gooyai`)
+
+[Gooyai](https://docs.gooyai.ir/docs/intro) is an AI phone receptionist with its own providers, slots and bookings. `pkg/gooyai` is a plain Partner API client (imports nothing from meet, reusable by other services); `internal/gooyai` picks the clinic's key and maps results to our proto. No tables: per-clinic keys come from `GOOYAI_TENANT_KEYS="<organizer-uuid>=<api-key>,..."` (+ `GOOYAI_BASE_URL`, `GOOYAI_ENV=sandbox|prod`).
+
+| RPC | REST | notes |
+|-----|------|-------|
+| `ListIncomingCalls` | `GET /meets/incoming-calls?page&page_size&from&to&phone&should_recall` | `{calls,total,page,page_size,total_pages}`; `page_size` ≤ 100; `from`/`to` Gregorian `YYYY-MM-DD` |
+| `GetIncomingCall` | `GET /meets/incoming-calls/{id}` | returns the call **bare**, not wrapped |
+| `ListProviders` | `GET /meets/gooyai/providers` | all pages walked server-side |
+
+- The tenant is the caller's own uuid; only `Programmer` may pass `organizer_id` (same rule as `retrieveOrganizerUuid`). Never take a tenant or key from the request otherwise.
+- Clinic not connected → `FAILED_PRECONDITION` (HTTP 400, `code: 9`). Gooyai rejecting the key is also `FAILED_PRECONDITION`, **never** `UNAUTHENTICATED`: the dashboard treats a 401 as its own session expiring and logs the user out.
+- Gooyai's error messages are Persian and never forwarded; map by status (`errors.Is(err, gooyai.ErrNotFound)` etc.).
+- `pkg/gooyai` retries GETs on 5xx/transport errors only — never writes, since Gooyai has no idempotency keys and a retried POST could double-book.
+- Registered after `MeetService` so the literal routes beat `/meets/{uuid}`.

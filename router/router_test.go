@@ -6,6 +6,7 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"github.com/salahfarzin/meet/configs"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -22,12 +23,13 @@ func TestSetupGRPCRoutes(t *testing.T) {
 
 	// This should not panic.
 	assert.NotPanics(t, func() {
-		SetupGRPCRoutes(server, db, false)
+		SetupGRPCRoutes(server, db, false, configs.Gooyai{})
 	})
 
 	// The server should have services registered
 	services := server.GetServiceInfo()
 	assert.Contains(t, services, "meets.MeetService")
+	assert.Contains(t, services, "gooyai.GooyaiService")
 }
 
 func TestSetupRESTRoutes(t *testing.T) {

@@ -1,0 +1,268 @@
+swagger: "2.0"
+info:
+  title: Gooyai API
+  description: Calls and providers from Gooyai, the AI phone receptionist, for clinics connected to it
+  version: "1.0"
+  contact:
+    name: Meets API Support
+    email: support@meets.example.com
+tags:
+  - name: GooyaiService
+schemes:
+  - http
+  - https
+consumes:
+  - application/json
+produces:
+  - application/json
+paths:
+  /meets/gooyai/providers:
+    get:
+      operationId: GooyaiService_ListProviders
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/gooyaiListProvidersResponse'
+        "400":
+          description: Clinic not connected to Gooyai (FAILED_PRECONDITION), or an invalid filter
+          schema: {}
+        "404":
+          description: Resource not found
+          schema: {}
+        "500":
+          description: Internal server error
+          schema: {}
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/rpcStatus'
+      parameters:
+        - name: organizer_id
+          description: 'organizer_id: superadmins only. Ignored for everyone else.'
+          in: query
+          required: false
+          type: string
+      tags:
+        - GooyaiService
+  /meets/incoming-calls:
+    get:
+      operationId: GooyaiService_ListIncomingCalls
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/gooyaiListIncomingCallsResponse'
+        "400":
+          description: Clinic not connected to Gooyai (FAILED_PRECONDITION), or an invalid filter
+          schema: {}
+        "404":
+          description: Resource not found
+          schema: {}
+        "500":
+          description: Internal server error
+          schema: {}
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/rpcStatus'
+      parameters:
+        - name: page
+          description: 'page: 1-based, default 1.'
+          in: query
+          required: false
+          type: integer
+          format: int32
+        - name: page_size
+          description: 'page_size: 1-100, default 20.'
+          in: query
+          required: false
+          type: integer
+          format: int32
+        - name: from
+          description: 'from / to: inclusive date range, YYYY-MM-DD (Gregorian).'
+          in: query
+          required: false
+          type: string
+        - name: to
+          in: query
+          required: false
+          type: string
+        - name: phone
+          description: 'phone: partial match on the caller''s number.'
+          in: query
+          required: false
+          type: string
+        - name: should_recall
+          description: 'should_recall: only calls flagged (true) or not flagged (false) for a call back; unset = all.'
+          in: query
+          required: false
+          type: boolean
+        - name: organizer_id
+          description: 'organizer_id: superadmins only, to read another clinic''s calls. Ignored for everyone else.'
+          in: query
+          required: false
+          type: string
+      tags:
+        - GooyaiService
+  /meets/incoming-calls/{id}:
+    get:
+      summary: GetIncomingCall returns the call itself, not wrapped in a response message.
+      operationId: GooyaiService_GetIncomingCall
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/gooyaiIncomingCall'
+        "400":
+          description: Clinic not connected to Gooyai (FAILED_PRECONDITION), or an invalid filter
+          schema: {}
+        "404":
+          description: Resource not found
+          schema: {}
+        "500":
+          description: Internal server error
+          schema: {}
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/rpcStatus'
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+        - name: organizer_id
+          description: 'organizer_id: superadmins only. Ignored for everyone else.'
+          in: query
+          required: false
+          type: string
+      tags:
+        - GooyaiService
+definitions:
+  gooyaiIncomingCall:
+    type: object
+    properties:
+      id:
+        type: string
+        description: 'id: Gooyai''s call id. A string because the dashboard treats ids as opaque.'
+      from_number:
+        type: string
+      to_number:
+        type: string
+      start_at:
+        type: string
+        description: 'start_at / end_at: RFC3339, UTC.'
+      end_at:
+        type: string
+      duration_seconds:
+        type: integer
+        format: int32
+      recording_url:
+        type: string
+      call_forward:
+        type: boolean
+        description: 'call_forward: the agent forwarded the call to a person.'
+      should_recall_user:
+        type: boolean
+        description: 'should_recall_user: the agent flagged that staff should call the caller back.'
+      transcript:
+        type: array
+        items:
+          type: object
+          $ref: '#/definitions/gooyaiTranscriptMessage'
+        description: 'transcript: empty when Gooyai returned no transcript or one in an unknown shape.'
+      analytics:
+        type: object
+        description: 'analytics: Gooyai''s free-form call analytics, e.g. {"sentiment": "neutral", "resolved": true}.'
+      assistant_name:
+        type: string
+        description: 'assistant_name: name of the Gooyai agent that answered.'
+    description: IncomingCall is one call answered by the clinic's Gooyai AI agent.
+  gooyaiListIncomingCallsResponse:
+    type: object
+    properties:
+      calls:
+        type: array
+        items:
+          type: object
+          $ref: '#/definitions/gooyaiIncomingCall'
+      total:
+        type: integer
+        format: int32
+      page:
+        type: integer
+        format: int32
+      page_size:
+        type: integer
+        format: int32
+      total_pages:
+        type: integer
+        format: int32
+  gooyaiListProvidersResponse:
+    type: object
+    properties:
+      providers:
+        type: array
+        items:
+          type: object
+          $ref: '#/definitions/gooyaiProvider'
+  gooyaiProvider:
+    type: object
+    properties:
+      id:
+        type: string
+      first_name:
+        type: string
+      last_name:
+        type: string
+      specialty:
+        type: string
+      phone:
+        type: string
+      profile_image_url:
+        type: string
+      is_active:
+        type: boolean
+    description: Provider is a schedulable person in Gooyai. Managed in Gooyai's panel only.
+  gooyaiTranscriptMessage:
+    type: object
+    properties:
+      role:
+        type: string
+        description: 'role: who spoke, e.g. "assistant" (the AI agent) or "user" (the caller).'
+      content:
+        type: string
+    description: TranscriptMessage is one turn of the call's conversation.
+  protobufAny:
+    type: object
+    properties:
+      '@type':
+        type: string
+    additionalProperties: {}
+  protobufNullValue:
+    type: integer
+    format: int32
+    enum:
+      - 0
+    default: 0
+    description: |-
+      `NullValue` is a singleton enumeration to represent the null value for the
+      `Value` type union.
+
+      The JSON representation for `NullValue` is JSON `null`.
+
+       - 0: Null value.
+  rpcStatus:
+    type: object
+    properties:
+      code:
+        type: integer
+        format: int32
+      message:
+        type: string
+      details:
+        type: array
+        items:
+          type: object
+          $ref: '#/definitions/protobufAny'
