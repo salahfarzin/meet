@@ -21,9 +21,9 @@ import (
 // settings; the dashboard is waiting on it.
 const usersServiceTimeout = 10 * time.Second
 
-// SetupGRPCRoutes fails only on a malformed GOOYAI_ENCRYPTION_KEY: a set but
-// broken key is a deploy mistake worth refusing to start over, unlike an
-// unset one, which just leaves the Gooyai integration disabled.
+// SetupGRPCRoutes fails only on a malformed GOOYAI_ENCRYPTION_KEY or
+// GOOYAI_PROXY: a set but broken value is a deploy mistake worth refusing to
+// start over, unlike an unset one.
 func SetupGRPCRoutes(server *grpc.Server, db *sql.DB, authDisabled bool, gooyaiCfg configs.Gooyai) error {
 	sealer, err := gooyai.NewSealer(gooyaiCfg.EncryptionKey)
 	if err != nil {
@@ -41,7 +41,11 @@ func SetupGRPCRoutes(server *grpc.Server, db *sql.DB, authDisabled bool, gooyaiC
 	pbSpecialties.RegisterSpecialtyServiceServer(server, specialties.NewHandler(specialtyService, authDisabled))
 
 	connections := gooyai.NewUsersRepository(gooyaiCfg.UsersService, &http.Client{Timeout: usersServiceTimeout})
-	gooyaiService := gooyai.NewService(connections, sealer, gooyai.NewClientFactory(gooyaiCfg.BaseURL))
+	clients, err := gooyai.NewClientFactoryChecked(gooyaiCfg.BaseURL, gooyaiCfg.Proxy)
+	if err != nil {
+		return err
+	}
+	gooyaiService := gooyai.NewService(connections, sealer, clients)
 	pbGooyai.RegisterGooyaiServiceServer(server, gooyai.NewHandler(gooyaiService, authDisabled))
 	return nil
 }

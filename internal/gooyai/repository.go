@@ -35,7 +35,14 @@ type Connection struct {
 	APIKeySealed  []byte
 	KeyLast4      string
 	Environment   string
-	UpdatedAt     time.Time
+	// ProxySealed is the encrypted proxy URL (it may hold credentials); nil =
+	// no proxy of the clinic's own.
+	ProxySealed []byte
+	UpdatedAt   time.Time
+
+	// ProxyRedacted is the proxy as the dashboard may see it (password
+	// masked). Filled by the Service, never stored.
+	ProxyRedacted string
 }
 
 // Repository stores one Connection per organizer.
@@ -50,10 +57,11 @@ type Repository interface {
 // sealed before it gets here, so the settings — which the users service hands
 // to the browser on GET /users/{uuid} — only ever carry ciphertext.
 type storedConnection struct {
-	KeyCiphertext string    `json:"key_ciphertext"`
-	KeyLast4      string    `json:"key_last4"`
-	Environment   string    `json:"environment"`
-	UpdatedAt     time.Time `json:"updated_at"`
+	KeyCiphertext   string    `json:"key_ciphertext"`
+	KeyLast4        string    `json:"key_last4"`
+	Environment     string    `json:"environment"`
+	ProxyCiphertext string    `json:"proxy_ciphertext,omitempty"`
+	UpdatedAt       time.Time `json:"updated_at"`
 }
 
 // usersRepository keeps each clinic's connection in its user settings
@@ -97,22 +105,33 @@ func (repo *usersRepository) Get(ctx context.Context, organizerUUID string) (*Co
 	if err != nil || len(sealed) == 0 {
 		return nil, fmt.Errorf("decode %s key ciphertext: %w", settingsKey, err)
 	}
+	var sealedProxy []byte
+	if stored.ProxyCiphertext != "" {
+		if sealedProxy, err = base64.StdEncoding.DecodeString(stored.ProxyCiphertext); err != nil {
+			return nil, fmt.Errorf("decode %s proxy ciphertext: %w", settingsKey, err)
+		}
+	}
 	return &Connection{
 		OrganizerUUID: organizerUUID,
 		APIKeySealed:  sealed,
 		KeyLast4:      stored.KeyLast4,
 		Environment:   stored.Environment,
+		ProxySealed:   sealedProxy,
 		UpdatedAt:     stored.UpdatedAt,
 	}, nil
 }
 
 func (repo *usersRepository) Upsert(ctx context.Context, c *Connection) error {
-	return repo.put(ctx, c.OrganizerUUID, &storedConnection{
+	stored := &storedConnection{
 		KeyCiphertext: base64.StdEncoding.EncodeToString(c.APIKeySealed),
 		KeyLast4:      c.KeyLast4,
 		Environment:   c.Environment,
 		UpdatedAt:     c.UpdatedAt.UTC(),
-	})
+	}
+	if len(c.ProxySealed) > 0 {
+		stored.ProxyCiphertext = base64.StdEncoding.EncodeToString(c.ProxySealed)
+	}
+	return repo.put(ctx, c.OrganizerUUID, stored)
 }
 
 // Delete clears phone_assistant to null; the users service merges settings

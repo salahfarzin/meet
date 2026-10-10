@@ -43,6 +43,10 @@ type Gooyai struct {
 	// whose user settings hold each clinic's sealed key, under
 	// settings.phone_assistant. Unset leaves the integration disabled.
 	UsersService string `env:"USERS_SERVICE"`
+	// Proxy is the default proxy for calls to Gooyai (e.g.
+	// socks5://user:pass@host:1080), for clinics that set none of their own.
+	// Unset = the environment's HTTPS_PROXY etc. Malformed = refuse to start.
+	Proxy string `env:"GOOYAI_PROXY"`
 }
 
 type Configs struct {
@@ -105,6 +109,7 @@ func Init() *Configs {
 			BaseURL:       utils.GetEnv("GOOYAI_BASE_URL", "https://api.gooyai.ir"),
 			EncryptionKey: utils.GetEnv("GOOYAI_ENCRYPTION_KEY", ""),
 			UsersService:  utils.GetEnv("USERS_SERVICE", ""),
+			Proxy:         utils.GetEnv("GOOYAI_PROXY", ""),
 		},
 	}
 }

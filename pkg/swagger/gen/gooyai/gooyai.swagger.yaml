@@ -306,6 +306,12 @@ definitions:
       updated_at:
         type: string
         description: 'updated_at: when the key was last saved, RFC3339. Empty when not connected.'
+      proxy_url:
+        type: string
+        description: |-
+          proxy_url: the proxy calls to the provider go through, with any password
+          replaced by "****". Empty = the server's default (GOOYAI_PROXY, else the
+          environment's proxy settings).
     description: |-
       Connection is a clinic's link to Gooyai. The API key itself is write-only:
       it's stored encrypted and never returned.
@@ -364,13 +370,21 @@ definitions:
         type: string
         description: |-
           api_key: the clinic's Gooyai Partner API key. Checked against Gooyai
-          before it's saved.
+          before it's saved. May be empty when already connected, to keep the
+          stored key (e.g. to change only the proxy or environment).
       environment:
         type: string
         description: 'environment: "sandbox" (default) or "prod".'
       organizer_id:
         type: string
         description: 'organizer_id: superadmins only. Ignored for everyone else.'
+      proxy_url:
+        type: string
+        description: |-
+          proxy_url: optional http://, https://, socks5:// or socks5h:// proxy for
+          calls to the provider, e.g. socks5://user:pass@host:1080. Empty = the
+          server's default. A "****" password (as returned by GetConnection) keeps
+          the stored one.
     title: Request & Response
   gooyaiTranscriptMessage:
     type: object

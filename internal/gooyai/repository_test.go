@@ -92,22 +92,25 @@ func TestUsersRepository_RoundTrip(t *testing.T) {
 	assert.Nil(t, conn, "no phone_assistant setting = not connected, not an error")
 
 	require.NoError(t, repo.Upsert(ctx, &Connection{
-		OrganizerUUID: "clinic-a", APIKeySealed: []byte("sealed"), KeyLast4: "ab12", Environment: "prod", UpdatedAt: updated,
+		OrganizerUUID: "clinic-a", APIKeySealed: []byte("sealed"), KeyLast4: "ab12", Environment: "prod",
+		ProxySealed: []byte("sealed-proxy"), UpdatedAt: updated,
 	}))
 
 	stored := fake.settings["clinic-a"]
 	assert.Equal(t, "Asia/Tehran", stored["timezone"], "other settings are left alone")
 	assert.Equal(t, map[string]any{
-		"key_ciphertext": base64.StdEncoding.EncodeToString([]byte("sealed")),
-		"key_last4":      "ab12",
-		"environment":    "prod",
-		"updated_at":     "2026-10-11T09:00:00Z",
+		"key_ciphertext":   base64.StdEncoding.EncodeToString([]byte("sealed")),
+		"key_last4":        "ab12",
+		"environment":      "prod",
+		"proxy_ciphertext": base64.StdEncoding.EncodeToString([]byte("sealed-proxy")),
+		"updated_at":       "2026-10-11T09:00:00Z",
 	}, stored["phone_assistant"])
 
 	conn, err = repo.Get(ctx, "clinic-a")
 	require.NoError(t, err)
 	assert.Equal(t, &Connection{
-		OrganizerUUID: "clinic-a", APIKeySealed: []byte("sealed"), KeyLast4: "ab12", Environment: "prod", UpdatedAt: updated,
+		OrganizerUUID: "clinic-a", APIKeySealed: []byte("sealed"), KeyLast4: "ab12", Environment: "prod",
+		ProxySealed: []byte("sealed-proxy"), UpdatedAt: updated,
 	}, conn)
 
 	require.NoError(t, repo.Delete(ctx, "clinic-a"))

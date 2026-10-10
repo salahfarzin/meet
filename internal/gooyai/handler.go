@@ -129,7 +129,11 @@ func (h *handler) SaveConnection(ctx context.Context, req *pb.SaveConnectionRequ
 	if err != nil {
 		return nil, err
 	}
-	conn, err := h.service.Connect(ctx, tenant, req.GetApiKey(), req.GetEnvironment())
+	conn, err := h.service.Connect(ctx, tenant, &ConnectInput{
+		APIKey:      req.GetApiKey(),
+		Environment: req.GetEnvironment(),
+		ProxyURL:    req.GetProxyUrl(),
+	})
 	if err != nil {
 		return nil, toStatus(ctx, err, "save connection")
 	}
@@ -222,7 +226,7 @@ func toStatus(ctx context.Context, err error, op string) error {
 	case errors.Is(err, ErrEncryptionNotConfigured), errors.Is(err, ErrUsersServiceNotConfigured):
 		logger.FromContext(ctx).Error("phone assistant integration is not configured", zap.String("op", op), zap.Error(err))
 		return status.Error(codes.FailedPrecondition, "the phone assistant integration is not set up on the server")
-	case errors.Is(err, ErrKeyRejected), errors.Is(err, ErrInvalidConnection):
+	case errors.Is(err, ErrKeyRejected), errors.Is(err, ErrInvalidConnection), errors.Is(err, ErrInvalidProxy):
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, gooyai.ErrUnauthorized):
 		logger.FromContext(ctx).Warn("gooyai rejected the clinic's API key", zap.String("op", op))
@@ -285,7 +289,7 @@ func callToProto(c *gooyai.IncomingCall) *pb.Call {
 }
 
 // connectionToProto never carries the key: only whether one is stored, its
-// environment and last 4 characters.
+// environment and last 4 characters — nor the proxy's password.
 func connectionToProto(c *Connection) *pb.Connection {
 	if c == nil {
 		return &pb.Connection{}
@@ -295,6 +299,7 @@ func connectionToProto(c *Connection) *pb.Connection {
 		Environment: c.Environment,
 		KeyLast4:    c.KeyLast4,
 		UpdatedAt:   c.UpdatedAt.UTC().Format(time.RFC3339),
+		ProxyUrl:    c.ProxyRedacted,
 	}
 }
 

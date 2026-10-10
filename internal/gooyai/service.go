@@ -8,8 +8,10 @@ package gooyai
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/salahfarzin/meet/pkg/gooyai"
@@ -20,8 +22,9 @@ var (
 	ErrNotConnected = errors.New("clinic is not connected to the phone assistant")
 	// ErrKeyRejected means Gooyai refused the key while connecting.
 	ErrKeyRejected = errors.New("the phone assistant provider rejected this API key")
-	// ErrInvalidConnection covers a blank key or an unknown environment.
-	ErrInvalidConnection = errors.New(`api_key is required and environment must be "sandbox" or "prod"`)
+	// ErrInvalidConnection covers a blank key with nothing stored to keep, or
+	// an unknown environment.
+	ErrInvalidConnection = errors.New(`api_key is required when not connected, and environment must be "sandbox" or "prod"`)
 	// errNotStored means the users service accepted the save but didn't keep
 	// phone_assistant (e.g. it isn't in its allowed settings keys).
 	errNotStored = errors.New("the users service did not store the phone_assistant setting")
@@ -45,19 +48,56 @@ type Client interface {
 	ListProviders(ctx context.Context, f *gooyai.ListProvidersFilter) (*gooyai.ProviderPage, error)
 }
 
-// ClientFactory returns a Client bound to one tenant's API key and environment.
-type ClientFactory func(apiKey, env string) Client
+// ClientFactory returns a Client bound to one tenant's API key and
+// environment, calling through proxyURL ("" = the server default).
+type ClientFactory func(apiKey, env, proxyURL string) Client
 
-// NewClientFactory builds Partner API clients that share one connection pool.
-func NewClientFactory(baseURL string) ClientFactory {
-	shared := &http.Client{Timeout: clientTimeout}
-	return func(apiKey, env string) Client {
+// NewClientFactory builds Partner API clients. Clients going through the same
+// proxy share one connection pool; defaultProxy (GOOYAI_PROXY) applies to
+// clinics without a proxy of their own, and when that's empty too the
+// environment's proxy settings do.
+func NewClientFactory(baseURL, defaultProxy string) ClientFactory {
+	var mu sync.Mutex
+	pools := map[string]*http.Client{}
+	pool := func(proxy string) *http.Client {
+		if proxy == "" {
+			proxy = defaultProxy
+		}
+		mu.Lock()
+		defer mu.Unlock()
+		c, ok := pools[proxy]
+		if !ok {
+			c = newProxiedHTTPClient(proxy)
+			pools[proxy] = c
+		}
+		return c
+	}
+	return func(apiKey, env, proxyURL string) Client {
 		return gooyai.New(apiKey,
 			gooyai.WithBaseURL(baseURL),
 			gooyai.WithEnv(gooyai.Env(env)),
-			gooyai.WithHTTPClient(shared),
+			gooyai.WithHTTPClient(pool(proxyURL)),
 		)
 	}
+}
+
+// NewClientFactoryChecked is NewClientFactory after validating defaultProxy,
+// so a malformed GOOYAI_PROXY stops startup instead of silently going direct.
+func NewClientFactoryChecked(baseURL, defaultProxy string) (ClientFactory, error) {
+	if _, err := parseProxy(defaultProxy); err != nil {
+		return nil, fmt.Errorf("GOOYAI_PROXY: %w", err)
+	}
+	return NewClientFactory(baseURL, defaultProxy), nil
+}
+
+// ConnectInput is what a clinic saves from the dashboard.
+type ConnectInput struct {
+	// APIKey may be empty when already connected, to keep the stored key.
+	APIKey      string
+	Environment string
+	// ProxyURL is optional; empty = the server default. A maskedPassword (as
+	// GetConnection shows it) keeps the stored proxy's password.
+	ProxyURL string
 }
 
 // Service reads a clinic's Gooyai data and manages its connection. tenant is
@@ -70,9 +110,9 @@ type Service interface {
 
 	// GetConnection returns nil, nil when the clinic isn't connected.
 	GetConnection(ctx context.Context, tenant string) (*Connection, error)
-	// Connect checks apiKey against Gooyai, then stores it encrypted,
-	// replacing any existing connection.
-	Connect(ctx context.Context, tenant, apiKey, env string) (*Connection, error)
+	// Connect checks the key (through the proxy) against Gooyai, then stores
+	// key and proxy encrypted, replacing any existing connection.
+	Connect(ctx context.Context, tenant string, in *ConnectInput) (*Connection, error)
 	Disconnect(ctx context.Context, tenant string) error
 }
 
@@ -97,11 +137,38 @@ func (s *service) client(ctx context.Context, tenant string) (Client, error) {
 	if conn == nil {
 		return nil, ErrNotConnected
 	}
-	key, err := s.sealer.Open(conn.APIKeySealed)
+	key, proxy, err := s.open(conn)
 	if err != nil {
 		return nil, err
 	}
-	return s.newClient(key, conn.Environment), nil
+	return s.newClient(key, conn.Environment, proxy), nil
+}
+
+// open decrypts a stored connection's key and proxy ("" when it has none).
+func (s *service) open(conn *Connection) (key, proxy string, err error) {
+	if key, err = s.sealer.Open(conn.APIKeySealed); err != nil {
+		return "", "", err
+	}
+	if len(conn.ProxySealed) > 0 {
+		if proxy, err = s.sealer.Open(conn.ProxySealed); err != nil {
+			return "", "", err
+		}
+	}
+	return key, proxy, nil
+}
+
+// withRedactedProxy fills conn.ProxyRedacted, what the dashboard may see of
+// the proxy. conn may be nil (not connected).
+func (s *service) withRedactedProxy(conn *Connection) (*Connection, error) {
+	if conn == nil || len(conn.ProxySealed) == 0 {
+		return conn, nil
+	}
+	proxy, err := s.sealer.Open(conn.ProxySealed)
+	if err != nil {
+		return nil, err
+	}
+	conn.ProxyRedacted = redactProxy(proxy)
+	return conn, nil
 }
 
 func (s *service) ListIncomingCalls(ctx context.Context, tenant string, f *gooyai.ListCallsFilter) (*gooyai.CallPage, error) {
@@ -145,25 +212,39 @@ func (s *service) ListProviders(ctx context.Context, tenant string) ([]gooyai.Se
 }
 
 func (s *service) GetConnection(ctx context.Context, tenant string) (*Connection, error) {
-	return s.repo.Get(ctx, tenant)
+	conn, err := s.repo.Get(ctx, tenant)
+	if err != nil {
+		return nil, err
+	}
+	return s.withRedactedProxy(conn)
 }
 
-func (s *service) Connect(ctx context.Context, tenant, apiKey, env string) (*Connection, error) {
-	apiKey = strings.TrimSpace(apiKey)
+func (s *service) Connect(ctx context.Context, tenant string, in *ConnectInput) (*Connection, error) {
+	apiKey := strings.TrimSpace(in.APIKey)
+	proxy := strings.TrimSpace(in.ProxyURL)
+	env := in.Environment
 	if env == "" {
 		env = envSandbox
 	}
-	if apiKey == "" || (env != envSandbox && env != envProduction) {
+	if env != envSandbox && env != envProduction {
 		return nil, ErrInvalidConnection
 	}
 	if s.sealer == nil {
 		return nil, ErrEncryptionNotConfigured
 	}
 
-	// One cheap authenticated read proves the key works for this environment
-	// before it's saved, so a typo fails here rather than later as "calls
-	// unavailable".
-	_, err := s.newClient(apiKey, env).ListProviders(ctx, &gooyai.ListProvidersFilter{
+	apiKey, proxy, err := s.fillFromStored(ctx, tenant, apiKey, proxy)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := parseProxy(proxy); err != nil {
+		return nil, err
+	}
+
+	// One cheap authenticated read proves the key works for this environment,
+	// through this proxy, before it's saved, so a typo fails here rather than
+	// later as "calls unavailable".
+	_, err = s.newClient(apiKey, env, proxy).ListProviders(ctx, &gooyai.ListProvidersFilter{
 		PageQuery: gooyai.PageQuery{Page: 1, Limit: 1},
 	})
 	if errors.Is(err, gooyai.ErrUnauthorized) {
@@ -173,20 +254,54 @@ func (s *service) Connect(ctx context.Context, tenant, apiKey, env string) (*Con
 		return nil, err
 	}
 
-	return s.store(ctx, tenant, apiKey, env)
+	return s.store(ctx, tenant, apiKey, env, proxy)
 }
 
-// store seals apiKey and saves it as the tenant's connection.
-func (s *service) store(ctx context.Context, tenant, apiKey, env string) (*Connection, error) {
+// fillFromStored completes a save from the stored connection: a blank key
+// keeps the stored key, and a masked proxy password keeps the stored one. A
+// blank key with nothing stored is ErrInvalidConnection.
+func (s *service) fillFromStored(ctx context.Context, tenant, apiKey, proxy string) (key, proxyURL string, err error) {
+	if apiKey != "" && !strings.Contains(proxy, maskedPassword) {
+		return apiKey, proxy, nil
+	}
+	conn, err := s.repo.Get(ctx, tenant)
+	if err != nil {
+		return "", "", err
+	}
+	if conn == nil {
+		if apiKey == "" {
+			return "", "", ErrInvalidConnection
+		}
+		return apiKey, proxy, nil
+	}
+	storedKey, storedProxy, err := s.open(conn)
+	if err != nil {
+		return "", "", err
+	}
+	if apiKey == "" {
+		apiKey = storedKey
+	}
+	return apiKey, restoreProxyPassword(proxy, storedProxy), nil
+}
+
+// store seals the key and proxy and saves them as the tenant's connection.
+func (s *service) store(ctx context.Context, tenant, apiKey, env, proxy string) (*Connection, error) {
 	sealed, err := s.sealer.Seal(apiKey)
 	if err != nil {
 		return nil, err
+	}
+	var sealedProxy []byte
+	if proxy != "" {
+		if sealedProxy, err = s.sealer.Seal(proxy); err != nil {
+			return nil, err
+		}
 	}
 	if err := s.repo.Upsert(ctx, &Connection{
 		OrganizerUUID: tenant,
 		APIKeySealed:  sealed,
 		KeyLast4:      last4(apiKey),
 		Environment:   env,
+		ProxySealed:   sealedProxy,
 		UpdatedAt:     time.Now().UTC(),
 	}); err != nil {
 		return nil, err
@@ -200,7 +315,7 @@ func (s *service) store(ctx context.Context, tenant, apiKey, env string) (*Conne
 	if conn == nil {
 		return nil, errNotStored
 	}
-	return conn, nil
+	return s.withRedactedProxy(conn)
 }
 
 func (s *service) Disconnect(ctx context.Context, tenant string) error {

@@ -582,7 +582,11 @@ type Connection struct {
 	// when not connected or the key is too short to hint at safely.
 	KeyLast4 string `protobuf:"bytes,3,opt,name=key_last4,json=keyLast4,proto3" json:"key_last4,omitempty"`
 	// updated_at: when the key was last saved, RFC3339. Empty when not connected.
-	UpdatedAt     string `protobuf:"bytes,4,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	UpdatedAt string `protobuf:"bytes,4,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	// proxy_url: the proxy calls to the provider go through, with any password
+	// replaced by "****". Empty = the server's default (GOOYAI_PROXY, else the
+	// environment's proxy settings).
+	ProxyUrl      string `protobuf:"bytes,5,opt,name=proxy_url,json=proxyUrl,proto3" json:"proxy_url,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -645,6 +649,13 @@ func (x *Connection) GetUpdatedAt() string {
 	return ""
 }
 
+func (x *Connection) GetProxyUrl() string {
+	if x != nil {
+		return x.ProxyUrl
+	}
+	return ""
+}
+
 // Request & Response
 type GetConnectionRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -695,12 +706,18 @@ func (x *GetConnectionRequest) GetOrganizerId() string {
 type SaveConnectionRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// api_key: the clinic's Gooyai Partner API key. Checked against Gooyai
-	// before it's saved.
+	// before it's saved. May be empty when already connected, to keep the
+	// stored key (e.g. to change only the proxy or environment).
 	ApiKey string `protobuf:"bytes,1,opt,name=api_key,json=apiKey,proto3" json:"api_key,omitempty"`
 	// environment: "sandbox" (default) or "prod".
 	Environment string `protobuf:"bytes,2,opt,name=environment,proto3" json:"environment,omitempty"`
 	// organizer_id: superadmins only. Ignored for everyone else.
-	OrganizerId   string `protobuf:"bytes,3,opt,name=organizer_id,json=organizerId,proto3" json:"organizer_id,omitempty"`
+	OrganizerId string `protobuf:"bytes,3,opt,name=organizer_id,json=organizerId,proto3" json:"organizer_id,omitempty"`
+	// proxy_url: optional http://, https://, socks5:// or socks5h:// proxy for
+	// calls to the provider, e.g. socks5://user:pass@host:1080. Empty = the
+	// server's default. A "****" password (as returned by GetConnection) keeps
+	// the stored one.
+	ProxyUrl      string `protobuf:"bytes,4,opt,name=proxy_url,json=proxyUrl,proto3" json:"proxy_url,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -752,6 +769,13 @@ func (x *SaveConnectionRequest) GetEnvironment() string {
 func (x *SaveConnectionRequest) GetOrganizerId() string {
 	if x != nil {
 		return x.OrganizerId
+	}
+	return ""
+}
+
+func (x *SaveConnectionRequest) GetProxyUrl() string {
+	if x != nil {
+		return x.ProxyUrl
 	}
 	return ""
 }
@@ -983,20 +1007,22 @@ const file_gooyai_gooyai_proto_rawDesc = "" +
 	"\x0eGetCallRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12!\n" +
 	"\forganizer_id\x18\x02 \x01(\tR\vorganizerId\x12\x1c\n" +
-	"\tdirection\x18\x03 \x01(\tR\tdirection\"\x88\x01\n" +
+	"\tdirection\x18\x03 \x01(\tR\tdirection\"\xa5\x01\n" +
 	"\n" +
 	"Connection\x12\x1c\n" +
 	"\tconnected\x18\x01 \x01(\bR\tconnected\x12 \n" +
 	"\venvironment\x18\x02 \x01(\tR\venvironment\x12\x1b\n" +
 	"\tkey_last4\x18\x03 \x01(\tR\bkeyLast4\x12\x1d\n" +
 	"\n" +
-	"updated_at\x18\x04 \x01(\tR\tupdatedAt\"9\n" +
+	"updated_at\x18\x04 \x01(\tR\tupdatedAt\x12\x1b\n" +
+	"\tproxy_url\x18\x05 \x01(\tR\bproxyUrl\"9\n" +
 	"\x14GetConnectionRequest\x12!\n" +
-	"\forganizer_id\x18\x01 \x01(\tR\vorganizerId\"u\n" +
+	"\forganizer_id\x18\x01 \x01(\tR\vorganizerId\"\x92\x01\n" +
 	"\x15SaveConnectionRequest\x12\x17\n" +
 	"\aapi_key\x18\x01 \x01(\tR\x06apiKey\x12 \n" +
 	"\venvironment\x18\x02 \x01(\tR\venvironment\x12!\n" +
-	"\forganizer_id\x18\x03 \x01(\tR\vorganizerId\"<\n" +
+	"\forganizer_id\x18\x03 \x01(\tR\vorganizerId\x12\x1b\n" +
+	"\tproxy_url\x18\x04 \x01(\tR\bproxyUrl\"<\n" +
 	"\x17DeleteConnectionRequest\x12!\n" +
 	"\forganizer_id\x18\x01 \x01(\tR\vorganizerId\"\x1a\n" +
 	"\x18DeleteConnectionResponse\"9\n" +

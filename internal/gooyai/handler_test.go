@@ -25,7 +25,7 @@ type mockService struct {
 	getCall       func(id int64) (*gooyai.IncomingCall, error)
 	listProviders func() ([]gooyai.ServiceProvider, error)
 	getConn       func() (*Connection, error)
-	connect       func(apiKey, env string) (*Connection, error)
+	connect       func(in *ConnectInput) (*Connection, error)
 	disconnect    func() error
 }
 
@@ -45,9 +45,9 @@ func (m *mockService) GetConnection(_ context.Context, tenant string) (*Connecti
 	m.tenant = tenant
 	return m.getConn()
 }
-func (m *mockService) Connect(_ context.Context, tenant, apiKey, env string) (*Connection, error) {
+func (m *mockService) Connect(_ context.Context, tenant string, in *ConnectInput) (*Connection, error) {
 	m.tenant = tenant
-	return m.connect(apiKey, env)
+	return m.connect(in)
 }
 func (m *mockService) Disconnect(_ context.Context, tenant string) error {
 	m.tenant = tenant
@@ -278,23 +278,32 @@ func TestGetConnection(t *testing.T) {
 }
 
 func TestSaveConnection(t *testing.T) {
-	t.Run("passes key and environment, returns the new status", func(t *testing.T) {
-		var gotKey, gotEnv string
-		svc := &mockService{connect: func(apiKey, env string) (*Connection, error) {
-			gotKey, gotEnv = apiKey, env
-			return &Connection{KeyLast4: "ab12", Environment: env}, nil
+	t.Run("passes key, environment and proxy, returns the new status", func(t *testing.T) {
+		var got ConnectInput
+		svc := &mockService{connect: func(in *ConnectInput) (*Connection, error) {
+			got = *in
+			return &Connection{KeyLast4: "ab12", Environment: in.Environment, ProxyRedacted: "socks5://u:****@proxy:1080"}, nil
 		}}
 
-		conn, err := NewHandler(svc, false).SaveConnection(clinicCtx, &pb.SaveConnectionRequest{ApiKey: "secret-key-ab12", Environment: "sandbox"})
+		conn, err := NewHandler(svc, false).SaveConnection(clinicCtx, &pb.SaveConnectionRequest{
+			ApiKey: "secret-key-ab12", Environment: "sandbox", ProxyUrl: "socks5://u:pw@proxy:1080",
+		})
 		require.NoError(t, err)
-		assert.Equal(t, "secret-key-ab12", gotKey)
-		assert.Equal(t, "sandbox", gotEnv)
+		assert.Equal(t, ConnectInput{APIKey: "secret-key-ab12", Environment: "sandbox", ProxyURL: "socks5://u:pw@proxy:1080"}, got)
 		assert.True(t, conn.Connected)
 		assert.Equal(t, "ab12", conn.KeyLast4)
+		assert.Equal(t, "socks5://u:****@proxy:1080", conn.ProxyUrl, "only the redacted proxy goes back")
+	})
+
+	t.Run("a bad proxy is the caller's to fix", func(t *testing.T) {
+		svc := &mockService{connect: func(*ConnectInput) (*Connection, error) { return nil, ErrInvalidProxy }}
+
+		_, err := NewHandler(svc, false).SaveConnection(clinicCtx, &pb.SaveConnectionRequest{ProxyUrl: "ftp://x"})
+		assertCode(t, err, codes.InvalidArgument)
 	})
 
 	t.Run("a rejected key is the caller's to fix", func(t *testing.T) {
-		svc := &mockService{connect: func(string, string) (*Connection, error) { return nil, ErrKeyRejected }}
+		svc := &mockService{connect: func(*ConnectInput) (*Connection, error) { return nil, ErrKeyRejected }}
 
 		_, err := NewHandler(svc, false).SaveConnection(clinicCtx, &pb.SaveConnectionRequest{ApiKey: "bad"})
 		assertCode(t, err, codes.InvalidArgument)

@@ -135,6 +135,10 @@ message Connection {
   string key_last4 = 3;
   // updated_at: when the key was last saved, RFC3339. Empty when not connected.
   string updated_at = 4;
+  // proxy_url: the proxy calls to the provider go through, with any password
+  // replaced by "****". Empty = the server's default (GOOYAI_PROXY, else the
+  // environment's proxy settings).
+  string proxy_url = 5;
 }
 
 // Request & Response
@@ -146,12 +150,18 @@ message GetConnectionRequest {
 // Request & Response
 message SaveConnectionRequest {
   // api_key: the clinic's Gooyai Partner API key. Checked against Gooyai
-  // before it's saved.
+  // before it's saved. May be empty when already connected, to keep the
+  // stored key (e.g. to change only the proxy or environment).
   string api_key = 1;
   // environment: "sandbox" (default) or "prod".
   string environment = 2;
   // organizer_id: superadmins only. Ignored for everyone else.
   string organizer_id = 3;
+  // proxy_url: optional http://, https://, socks5:// or socks5h:// proxy for
+  // calls to the provider, e.g. socks5://user:pass@host:1080. Empty = the
+  // server's default. A "****" password (as returned by GetConnection) keeps
+  // the stored one.
+  string proxy_url = 4;
 }
 
 // Request & Response

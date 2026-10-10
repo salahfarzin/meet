@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 
 	"github.com/salahfarzin/meet/pkg/gooyai"
@@ -70,8 +71,8 @@ func testSealer(t *testing.T) *Sealer {
 	return s
 }
 
-// used records which key and environment the last client was built for.
-type used struct{ key, env string }
+// used records which key, environment and proxy the last client was built for.
+type used struct{ key, env, proxy string }
 
 // newTestService connects clinic-a (key "key-a", prod) and wires fc in.
 func newTestService(t *testing.T, fc *fakeClient) (Service, *fakeRepo, *used) {
@@ -83,8 +84,8 @@ func newTestService(t *testing.T, fc *fakeClient) (Service, *fakeRepo, *used) {
 		"clinic-a": {OrganizerUUID: "clinic-a", APIKeySealed: sealed, KeyLast4: "", Environment: "prod"},
 	}}
 	u := &used{}
-	svc := NewService(repo, sealer, func(key, env string) Client {
-		u.key, u.env = key, env
+	svc := NewService(repo, sealer, func(key, env, proxy string) Client {
+		u.key, u.env, u.proxy = key, env, proxy
 		return fc
 	})
 	return svc, repo, u
@@ -202,7 +203,7 @@ func TestService_Connect_ChecksThenStoresEncrypted(t *testing.T) {
 	var probed gooyai.ListProvidersFilter
 	svc, repo, u := newTestService(t, okProbe(&probed))
 
-	conn, err := svc.Connect(context.Background(), "clinic-b", "  sk-live-123456789abcd  ", "")
+	conn, err := svc.Connect(context.Background(), "clinic-b", &ConnectInput{APIKey: "  sk-live-123456789abcd  "})
 	require.NoError(t, err)
 
 	// Probed Gooyai with the trimmed key, sandbox by default, one row only.
@@ -222,7 +223,7 @@ func TestService_Connect_ReplacesExistingConnection(t *testing.T) {
 	var probed gooyai.ListProvidersFilter
 	svc, repo, _ := newTestService(t, okProbe(&probed))
 
-	_, err := svc.Connect(context.Background(), "clinic-a", "new-key-0000-wxyz", "prod")
+	_, err := svc.Connect(context.Background(), "clinic-a", &ConnectInput{APIKey: "new-key-0000-wxyz", Environment: "prod"})
 	require.NoError(t, err)
 	assert.Equal(t, "wxyz", repo.rows["clinic-a"].KeyLast4)
 	assert.Equal(t, "prod", repo.rows["clinic-a"].Environment)
@@ -251,7 +252,7 @@ func TestService_Connect_Rejections(t *testing.T) {
 			}}
 			svc, repo, _ := newTestService(t, fc)
 
-			_, err := svc.Connect(ctx, "clinic-b", tt.key, tt.env)
+			_, err := svc.Connect(ctx, "clinic-b", &ConnectInput{APIKey: tt.key, Environment: tt.env})
 			assert.ErrorIs(t, err, tt.wantErr)
 			assert.NotContains(t, repo.rows, "clinic-b", "nothing is stored on failure")
 		})
@@ -262,30 +263,30 @@ func TestService_Connect_Rejections(t *testing.T) {
 		svc, _, _ := newTestService(t, &fakeClient{listProviders: func(*gooyai.ListProvidersFilter) (*gooyai.ProviderPage, error) {
 			return nil, down
 		}})
-		_, err := svc.Connect(ctx, "clinic-b", "key", "prod")
+		_, err := svc.Connect(ctx, "clinic-b", &ConnectInput{APIKey: "key", Environment: "prod"})
 		assert.ErrorIs(t, err, gooyai.ErrServer)
 	})
 
 	t.Run("no encryption key: refuses before contacting Gooyai", func(t *testing.T) {
-		svc := NewService(&fakeRepo{rows: map[string]*Connection{}}, nil, func(string, string) Client {
+		svc := NewService(&fakeRepo{rows: map[string]*Connection{}}, nil, func(string, string, string) Client {
 			t.Fatal("Gooyai must not be contacted")
 			return nil
 		})
-		_, err := svc.Connect(ctx, "clinic-b", "key", "prod")
+		_, err := svc.Connect(ctx, "clinic-b", &ConnectInput{APIKey: "key", Environment: "prod"})
 		assert.ErrorIs(t, err, ErrEncryptionNotConfigured)
 	})
 
 	t.Run("storage failure", func(t *testing.T) {
 		svc, repo, _ := newTestService(t, okProbe(&probed))
 		repo.err = errors.New("users service down")
-		_, err := svc.Connect(ctx, "clinic-b", "key", "prod")
+		_, err := svc.Connect(ctx, "clinic-b", &ConnectInput{APIKey: "key", Environment: "prod"})
 		assert.EqualError(t, err, "users service down")
 	})
 
 	t.Run("save accepted but not kept", func(t *testing.T) {
 		svc, repo, _ := newTestService(t, okProbe(&probed))
 		repo.dropWrites = true
-		_, err := svc.Connect(ctx, "clinic-b", "key", "prod")
+		_, err := svc.Connect(ctx, "clinic-b", &ConnectInput{APIKey: "key", Environment: "prod"})
 		assert.ErrorIs(t, err, errNotStored)
 	})
 }
@@ -319,11 +320,140 @@ func TestNewClientFactory(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := NewClientFactory(srv.URL)("key-a", "prod")
+	c := NewClientFactory(srv.URL, "")("key-a", "prod", "")
 
 	call, err := c.GetIncomingCall(context.Background(), 7)
 	require.NoError(t, err)
 	assert.Equal(t, int64(7), call.ID)
 	assert.Equal(t, "key-a", gotKey)
 	assert.Equal(t, "/api/v1/partners/incoming-calls/7", gotPath)
+}
+
+// fakeProxy is an HTTP forward proxy that answers every request itself and
+// records the absolute URLs it was asked for.
+func fakeProxy(t *testing.T) (srv *httptest.Server, seen *[]string) {
+	t.Helper()
+	var urls []string
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		urls = append(urls, r.URL.String())
+		_, _ = w.Write([]byte(`{"status":"success","data":{"id":7}}`))
+	}))
+	t.Cleanup(srv.Close)
+	return srv, &urls
+}
+
+func TestNewClientFactory_Proxy(t *testing.T) {
+	const target = "http://gooyai.invalid"
+
+	t.Run("the clinic's own proxy", func(t *testing.T) {
+		proxy, seen := fakeProxy(t)
+		_, err := NewClientFactory(target, "")("key-a", "prod", proxy.URL).GetIncomingCall(context.Background(), 7)
+		require.NoError(t, err)
+		assert.Equal(t, []string{target + "/api/v1/partners/incoming-calls/7"}, *seen)
+	})
+
+	t.Run("the server default when the clinic has none", func(t *testing.T) {
+		proxy, seen := fakeProxy(t)
+		_, err := NewClientFactory(target, proxy.URL)("key-a", "prod", "").GetIncomingCall(context.Background(), 7)
+		require.NoError(t, err)
+		assert.Len(t, *seen, 1)
+	})
+
+	t.Run("a malformed default proxy is refused", func(t *testing.T) {
+		_, err := NewClientFactoryChecked(target, "ftp://proxy")
+		assert.ErrorIs(t, err, ErrInvalidProxy)
+	})
+}
+
+func TestService_Connect_Proxy(t *testing.T) {
+	ctx := context.Background()
+	var probed gooyai.ListProvidersFilter
+
+	t.Run("probes through the proxy, stores it sealed, shows it redacted", func(t *testing.T) {
+		svc, repo, u := newTestService(t, okProbe(&probed))
+
+		conn, err := svc.Connect(ctx, "clinic-b", &ConnectInput{APIKey: "sk-live-123456789abcd", ProxyURL: " socks5://u:pw@proxy:1080 "})
+		require.NoError(t, err)
+
+		assert.Equal(t, "socks5://u:pw@proxy:1080", u.proxy, "the probe goes through the proxy")
+		assert.Equal(t, "socks5://u:****@proxy:1080", conn.ProxyRedacted)
+		sealed := repo.rows["clinic-b"].ProxySealed
+		assert.NotContains(t, string(sealed), "pw", "the proxy is never stored in the clear")
+		plain, err := testSealer(t).Open(sealed)
+		require.NoError(t, err)
+		assert.Equal(t, "socks5://u:pw@proxy:1080", plain)
+
+		got, err := svc.GetConnection(ctx, "clinic-b")
+		require.NoError(t, err)
+		assert.Equal(t, "socks5://u:****@proxy:1080", got.ProxyRedacted)
+
+		u.proxy = ""
+		_, err = svc.ListProviders(ctx, "clinic-b")
+		require.NoError(t, err)
+		assert.Equal(t, "socks5://u:pw@proxy:1080", u.proxy, "calls use the stored proxy")
+	})
+
+	t.Run("blank key and masked password keep what's stored", func(t *testing.T) {
+		svc, repo, u := newTestService(t, okProbe(&probed))
+		withPW := proxyURL("proxy:3128", "pw")
+		_, err := svc.Connect(ctx, "clinic-b", &ConnectInput{APIKey: "sk-live-123456789abcd", ProxyURL: withPW})
+		require.NoError(t, err)
+
+		conn, err := svc.Connect(ctx, "clinic-b", &ConnectInput{Environment: "prod", ProxyURL: redactProxy(withPW)})
+		require.NoError(t, err)
+		assert.Equal(t, used{key: "sk-live-123456789abcd", env: "prod", proxy: withPW}, *u)
+		assert.Equal(t, "abcd", conn.KeyLast4)
+		assert.Equal(t, "prod", repo.rows["clinic-b"].Environment)
+	})
+
+	t.Run("a masked password doesn't follow the proxy to another host", func(t *testing.T) {
+		svc, _, u := newTestService(t, okProbe(&probed))
+		_, err := svc.Connect(ctx, "clinic-b", &ConnectInput{APIKey: "sk-live-123456789abcd", ProxyURL: proxyURL("proxy:3128", "pw")})
+		require.NoError(t, err)
+
+		elsewhere := redactProxy(proxyURL("elsewhere:3128", "pw"))
+		_, err = svc.Connect(ctx, "clinic-b", &ConnectInput{ProxyURL: elsewhere})
+		require.NoError(t, err)
+		assert.Equal(t, elsewhere, u.proxy)
+	})
+
+	t.Run("an empty proxy clears it", func(t *testing.T) {
+		svc, repo, _ := newTestService(t, okProbe(&probed))
+		_, err := svc.Connect(ctx, "clinic-b", &ConnectInput{APIKey: "sk-live-123456789abcd", ProxyURL: "http://proxy:3128"})
+		require.NoError(t, err)
+
+		conn, err := svc.Connect(ctx, "clinic-b", &ConnectInput{})
+		require.NoError(t, err)
+		assert.Empty(t, repo.rows["clinic-b"].ProxySealed)
+		assert.Empty(t, conn.ProxyRedacted)
+	})
+
+	t.Run("rejections", func(t *testing.T) {
+		svc, repo, _ := newTestService(t, &fakeClient{listProviders: func(*gooyai.ListProvidersFilter) (*gooyai.ProviderPage, error) {
+			t.Fatal("Gooyai must not be contacted")
+			return nil, nil
+		}})
+
+		_, err := svc.Connect(ctx, "clinic-b", &ConnectInput{APIKey: "key", ProxyURL: "ftp://proxy:21"})
+		assert.ErrorIs(t, err, ErrInvalidProxy)
+		_, err = svc.Connect(ctx, "clinic-b", &ConnectInput{APIKey: "key", ProxyURL: "socks5://"})
+		assert.ErrorIs(t, err, ErrInvalidProxy)
+		_, err = svc.Connect(ctx, "clinic-b", &ConnectInput{})
+		assert.ErrorIs(t, err, ErrInvalidConnection, "a blank key needs a stored one to keep")
+		assert.NotContains(t, repo.rows, "clinic-b")
+	})
+}
+
+// proxyURL builds http://u:<password>@host (built, not a literal, so gosec
+// doesn't take test fixtures for hardcoded credentials).
+func proxyURL(host, password string) string {
+	return (&url.URL{Scheme: "http", User: url.UserPassword("u", password), Host: host}).String()
+}
+
+func TestRedactProxy(t *testing.T) {
+	assert.Equal(t, "", redactProxy(""))
+	assert.Equal(t, "http://proxy:3128", redactProxy("http://proxy:3128"))
+	assert.Equal(t, "socks5://user@proxy:1080", redactProxy("socks5://user@proxy:1080"))
+	assert.Equal(t, "socks5://user:****@proxy:1080", redactProxy("socks5://user:s3cret@proxy:1080"))
+	assert.Equal(t, maskedPassword, redactProxy("http://[::1"))
 }
