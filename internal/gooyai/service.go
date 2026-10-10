@@ -1,7 +1,8 @@
 // Package gooyai exposes a clinic's Gooyai (AI phone receptionist) data to
 // the dashboard. The Partner API client itself lives in pkg/gooyai; this
-// package owns each clinic's connection (its encrypted key) and how results
-// map to our proto.
+// package owns each clinic's connection (its key, encrypted here and stored in
+// the clinic's user settings, see usersRepository) and how results map to our
+// proto.
 package gooyai
 
 import (
@@ -21,6 +22,9 @@ var (
 	ErrKeyRejected = errors.New("the phone assistant provider rejected this API key")
 	// ErrInvalidConnection covers a blank key or an unknown environment.
 	ErrInvalidConnection = errors.New(`api_key is required and environment must be "sandbox" or "prod"`)
+	// errNotStored means the users service accepted the save but didn't keep
+	// phone_assistant (e.g. it isn't in its allowed settings keys).
+	errNotStored = errors.New("the users service did not store the phone_assistant setting")
 )
 
 const (
@@ -169,6 +173,11 @@ func (s *service) Connect(ctx context.Context, tenant, apiKey, env string) (*Con
 		return nil, err
 	}
 
+	return s.store(ctx, tenant, apiKey, env)
+}
+
+// store seals apiKey and saves it as the tenant's connection.
+func (s *service) store(ctx context.Context, tenant, apiKey, env string) (*Connection, error) {
 	sealed, err := s.sealer.Seal(apiKey)
 	if err != nil {
 		return nil, err
@@ -178,10 +187,20 @@ func (s *service) Connect(ctx context.Context, tenant, apiKey, env string) (*Con
 		APIKeySealed:  sealed,
 		KeyLast4:      last4(apiKey),
 		Environment:   env,
+		UpdatedAt:     time.Now().UTC(),
 	}); err != nil {
 		return nil, err
 	}
-	return s.repo.Get(ctx, tenant)
+	// Read it back: the users service silently drops settings keys it doesn't
+	// allow, so a save that didn't land must fail here, not look connected.
+	conn, err := s.repo.Get(ctx, tenant)
+	if err != nil {
+		return nil, err
+	}
+	if conn == nil {
+		return nil, errNotStored
+	}
+	return conn, nil
 }
 
 func (s *service) Disconnect(ctx context.Context, tenant string) error {

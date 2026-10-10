@@ -2,6 +2,8 @@ package router
 
 import (
 	"database/sql"
+	"net/http"
+	"time"
 
 	"github.com/salahfarzin/meet/configs"
 	"github.com/salahfarzin/meet/internal/availabilitytemplates"
@@ -14,6 +16,10 @@ import (
 	pbSpecialties "github.com/salahfarzin/meet/proto/specialties"
 	"google.golang.org/grpc"
 )
+
+// usersServiceTimeout bounds each read/write of a clinic's phone assistant
+// settings; the dashboard is waiting on it.
+const usersServiceTimeout = 10 * time.Second
 
 // SetupGRPCRoutes fails only on a malformed GOOYAI_ENCRYPTION_KEY: a set but
 // broken key is a deploy mistake worth refusing to start over, unlike an
@@ -34,7 +40,8 @@ func SetupGRPCRoutes(server *grpc.Server, db *sql.DB, authDisabled bool, gooyaiC
 	specialtyService := specialties.NewService(specialties.NewRepository(db))
 	pbSpecialties.RegisterSpecialtyServiceServer(server, specialties.NewHandler(specialtyService, authDisabled))
 
-	gooyaiService := gooyai.NewService(gooyai.NewRepository(db), sealer, gooyai.NewClientFactory(gooyaiCfg.BaseURL))
+	connections := gooyai.NewUsersRepository(gooyaiCfg.UsersService, &http.Client{Timeout: usersServiceTimeout})
+	gooyaiService := gooyai.NewService(connections, sealer, gooyai.NewClientFactory(gooyaiCfg.BaseURL))
 	pbGooyai.RegisterGooyaiServiceServer(server, gooyai.NewHandler(gooyaiService, authDisabled))
 	return nil
 }

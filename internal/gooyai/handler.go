@@ -219,8 +219,8 @@ func toStatus(ctx context.Context, err error, op string) error {
 	switch {
 	case errors.Is(err, ErrNotConnected):
 		return status.Error(codes.FailedPrecondition, err.Error())
-	case errors.Is(err, ErrEncryptionNotConfigured):
-		logger.FromContext(ctx).Error("GOOYAI_ENCRYPTION_KEY is not set", zap.String("op", op))
+	case errors.Is(err, ErrEncryptionNotConfigured), errors.Is(err, ErrUsersServiceNotConfigured):
+		logger.FromContext(ctx).Error("phone assistant integration is not configured", zap.String("op", op), zap.Error(err))
 		return status.Error(codes.FailedPrecondition, "the phone assistant integration is not set up on the server")
 	case errors.Is(err, ErrKeyRejected), errors.Is(err, ErrInvalidConnection):
 		return status.Error(codes.InvalidArgument, err.Error())
@@ -238,7 +238,7 @@ func toStatus(ctx context.Context, err error, op string) error {
 		logger.FromContext(ctx).Error("gooyai request failed", zap.String("op", op), zap.Error(err))
 		return status.Error(codes.Unavailable, "the phone assistant provider is unavailable")
 	}
-	// Ours, not Gooyai's: the database, a key that won't decrypt, a decode error.
+	// Ours, not Gooyai's: the users service, a key that won't decrypt, a decode error.
 	logger.FromContext(ctx).Error("gooyai operation failed", zap.String("op", op), zap.Error(err))
 	return status.Error(codes.Internal, errInternalServer)
 }

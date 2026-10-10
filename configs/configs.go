@@ -39,6 +39,10 @@ type Gooyai struct {
 	// dashboard; unset keeps the service up with the integration disabled.
 	// A secret: never log it.
 	EncryptionKey string `env:"GOOYAI_ENCRYPTION_KEY"`
+	// UsersService is the users API base (e.g. https://api.psychometrist.local/v1)
+	// whose user settings hold each clinic's sealed key, under
+	// settings.phone_assistant. Unset leaves the integration disabled.
+	UsersService string `env:"USERS_SERVICE"`
 }
 
 type Configs struct {
@@ -100,6 +104,7 @@ func Init() *Configs {
 		Gooyai: Gooyai{
 			BaseURL:       utils.GetEnv("GOOYAI_BASE_URL", "https://api.gooyai.ir"),
 			EncryptionKey: utils.GetEnv("GOOYAI_ENCRYPTION_KEY", ""),
+			UsersService:  utils.GetEnv("USERS_SERVICE", ""),
 		},
 	}
 }

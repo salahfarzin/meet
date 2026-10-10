@@ -29,10 +29,13 @@ func (f *fakeClient) ListProviders(_ context.Context, filter *gooyai.ListProvide
 	return f.listProviders(filter)
 }
 
-// fakeRepo is an in-memory Repository; err, when set, fails every call.
+// fakeRepo is an in-memory Repository; err, when set, fails every call, and
+// dropWrites makes Upsert succeed without keeping anything (the users service
+// ignoring a settings key it doesn't allow).
 type fakeRepo struct {
-	rows map[string]*Connection
-	err  error
+	rows       map[string]*Connection
+	err        error
+	dropWrites bool
 }
 
 func (r *fakeRepo) Get(_ context.Context, organizerUUID string) (*Connection, error) {
@@ -45,7 +48,9 @@ func (r *fakeRepo) Upsert(_ context.Context, c *Connection) error {
 	if r.err != nil {
 		return r.err
 	}
-	r.rows[c.OrganizerUUID] = c
+	if !r.dropWrites {
+		r.rows[c.OrganizerUUID] = c
+	}
 	return nil
 }
 func (r *fakeRepo) Delete(_ context.Context, organizerUUID string) error {
@@ -272,9 +277,16 @@ func TestService_Connect_Rejections(t *testing.T) {
 
 	t.Run("storage failure", func(t *testing.T) {
 		svc, repo, _ := newTestService(t, okProbe(&probed))
-		repo.err = errors.New("db down")
+		repo.err = errors.New("users service down")
 		_, err := svc.Connect(ctx, "clinic-b", "key", "prod")
-		assert.EqualError(t, err, "db down")
+		assert.EqualError(t, err, "users service down")
+	})
+
+	t.Run("save accepted but not kept", func(t *testing.T) {
+		svc, repo, _ := newTestService(t, okProbe(&probed))
+		repo.dropWrites = true
+		_, err := svc.Connect(ctx, "clinic-b", "key", "prod")
+		assert.ErrorIs(t, err, errNotStored)
 	})
 }
 

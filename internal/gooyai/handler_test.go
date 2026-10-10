@@ -382,6 +382,7 @@ func TestToStatus(t *testing.T) {
 		{&gooyai.APIError{StatusCode: 429}, codes.ResourceExhausted},
 		{&gooyai.APIError{StatusCode: 503}, codes.Unavailable},
 		{ErrEncryptionNotConfigured, codes.FailedPrecondition},
+		{ErrUsersServiceNotConfigured, codes.FailedPrecondition},
 		{ErrKeyRejected, codes.InvalidArgument},
 		{ErrInvalidConnection, codes.InvalidArgument},
 		// Not Gooyai's fault (e.g. the database): never blamed on Gooyai.
