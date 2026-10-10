@@ -78,10 +78,11 @@ func (x *TranscriptMessage) GetContent() string {
 	return ""
 }
 
-// IncomingCall is one call answered by the clinic's Gooyai AI agent.
-type IncomingCall struct {
+// Call is one phone call handled by the clinic's Gooyai AI agent.
+type Call struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// id: Gooyai's call id. A string because the dashboard treats ids as opaque.
+	// Unique within a direction, not across directions.
 	Id         string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	FromNumber string `protobuf:"bytes,2,opt,name=from_number,json=fromNumber,proto3" json:"from_number,omitempty"`
 	ToNumber   string `protobuf:"bytes,3,opt,name=to_number,json=toNumber,proto3" json:"to_number,omitempty"`
@@ -100,24 +101,27 @@ type IncomingCall struct {
 	Analytics *structpb.Struct `protobuf:"bytes,11,opt,name=analytics,proto3" json:"analytics,omitempty"`
 	// assistant_name: name of the Gooyai agent that answered.
 	AssistantName string `protobuf:"bytes,12,opt,name=assistant_name,json=assistantName,proto3" json:"assistant_name,omitempty"`
+	// direction: "incoming" (a caller rang the clinic) or "outgoing" (the agent
+	// rang out). Only incoming calls exist so far.
+	Direction     string `protobuf:"bytes,13,opt,name=direction,proto3" json:"direction,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *IncomingCall) Reset() {
-	*x = IncomingCall{}
+func (x *Call) Reset() {
+	*x = Call{}
 	mi := &file_gooyai_gooyai_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *IncomingCall) String() string {
+func (x *Call) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*IncomingCall) ProtoMessage() {}
+func (*Call) ProtoMessage() {}
 
-func (x *IncomingCall) ProtoReflect() protoreflect.Message {
+func (x *Call) ProtoReflect() protoreflect.Message {
 	mi := &file_gooyai_gooyai_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -129,91 +133,98 @@ func (x *IncomingCall) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use IncomingCall.ProtoReflect.Descriptor instead.
-func (*IncomingCall) Descriptor() ([]byte, []int) {
+// Deprecated: Use Call.ProtoReflect.Descriptor instead.
+func (*Call) Descriptor() ([]byte, []int) {
 	return file_gooyai_gooyai_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *IncomingCall) GetId() string {
+func (x *Call) GetId() string {
 	if x != nil {
 		return x.Id
 	}
 	return ""
 }
 
-func (x *IncomingCall) GetFromNumber() string {
+func (x *Call) GetFromNumber() string {
 	if x != nil {
 		return x.FromNumber
 	}
 	return ""
 }
 
-func (x *IncomingCall) GetToNumber() string {
+func (x *Call) GetToNumber() string {
 	if x != nil {
 		return x.ToNumber
 	}
 	return ""
 }
 
-func (x *IncomingCall) GetStartAt() string {
+func (x *Call) GetStartAt() string {
 	if x != nil {
 		return x.StartAt
 	}
 	return ""
 }
 
-func (x *IncomingCall) GetEndAt() string {
+func (x *Call) GetEndAt() string {
 	if x != nil {
 		return x.EndAt
 	}
 	return ""
 }
 
-func (x *IncomingCall) GetDurationSeconds() int32 {
+func (x *Call) GetDurationSeconds() int32 {
 	if x != nil {
 		return x.DurationSeconds
 	}
 	return 0
 }
 
-func (x *IncomingCall) GetRecordingUrl() string {
+func (x *Call) GetRecordingUrl() string {
 	if x != nil {
 		return x.RecordingUrl
 	}
 	return ""
 }
 
-func (x *IncomingCall) GetCallForward() bool {
+func (x *Call) GetCallForward() bool {
 	if x != nil {
 		return x.CallForward
 	}
 	return false
 }
 
-func (x *IncomingCall) GetShouldRecallUser() bool {
+func (x *Call) GetShouldRecallUser() bool {
 	if x != nil {
 		return x.ShouldRecallUser
 	}
 	return false
 }
 
-func (x *IncomingCall) GetTranscript() []*TranscriptMessage {
+func (x *Call) GetTranscript() []*TranscriptMessage {
 	if x != nil {
 		return x.Transcript
 	}
 	return nil
 }
 
-func (x *IncomingCall) GetAnalytics() *structpb.Struct {
+func (x *Call) GetAnalytics() *structpb.Struct {
 	if x != nil {
 		return x.Analytics
 	}
 	return nil
 }
 
-func (x *IncomingCall) GetAssistantName() string {
+func (x *Call) GetAssistantName() string {
 	if x != nil {
 		return x.AssistantName
+	}
+	return ""
+}
+
+func (x *Call) GetDirection() string {
+	if x != nil {
+		return x.Direction
 	}
 	return ""
 }
@@ -312,7 +323,7 @@ func (x *Provider) GetIsActive() bool {
 }
 
 // Request & Response
-type ListIncomingCallsRequest struct {
+type ListCallsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// page: 1-based, default 1.
 	Page int32 `protobuf:"varint,1,opt,name=page,proto3" json:"page,omitempty"`
@@ -326,25 +337,28 @@ type ListIncomingCallsRequest struct {
 	// should_recall: only calls flagged (true) or not flagged (false) for a call back; unset = all.
 	ShouldRecall *bool `protobuf:"varint,6,opt,name=should_recall,json=shouldRecall,proto3,oneof" json:"should_recall,omitempty"`
 	// organizer_id: superadmins only, to read another clinic's calls. Ignored for everyone else.
-	OrganizerId   string `protobuf:"bytes,7,opt,name=organizer_id,json=organizerId,proto3" json:"organizer_id,omitempty"`
+	OrganizerId string `protobuf:"bytes,7,opt,name=organizer_id,json=organizerId,proto3" json:"organizer_id,omitempty"`
+	// direction: "incoming" (default when empty) or "outgoing". Outgoing calls
+	// aren't available yet and return UNIMPLEMENTED.
+	Direction     string `protobuf:"bytes,8,opt,name=direction,proto3" json:"direction,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ListIncomingCallsRequest) Reset() {
-	*x = ListIncomingCallsRequest{}
+func (x *ListCallsRequest) Reset() {
+	*x = ListCallsRequest{}
 	mi := &file_gooyai_gooyai_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ListIncomingCallsRequest) String() string {
+func (x *ListCallsRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ListIncomingCallsRequest) ProtoMessage() {}
+func (*ListCallsRequest) ProtoMessage() {}
 
-func (x *ListIncomingCallsRequest) ProtoReflect() protoreflect.Message {
+func (x *ListCallsRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_gooyai_gooyai_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -356,63 +370,70 @@ func (x *ListIncomingCallsRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ListIncomingCallsRequest.ProtoReflect.Descriptor instead.
-func (*ListIncomingCallsRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use ListCallsRequest.ProtoReflect.Descriptor instead.
+func (*ListCallsRequest) Descriptor() ([]byte, []int) {
 	return file_gooyai_gooyai_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *ListIncomingCallsRequest) GetPage() int32 {
+func (x *ListCallsRequest) GetPage() int32 {
 	if x != nil {
 		return x.Page
 	}
 	return 0
 }
 
-func (x *ListIncomingCallsRequest) GetPageSize() int32 {
+func (x *ListCallsRequest) GetPageSize() int32 {
 	if x != nil {
 		return x.PageSize
 	}
 	return 0
 }
 
-func (x *ListIncomingCallsRequest) GetFrom() string {
+func (x *ListCallsRequest) GetFrom() string {
 	if x != nil {
 		return x.From
 	}
 	return ""
 }
 
-func (x *ListIncomingCallsRequest) GetTo() string {
+func (x *ListCallsRequest) GetTo() string {
 	if x != nil {
 		return x.To
 	}
 	return ""
 }
 
-func (x *ListIncomingCallsRequest) GetPhone() string {
+func (x *ListCallsRequest) GetPhone() string {
 	if x != nil {
 		return x.Phone
 	}
 	return ""
 }
 
-func (x *ListIncomingCallsRequest) GetShouldRecall() bool {
+func (x *ListCallsRequest) GetShouldRecall() bool {
 	if x != nil && x.ShouldRecall != nil {
 		return *x.ShouldRecall
 	}
 	return false
 }
 
-func (x *ListIncomingCallsRequest) GetOrganizerId() string {
+func (x *ListCallsRequest) GetOrganizerId() string {
 	if x != nil {
 		return x.OrganizerId
 	}
 	return ""
 }
 
-type ListIncomingCallsResponse struct {
+func (x *ListCallsRequest) GetDirection() string {
+	if x != nil {
+		return x.Direction
+	}
+	return ""
+}
+
+type ListCallsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Calls         []*IncomingCall        `protobuf:"bytes,1,rep,name=calls,proto3" json:"calls,omitempty"`
+	Calls         []*Call                `protobuf:"bytes,1,rep,name=calls,proto3" json:"calls,omitempty"`
 	Total         int32                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
 	Page          int32                  `protobuf:"varint,3,opt,name=page,proto3" json:"page,omitempty"`
 	PageSize      int32                  `protobuf:"varint,4,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
@@ -421,20 +442,20 @@ type ListIncomingCallsResponse struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ListIncomingCallsResponse) Reset() {
-	*x = ListIncomingCallsResponse{}
+func (x *ListCallsResponse) Reset() {
+	*x = ListCallsResponse{}
 	mi := &file_gooyai_gooyai_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ListIncomingCallsResponse) String() string {
+func (x *ListCallsResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ListIncomingCallsResponse) ProtoMessage() {}
+func (*ListCallsResponse) ProtoMessage() {}
 
-func (x *ListIncomingCallsResponse) ProtoReflect() protoreflect.Message {
+func (x *ListCallsResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_gooyai_gooyai_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -446,40 +467,40 @@ func (x *ListIncomingCallsResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ListIncomingCallsResponse.ProtoReflect.Descriptor instead.
-func (*ListIncomingCallsResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use ListCallsResponse.ProtoReflect.Descriptor instead.
+func (*ListCallsResponse) Descriptor() ([]byte, []int) {
 	return file_gooyai_gooyai_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *ListIncomingCallsResponse) GetCalls() []*IncomingCall {
+func (x *ListCallsResponse) GetCalls() []*Call {
 	if x != nil {
 		return x.Calls
 	}
 	return nil
 }
 
-func (x *ListIncomingCallsResponse) GetTotal() int32 {
+func (x *ListCallsResponse) GetTotal() int32 {
 	if x != nil {
 		return x.Total
 	}
 	return 0
 }
 
-func (x *ListIncomingCallsResponse) GetPage() int32 {
+func (x *ListCallsResponse) GetPage() int32 {
 	if x != nil {
 		return x.Page
 	}
 	return 0
 }
 
-func (x *ListIncomingCallsResponse) GetPageSize() int32 {
+func (x *ListCallsResponse) GetPageSize() int32 {
 	if x != nil {
 		return x.PageSize
 	}
 	return 0
 }
 
-func (x *ListIncomingCallsResponse) GetTotalPages() int32 {
+func (x *ListCallsResponse) GetTotalPages() int32 {
 	if x != nil {
 		return x.TotalPages
 	}
@@ -487,29 +508,32 @@ func (x *ListIncomingCallsResponse) GetTotalPages() int32 {
 }
 
 // Request & Response
-type GetIncomingCallRequest struct {
+type GetCallRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// organizer_id: superadmins only. Ignored for everyone else.
-	OrganizerId   string `protobuf:"bytes,2,opt,name=organizer_id,json=organizerId,proto3" json:"organizer_id,omitempty"`
+	OrganizerId string `protobuf:"bytes,2,opt,name=organizer_id,json=organizerId,proto3" json:"organizer_id,omitempty"`
+	// direction: "incoming" (default when empty) or "outgoing"; ids are only
+	// unique within a direction.
+	Direction     string `protobuf:"bytes,3,opt,name=direction,proto3" json:"direction,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *GetIncomingCallRequest) Reset() {
-	*x = GetIncomingCallRequest{}
+func (x *GetCallRequest) Reset() {
+	*x = GetCallRequest{}
 	mi := &file_gooyai_gooyai_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *GetIncomingCallRequest) String() string {
+func (x *GetCallRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*GetIncomingCallRequest) ProtoMessage() {}
+func (*GetCallRequest) ProtoMessage() {}
 
-func (x *GetIncomingCallRequest) ProtoReflect() protoreflect.Message {
+func (x *GetCallRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_gooyai_gooyai_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -521,21 +545,28 @@ func (x *GetIncomingCallRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use GetIncomingCallRequest.ProtoReflect.Descriptor instead.
-func (*GetIncomingCallRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use GetCallRequest.ProtoReflect.Descriptor instead.
+func (*GetCallRequest) Descriptor() ([]byte, []int) {
 	return file_gooyai_gooyai_proto_rawDescGZIP(), []int{5}
 }
 
-func (x *GetIncomingCallRequest) GetId() string {
+func (x *GetCallRequest) GetId() string {
 	if x != nil {
 		return x.Id
 	}
 	return ""
 }
 
-func (x *GetIncomingCallRequest) GetOrganizerId() string {
+func (x *GetCallRequest) GetOrganizerId() string {
 	if x != nil {
 		return x.OrganizerId
+	}
+	return ""
+}
+
+func (x *GetCallRequest) GetDirection() string {
+	if x != nil {
+		return x.Direction
 	}
 	return ""
 }
@@ -637,8 +668,8 @@ const file_gooyai_gooyai_proto_rawDesc = "" +
 	"\x13gooyai/gooyai.proto\x12\x06gooyai\x1a\x1cgoogle/api/annotations.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a.protoc-gen-openapiv2/options/annotations.proto\"A\n" +
 	"\x11TranscriptMessage\x12\x12\n" +
 	"\x04role\x18\x01 \x01(\tR\x04role\x12\x18\n" +
-	"\acontent\x18\x02 \x01(\tR\acontent\"\xc8\x03\n" +
-	"\fIncomingCall\x12\x0e\n" +
+	"\acontent\x18\x02 \x01(\tR\acontent\"\xde\x03\n" +
+	"\x04Call\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1f\n" +
 	"\vfrom_number\x18\x02 \x01(\tR\n" +
 	"fromNumber\x12\x1b\n" +
@@ -654,7 +685,8 @@ const file_gooyai_gooyai_proto_rawDesc = "" +
 	" \x03(\v2\x19.gooyai.TranscriptMessageR\n" +
 	"transcript\x125\n" +
 	"\tanalytics\x18\v \x01(\v2\x17.google.protobuf.StructR\tanalytics\x12%\n" +
-	"\x0eassistant_name\x18\f \x01(\tR\rassistantName\"\xd3\x01\n" +
+	"\x0eassistant_name\x18\f \x01(\tR\rassistantName\x12\x1c\n" +
+	"\tdirection\x18\r \x01(\tR\tdirection\"\xd3\x01\n" +
 	"\bProvider\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
 	"\n" +
@@ -663,33 +695,35 @@ const file_gooyai_gooyai_proto_rawDesc = "" +
 	"\tspecialty\x18\x04 \x01(\tR\tspecialty\x12\x14\n" +
 	"\x05phone\x18\x05 \x01(\tR\x05phone\x12*\n" +
 	"\x11profile_image_url\x18\x06 \x01(\tR\x0fprofileImageUrl\x12\x1b\n" +
-	"\tis_active\x18\a \x01(\bR\bisActive\"\xe4\x01\n" +
-	"\x18ListIncomingCallsRequest\x12\x12\n" +
+	"\tis_active\x18\a \x01(\bR\bisActive\"\xfa\x01\n" +
+	"\x10ListCallsRequest\x12\x12\n" +
 	"\x04page\x18\x01 \x01(\x05R\x04page\x12\x1b\n" +
 	"\tpage_size\x18\x02 \x01(\x05R\bpageSize\x12\x12\n" +
 	"\x04from\x18\x03 \x01(\tR\x04from\x12\x0e\n" +
 	"\x02to\x18\x04 \x01(\tR\x02to\x12\x14\n" +
 	"\x05phone\x18\x05 \x01(\tR\x05phone\x12(\n" +
 	"\rshould_recall\x18\x06 \x01(\bH\x00R\fshouldRecall\x88\x01\x01\x12!\n" +
-	"\forganizer_id\x18\a \x01(\tR\vorganizerIdB\x10\n" +
-	"\x0e_should_recall\"\xaf\x01\n" +
-	"\x19ListIncomingCallsResponse\x12*\n" +
-	"\x05calls\x18\x01 \x03(\v2\x14.gooyai.IncomingCallR\x05calls\x12\x14\n" +
+	"\forganizer_id\x18\a \x01(\tR\vorganizerId\x12\x1c\n" +
+	"\tdirection\x18\b \x01(\tR\tdirectionB\x10\n" +
+	"\x0e_should_recall\"\x9f\x01\n" +
+	"\x11ListCallsResponse\x12\"\n" +
+	"\x05calls\x18\x01 \x03(\v2\f.gooyai.CallR\x05calls\x12\x14\n" +
 	"\x05total\x18\x02 \x01(\x05R\x05total\x12\x12\n" +
 	"\x04page\x18\x03 \x01(\x05R\x04page\x12\x1b\n" +
 	"\tpage_size\x18\x04 \x01(\x05R\bpageSize\x12\x1f\n" +
 	"\vtotal_pages\x18\x05 \x01(\x05R\n" +
-	"totalPages\"K\n" +
-	"\x16GetIncomingCallRequest\x12\x0e\n" +
+	"totalPages\"a\n" +
+	"\x0eGetCallRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12!\n" +
-	"\forganizer_id\x18\x02 \x01(\tR\vorganizerId\"9\n" +
+	"\forganizer_id\x18\x02 \x01(\tR\vorganizerId\x12\x1c\n" +
+	"\tdirection\x18\x03 \x01(\tR\tdirection\"9\n" +
 	"\x14ListProvidersRequest\x12!\n" +
 	"\forganizer_id\x18\x01 \x01(\tR\vorganizerId\"G\n" +
 	"\x15ListProvidersResponse\x12.\n" +
-	"\tproviders\x18\x01 \x03(\v2\x10.gooyai.ProviderR\tproviders2\xe4\x02\n" +
-	"\rGooyaiService\x12w\n" +
-	"\x11ListIncomingCalls\x12 .gooyai.ListIncomingCallsRequest\x1a!.gooyai.ListIncomingCallsResponse\"\x1d\x82\xd3\xe4\x93\x02\x17\x12\x15/meets/incoming-calls\x12k\n" +
-	"\x0fGetIncomingCall\x12\x1e.gooyai.GetIncomingCallRequest\x1a\x14.gooyai.IncomingCall\"\"\x82\xd3\xe4\x93\x02\x1c\x12\x1a/meets/incoming-calls/{id}\x12m\n" +
+	"\tproviders\x18\x01 \x03(\v2\x10.gooyai.ProviderR\tproviders2\xa2\x02\n" +
+	"\rGooyaiService\x12V\n" +
+	"\tListCalls\x12\x18.gooyai.ListCallsRequest\x1a\x19.gooyai.ListCallsResponse\"\x14\x82\xd3\xe4\x93\x02\x0e\x12\f/meets/calls\x12J\n" +
+	"\aGetCall\x12\x16.gooyai.GetCallRequest\x1a\f.gooyai.Call\"\x19\x82\xd3\xe4\x93\x02\x13\x12\x11/meets/calls/{id}\x12m\n" +
 	"\rListProviders\x12\x1c.gooyai.ListProvidersRequest\x1a\x1d.gooyai.ListProvidersResponse\"\x1f\x82\xd3\xe4\x93\x02\x19\x12\x17/meets/gooyai/providersB\x8c\x03\x92A\xd7\x02\x12\x9a\x01\n" +
 	"\n" +
 	"Gooyai API\x12WCalls and providers from Gooyai, the AI phone receptionist, for clinics connected to it\".\n" +
@@ -715,26 +749,26 @@ func file_gooyai_gooyai_proto_rawDescGZIP() []byte {
 
 var file_gooyai_gooyai_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_gooyai_gooyai_proto_goTypes = []any{
-	(*TranscriptMessage)(nil),         // 0: gooyai.TranscriptMessage
-	(*IncomingCall)(nil),              // 1: gooyai.IncomingCall
-	(*Provider)(nil),                  // 2: gooyai.Provider
-	(*ListIncomingCallsRequest)(nil),  // 3: gooyai.ListIncomingCallsRequest
-	(*ListIncomingCallsResponse)(nil), // 4: gooyai.ListIncomingCallsResponse
-	(*GetIncomingCallRequest)(nil),    // 5: gooyai.GetIncomingCallRequest
-	(*ListProvidersRequest)(nil),      // 6: gooyai.ListProvidersRequest
-	(*ListProvidersResponse)(nil),     // 7: gooyai.ListProvidersResponse
-	(*structpb.Struct)(nil),           // 8: google.protobuf.Struct
+	(*TranscriptMessage)(nil),     // 0: gooyai.TranscriptMessage
+	(*Call)(nil),                  // 1: gooyai.Call
+	(*Provider)(nil),              // 2: gooyai.Provider
+	(*ListCallsRequest)(nil),      // 3: gooyai.ListCallsRequest
+	(*ListCallsResponse)(nil),     // 4: gooyai.ListCallsResponse
+	(*GetCallRequest)(nil),        // 5: gooyai.GetCallRequest
+	(*ListProvidersRequest)(nil),  // 6: gooyai.ListProvidersRequest
+	(*ListProvidersResponse)(nil), // 7: gooyai.ListProvidersResponse
+	(*structpb.Struct)(nil),       // 8: google.protobuf.Struct
 }
 var file_gooyai_gooyai_proto_depIdxs = []int32{
-	0, // 0: gooyai.IncomingCall.transcript:type_name -> gooyai.TranscriptMessage
-	8, // 1: gooyai.IncomingCall.analytics:type_name -> google.protobuf.Struct
-	1, // 2: gooyai.ListIncomingCallsResponse.calls:type_name -> gooyai.IncomingCall
+	0, // 0: gooyai.Call.transcript:type_name -> gooyai.TranscriptMessage
+	8, // 1: gooyai.Call.analytics:type_name -> google.protobuf.Struct
+	1, // 2: gooyai.ListCallsResponse.calls:type_name -> gooyai.Call
 	2, // 3: gooyai.ListProvidersResponse.providers:type_name -> gooyai.Provider
-	3, // 4: gooyai.GooyaiService.ListIncomingCalls:input_type -> gooyai.ListIncomingCallsRequest
-	5, // 5: gooyai.GooyaiService.GetIncomingCall:input_type -> gooyai.GetIncomingCallRequest
+	3, // 4: gooyai.GooyaiService.ListCalls:input_type -> gooyai.ListCallsRequest
+	5, // 5: gooyai.GooyaiService.GetCall:input_type -> gooyai.GetCallRequest
 	6, // 6: gooyai.GooyaiService.ListProviders:input_type -> gooyai.ListProvidersRequest
-	4, // 7: gooyai.GooyaiService.ListIncomingCalls:output_type -> gooyai.ListIncomingCallsResponse
-	1, // 8: gooyai.GooyaiService.GetIncomingCall:output_type -> gooyai.IncomingCall
+	4, // 7: gooyai.GooyaiService.ListCalls:output_type -> gooyai.ListCallsResponse
+	1, // 8: gooyai.GooyaiService.GetCall:output_type -> gooyai.Call
 	7, // 9: gooyai.GooyaiService.ListProviders:output_type -> gooyai.ListProvidersResponse
 	7, // [7:10] is the sub-list for method output_type
 	4, // [4:7] is the sub-list for method input_type

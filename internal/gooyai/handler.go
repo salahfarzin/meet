@@ -24,6 +24,9 @@ const (
 	// localTenant is the organizer uuid localAuthBypassMiddleware injects
 	// when AUTH_DISABLED=true.
 	localTenant = "local"
+
+	directionIncoming = "incoming"
+	directionOutgoing = "outgoing"
 )
 
 type handler struct {
@@ -36,7 +39,12 @@ func NewHandler(service Service, authDisabled bool) *handler {
 	return &handler{service: service, authDisabled: authDisabled}
 }
 
-func (h *handler) ListIncomingCalls(ctx context.Context, req *pb.ListIncomingCallsRequest) (*pb.ListIncomingCallsResponse, error) {
+// ListCalls lists the clinic's calls. Only incoming calls exist in Gooyai's
+// Partner API so far; direction is the extension point for outgoing ones.
+func (h *handler) ListCalls(ctx context.Context, req *pb.ListCallsRequest) (*pb.ListCallsResponse, error) {
+	if err := checkDirection(req.GetDirection()); err != nil {
+		return nil, err
+	}
 	tenant, err := h.tenant(ctx, req.GetOrganizerId())
 	if err != nil {
 		return nil, err
@@ -51,11 +59,11 @@ func (h *handler) ListIncomingCalls(ctx context.Context, req *pb.ListIncomingCal
 		return nil, toStatus(ctx, err, "list incoming calls")
 	}
 
-	calls := make([]*pb.IncomingCall, 0, len(page.Calls))
+	calls := make([]*pb.Call, 0, len(page.Calls))
 	for i := range page.Calls {
 		calls = append(calls, callToProto(&page.Calls[i]))
 	}
-	return &pb.ListIncomingCallsResponse{
+	return &pb.ListCallsResponse{
 		Calls:      calls,
 		Total:      int32(page.Pagination.Total),      //nolint:gosec // bounded by Gooyai's paging
 		Page:       int32(page.Pagination.Page),       //nolint:gosec // bounded by Gooyai's paging
@@ -64,7 +72,10 @@ func (h *handler) ListIncomingCalls(ctx context.Context, req *pb.ListIncomingCal
 	}, nil
 }
 
-func (h *handler) GetIncomingCall(ctx context.Context, req *pb.GetIncomingCallRequest) (*pb.IncomingCall, error) {
+func (h *handler) GetCall(ctx context.Context, req *pb.GetCallRequest) (*pb.Call, error) {
+	if err := checkDirection(req.GetDirection()); err != nil {
+		return nil, err
+	}
 	tenant, err := h.tenant(ctx, req.GetOrganizerId())
 	if err != nil {
 		return nil, err
@@ -121,7 +132,7 @@ func (h *handler) tenant(ctx context.Context, requested string) (string, error) 
 
 // callsFilter validates the request and builds Gooyai's filter. Validating
 // here keeps Gooyai's Persian 400 messages from reaching the dashboard.
-func callsFilter(req *pb.ListIncomingCallsRequest) (gooyai.ListCallsFilter, error) {
+func callsFilter(req *pb.ListCallsRequest) (gooyai.ListCallsFilter, error) {
 	f := gooyai.ListCallsFilter{
 		PageQuery: gooyai.PageQuery{
 			Page:  max(int(req.GetPage()), 1),
@@ -186,8 +197,21 @@ func toStatus(ctx context.Context, err error, op string) error {
 	return status.Error(codes.Unavailable, "Gooyai is unavailable")
 }
 
-func callToProto(c *gooyai.IncomingCall) *pb.IncomingCall {
-	out := &pb.IncomingCall{
+// checkDirection accepts "" and "incoming". "outgoing" is a known direction
+// Gooyai doesn't expose yet, so it's UNIMPLEMENTED rather than invalid.
+func checkDirection(direction string) error {
+	switch direction {
+	case "", directionIncoming:
+		return nil
+	case directionOutgoing:
+		return status.Error(codes.Unimplemented, "outgoing calls are not available yet")
+	}
+	return status.Error(codes.InvalidArgument, `direction must be "incoming" or "outgoing"`)
+}
+
+func callToProto(c *gooyai.IncomingCall) *pb.Call {
+	out := &pb.Call{
+		Direction:        directionIncoming,
 		Id:               strconv.FormatInt(c.ID, 10),
 		FromNumber:       c.FromNumber,
 		ToNumber:         c.ToNumber,

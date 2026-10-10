@@ -19,9 +19,9 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	GooyaiService_ListIncomingCalls_FullMethodName = "/gooyai.GooyaiService/ListIncomingCalls"
-	GooyaiService_GetIncomingCall_FullMethodName   = "/gooyai.GooyaiService/GetIncomingCall"
-	GooyaiService_ListProviders_FullMethodName     = "/gooyai.GooyaiService/ListProviders"
+	GooyaiService_ListCalls_FullMethodName     = "/gooyai.GooyaiService/ListCalls"
+	GooyaiService_GetCall_FullMethodName       = "/gooyai.GooyaiService/GetCall"
+	GooyaiService_ListProviders_FullMethodName = "/gooyai.GooyaiService/ListProviders"
 )
 
 // GooyaiServiceClient is the client API for GooyaiService service.
@@ -29,11 +29,12 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
 // Service definition. Registered after MeetService so the literal
-// /meets/incoming-calls and /meets/gooyai routes win over /meets/{uuid}.
+// /meets/calls and /meets/gooyai routes win over /meets/{uuid}.
 type GooyaiServiceClient interface {
-	ListIncomingCalls(ctx context.Context, in *ListIncomingCallsRequest, opts ...grpc.CallOption) (*ListIncomingCallsResponse, error)
-	// GetIncomingCall returns the call itself, not wrapped in a response message.
-	GetIncomingCall(ctx context.Context, in *GetIncomingCallRequest, opts ...grpc.CallOption) (*IncomingCall, error)
+	// ListCalls lists incoming calls unless direction says otherwise.
+	ListCalls(ctx context.Context, in *ListCallsRequest, opts ...grpc.CallOption) (*ListCallsResponse, error)
+	// GetCall returns the call itself, not wrapped in a response message.
+	GetCall(ctx context.Context, in *GetCallRequest, opts ...grpc.CallOption) (*Call, error)
 	ListProviders(ctx context.Context, in *ListProvidersRequest, opts ...grpc.CallOption) (*ListProvidersResponse, error)
 }
 
@@ -45,20 +46,20 @@ func NewGooyaiServiceClient(cc grpc.ClientConnInterface) GooyaiServiceClient {
 	return &gooyaiServiceClient{cc}
 }
 
-func (c *gooyaiServiceClient) ListIncomingCalls(ctx context.Context, in *ListIncomingCallsRequest, opts ...grpc.CallOption) (*ListIncomingCallsResponse, error) {
+func (c *gooyaiServiceClient) ListCalls(ctx context.Context, in *ListCallsRequest, opts ...grpc.CallOption) (*ListCallsResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(ListIncomingCallsResponse)
-	err := c.cc.Invoke(ctx, GooyaiService_ListIncomingCalls_FullMethodName, in, out, cOpts...)
+	out := new(ListCallsResponse)
+	err := c.cc.Invoke(ctx, GooyaiService_ListCalls_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *gooyaiServiceClient) GetIncomingCall(ctx context.Context, in *GetIncomingCallRequest, opts ...grpc.CallOption) (*IncomingCall, error) {
+func (c *gooyaiServiceClient) GetCall(ctx context.Context, in *GetCallRequest, opts ...grpc.CallOption) (*Call, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(IncomingCall)
-	err := c.cc.Invoke(ctx, GooyaiService_GetIncomingCall_FullMethodName, in, out, cOpts...)
+	out := new(Call)
+	err := c.cc.Invoke(ctx, GooyaiService_GetCall_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -80,11 +81,12 @@ func (c *gooyaiServiceClient) ListProviders(ctx context.Context, in *ListProvide
 // for forward compatibility.
 //
 // Service definition. Registered after MeetService so the literal
-// /meets/incoming-calls and /meets/gooyai routes win over /meets/{uuid}.
+// /meets/calls and /meets/gooyai routes win over /meets/{uuid}.
 type GooyaiServiceServer interface {
-	ListIncomingCalls(context.Context, *ListIncomingCallsRequest) (*ListIncomingCallsResponse, error)
-	// GetIncomingCall returns the call itself, not wrapped in a response message.
-	GetIncomingCall(context.Context, *GetIncomingCallRequest) (*IncomingCall, error)
+	// ListCalls lists incoming calls unless direction says otherwise.
+	ListCalls(context.Context, *ListCallsRequest) (*ListCallsResponse, error)
+	// GetCall returns the call itself, not wrapped in a response message.
+	GetCall(context.Context, *GetCallRequest) (*Call, error)
 	ListProviders(context.Context, *ListProvidersRequest) (*ListProvidersResponse, error)
 	mustEmbedUnimplementedGooyaiServiceServer()
 }
@@ -96,11 +98,11 @@ type GooyaiServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedGooyaiServiceServer struct{}
 
-func (UnimplementedGooyaiServiceServer) ListIncomingCalls(context.Context, *ListIncomingCallsRequest) (*ListIncomingCallsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ListIncomingCalls not implemented")
+func (UnimplementedGooyaiServiceServer) ListCalls(context.Context, *ListCallsRequest) (*ListCallsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListCalls not implemented")
 }
-func (UnimplementedGooyaiServiceServer) GetIncomingCall(context.Context, *GetIncomingCallRequest) (*IncomingCall, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetIncomingCall not implemented")
+func (UnimplementedGooyaiServiceServer) GetCall(context.Context, *GetCallRequest) (*Call, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetCall not implemented")
 }
 func (UnimplementedGooyaiServiceServer) ListProviders(context.Context, *ListProvidersRequest) (*ListProvidersResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListProviders not implemented")
@@ -126,38 +128,38 @@ func RegisterGooyaiServiceServer(s grpc.ServiceRegistrar, srv GooyaiServiceServe
 	s.RegisterService(&GooyaiService_ServiceDesc, srv)
 }
 
-func _GooyaiService_ListIncomingCalls_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ListIncomingCallsRequest)
+func _GooyaiService_ListCalls_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListCallsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(GooyaiServiceServer).ListIncomingCalls(ctx, in)
+		return srv.(GooyaiServiceServer).ListCalls(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: GooyaiService_ListIncomingCalls_FullMethodName,
+		FullMethod: GooyaiService_ListCalls_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GooyaiServiceServer).ListIncomingCalls(ctx, req.(*ListIncomingCallsRequest))
+		return srv.(GooyaiServiceServer).ListCalls(ctx, req.(*ListCallsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _GooyaiService_GetIncomingCall_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetIncomingCallRequest)
+func _GooyaiService_GetCall_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetCallRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(GooyaiServiceServer).GetIncomingCall(ctx, in)
+		return srv.(GooyaiServiceServer).GetCall(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: GooyaiService_GetIncomingCall_FullMethodName,
+		FullMethod: GooyaiService_GetCall_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GooyaiServiceServer).GetIncomingCall(ctx, req.(*GetIncomingCallRequest))
+		return srv.(GooyaiServiceServer).GetCall(ctx, req.(*GetCallRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -188,12 +190,12 @@ var GooyaiService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*GooyaiServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "ListIncomingCalls",
-			Handler:    _GooyaiService_ListIncomingCalls_Handler,
+			MethodName: "ListCalls",
+			Handler:    _GooyaiService_ListCalls_Handler,
 		},
 		{
-			MethodName: "GetIncomingCall",
-			Handler:    _GooyaiService_GetIncomingCall_Handler,
+			MethodName: "GetCall",
+			Handler:    _GooyaiService_GetCall_Handler,
 		},
 		{
 			MethodName: "ListProviders",

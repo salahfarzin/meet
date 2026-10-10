@@ -16,43 +16,15 @@ consumes:
 produces:
   - application/json
 paths:
-  /meets/gooyai/providers:
+  /meets/calls:
     get:
-      operationId: GooyaiService_ListProviders
+      summary: ListCalls lists incoming calls unless direction says otherwise.
+      operationId: GooyaiService_ListCalls
       responses:
         "200":
           description: A successful response.
           schema:
-            $ref: '#/definitions/gooyaiListProvidersResponse'
-        "400":
-          description: Clinic not connected to Gooyai (FAILED_PRECONDITION), or an invalid filter
-          schema: {}
-        "404":
-          description: Resource not found
-          schema: {}
-        "500":
-          description: Internal server error
-          schema: {}
-        default:
-          description: An unexpected error response.
-          schema:
-            $ref: '#/definitions/rpcStatus'
-      parameters:
-        - name: organizer_id
-          description: 'organizer_id: superadmins only. Ignored for everyone else.'
-          in: query
-          required: false
-          type: string
-      tags:
-        - GooyaiService
-  /meets/incoming-calls:
-    get:
-      operationId: GooyaiService_ListIncomingCalls
-      responses:
-        "200":
-          description: A successful response.
-          schema:
-            $ref: '#/definitions/gooyaiListIncomingCallsResponse'
+            $ref: '#/definitions/gooyaiListCallsResponse'
         "400":
           description: Clinic not connected to Gooyai (FAILED_PRECONDITION), or an invalid filter
           schema: {}
@@ -103,17 +75,24 @@ paths:
           in: query
           required: false
           type: string
+        - name: direction
+          description: |-
+            direction: "incoming" (default when empty) or "outgoing". Outgoing calls
+            aren't available yet and return UNIMPLEMENTED.
+          in: query
+          required: false
+          type: string
       tags:
         - GooyaiService
-  /meets/incoming-calls/{id}:
+  /meets/calls/{id}:
     get:
-      summary: GetIncomingCall returns the call itself, not wrapped in a response message.
-      operationId: GooyaiService_GetIncomingCall
+      summary: GetCall returns the call itself, not wrapped in a response message.
+      operationId: GooyaiService_GetCall
       responses:
         "200":
           description: A successful response.
           schema:
-            $ref: '#/definitions/gooyaiIncomingCall'
+            $ref: '#/definitions/gooyaiCall'
         "400":
           description: Clinic not connected to Gooyai (FAILED_PRECONDITION), or an invalid filter
           schema: {}
@@ -137,15 +116,53 @@ paths:
           in: query
           required: false
           type: string
+        - name: direction
+          description: |-
+            direction: "incoming" (default when empty) or "outgoing"; ids are only
+            unique within a direction.
+          in: query
+          required: false
+          type: string
+      tags:
+        - GooyaiService
+  /meets/gooyai/providers:
+    get:
+      operationId: GooyaiService_ListProviders
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/gooyaiListProvidersResponse'
+        "400":
+          description: Clinic not connected to Gooyai (FAILED_PRECONDITION), or an invalid filter
+          schema: {}
+        "404":
+          description: Resource not found
+          schema: {}
+        "500":
+          description: Internal server error
+          schema: {}
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/rpcStatus'
+      parameters:
+        - name: organizer_id
+          description: 'organizer_id: superadmins only. Ignored for everyone else.'
+          in: query
+          required: false
+          type: string
       tags:
         - GooyaiService
 definitions:
-  gooyaiIncomingCall:
+  gooyaiCall:
     type: object
     properties:
       id:
         type: string
-        description: 'id: Gooyai''s call id. A string because the dashboard treats ids as opaque.'
+        description: |-
+          id: Gooyai's call id. A string because the dashboard treats ids as opaque.
+          Unique within a direction, not across directions.
       from_number:
         type: string
       to_number:
@@ -178,15 +195,20 @@ definitions:
       assistant_name:
         type: string
         description: 'assistant_name: name of the Gooyai agent that answered.'
-    description: IncomingCall is one call answered by the clinic's Gooyai AI agent.
-  gooyaiListIncomingCallsResponse:
+      direction:
+        type: string
+        description: |-
+          direction: "incoming" (a caller rang the clinic) or "outgoing" (the agent
+          rang out). Only incoming calls exist so far.
+    description: Call is one phone call handled by the clinic's Gooyai AI agent.
+  gooyaiListCallsResponse:
     type: object
     properties:
       calls:
         type: array
         items:
           type: object
-          $ref: '#/definitions/gooyaiIncomingCall'
+          $ref: '#/definitions/gooyaiCall'
       total:
         type: integer
         format: int32

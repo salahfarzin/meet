@@ -58,8 +58,10 @@ Trappists store only the uuids, in psychometrist `users.center_details.appointme
 
 | RPC | REST | notes |
 |-----|------|-------|
-| `ListIncomingCalls` | `GET /meets/incoming-calls?page&page_size&from&to&phone&should_recall` | `{calls,total,page,page_size,total_pages}`; `page_size` ≤ 100; `from`/`to` Gregorian `YYYY-MM-DD` |
-| `GetIncomingCall` | `GET /meets/incoming-calls/{id}` | returns the call **bare**, not wrapped |
+| `ListCalls` | `GET /meets/calls?direction&page&page_size&from&to&phone&should_recall` | `{calls,total,page,page_size,total_pages}`; `page_size` ≤ 100; `from`/`to` Gregorian `YYYY-MM-DD` |
+| `GetCall` | `GET /meets/calls/{id}?direction` | returns the call **bare**, not wrapped |
+
+`direction` is `incoming` (the default when empty) or `outgoing`; each call carries it. Gooyai's Partner API only has incoming calls, so `outgoing` is accepted as a known value but returns `UNIMPLEMENTED` (HTTP 501) until it does; anything else is `INVALID_ARGUMENT`. Call ids are only unique within a direction. `pkg/gooyai` keeps Gooyai's own `incoming-calls` naming.
 | `ListProviders` | `GET /meets/gooyai/providers` | all pages walked server-side |
 
 - The tenant is the caller's own uuid; only `Programmer` may pass `organizer_id` (same rule as `retrieveOrganizerUuid`). Never take a tenant or key from the request otherwise.

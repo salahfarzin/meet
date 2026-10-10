@@ -78,10 +78,10 @@ func okCalls() (*gooyai.CallPage, error) {
 	}, nil
 }
 
-func TestListIncomingCalls_MapsResponse(t *testing.T) {
+func TestListCalls_MapsResponse(t *testing.T) {
 	svc := &mockService{listCalls: okCalls}
 
-	resp, err := NewHandler(svc, false).ListIncomingCalls(clinicCtx, &pb.ListIncomingCallsRequest{Page: 2})
+	resp, err := NewHandler(svc, false).ListCalls(clinicCtx, &pb.ListCallsRequest{Page: 2})
 	require.NoError(t, err)
 
 	assert.Equal(t, "clinic-a", svc.tenant)
@@ -93,6 +93,7 @@ func TestListIncomingCalls_MapsResponse(t *testing.T) {
 
 	c := resp.Calls[0]
 	assert.Equal(t, "101", c.Id)
+	assert.Equal(t, "incoming", c.Direction)
 	assert.Equal(t, "+989121111111", c.FromNumber)
 	assert.Equal(t, int32(120), c.DurationSeconds)
 	assert.True(t, c.ShouldRecallUser)
@@ -102,11 +103,11 @@ func TestListIncomingCalls_MapsResponse(t *testing.T) {
 	assert.Equal(t, "neutral", c.Analytics.Fields["sentiment"].GetStringValue())
 }
 
-func TestListIncomingCalls_BuildsFilter(t *testing.T) {
+func TestListCalls_BuildsFilter(t *testing.T) {
 	recall := false
 	svc := &mockService{listCalls: okCalls}
 
-	_, err := NewHandler(svc, false).ListIncomingCalls(clinicCtx, &pb.ListIncomingCallsRequest{
+	_, err := NewHandler(svc, false).ListCalls(clinicCtx, &pb.ListCallsRequest{
 		PageSize: 50, From: "2026-06-01", To: "2026-06-30", Phone: "0912", ShouldRecall: &recall,
 	})
 	require.NoError(t, err)
@@ -121,17 +122,17 @@ func TestListIncomingCalls_BuildsFilter(t *testing.T) {
 	assert.False(t, *f.ShouldRecallUser)
 }
 
-func TestListIncomingCalls_DefaultsAndUnsetRecall(t *testing.T) {
+func TestListCalls_DefaultsAndUnsetRecall(t *testing.T) {
 	svc := &mockService{listCalls: okCalls}
 
-	_, err := NewHandler(svc, false).ListIncomingCalls(clinicCtx, &pb.ListIncomingCallsRequest{})
+	_, err := NewHandler(svc, false).ListCalls(clinicCtx, &pb.ListCallsRequest{})
 	require.NoError(t, err)
 	assert.Equal(t, defaultPageSize, svc.filter.Limit)
 	assert.Nil(t, svc.filter.ShouldRecallUser, "unset means don't filter")
 }
 
-func TestListIncomingCalls_InvalidFilters(t *testing.T) {
-	tests := map[string]*pb.ListIncomingCallsRequest{
+func TestListCalls_InvalidFilters(t *testing.T) {
+	tests := map[string]*pb.ListCallsRequest{
 		"page size too large": {PageSize: 101},
 		"bad from":            {From: "1405/04/01"},
 		"bad to":              {To: "tomorrow"},
@@ -140,17 +141,50 @@ func TestListIncomingCalls_InvalidFilters(t *testing.T) {
 	for name, req := range tests {
 		t.Run(name, func(t *testing.T) {
 			svc := &mockService{listCalls: okCalls}
-			_, err := NewHandler(svc, false).ListIncomingCalls(clinicCtx, req)
+			_, err := NewHandler(svc, false).ListCalls(clinicCtx, req)
 			assertCode(t, err, codes.InvalidArgument)
 		})
 	}
 }
 
-func TestListIncomingCalls_ServiceError(t *testing.T) {
+func TestListCalls_ServiceError(t *testing.T) {
 	svc := &mockService{listCalls: func() (*gooyai.CallPage, error) { return nil, ErrNotConnected }}
 
-	_, err := NewHandler(svc, false).ListIncomingCalls(clinicCtx, &pb.ListIncomingCallsRequest{})
+	_, err := NewHandler(svc, false).ListCalls(clinicCtx, &pb.ListCallsRequest{})
 	assertCode(t, err, codes.FailedPrecondition)
+}
+
+func TestDirection(t *testing.T) {
+	tests := []struct {
+		direction string
+		want      codes.Code
+	}{
+		{"", codes.OK},
+		{"incoming", codes.OK},
+		{"outgoing", codes.Unimplemented},
+		{"sideways", codes.InvalidArgument},
+	}
+	for _, tt := range tests {
+		t.Run("direction="+tt.direction, func(t *testing.T) {
+			svc := &mockService{
+				listCalls: okCalls,
+				getCall: func(int64) (*gooyai.IncomingCall, error) {
+					c := sampleCall()
+					return &c, nil
+				},
+			}
+			h := NewHandler(svc, false)
+
+			_, listErr := h.ListCalls(clinicCtx, &pb.ListCallsRequest{Direction: tt.direction})
+			_, getErr := h.GetCall(clinicCtx, &pb.GetCallRequest{Id: "101", Direction: tt.direction})
+
+			assert.Equal(t, tt.want, status.Code(listErr))
+			assert.Equal(t, tt.want, status.Code(getErr))
+			if tt.want != codes.OK {
+				assert.Empty(t, svc.tenant, "a rejected direction never reaches Gooyai")
+			}
+		})
+	}
 }
 
 func TestTenantResolution(t *testing.T) {
@@ -182,15 +216,15 @@ func TestMissingIdentityIsDenied(t *testing.T) {
 	h := NewHandler(&mockService{}, false)
 	ctx := context.Background()
 
-	_, err := h.ListIncomingCalls(ctx, &pb.ListIncomingCallsRequest{})
+	_, err := h.ListCalls(ctx, &pb.ListCallsRequest{})
 	assertCode(t, err, codes.PermissionDenied)
-	_, err = h.GetIncomingCall(ctx, &pb.GetIncomingCallRequest{Id: "1"})
+	_, err = h.GetCall(ctx, &pb.GetCallRequest{Id: "1"})
 	assertCode(t, err, codes.PermissionDenied)
 	_, err = h.ListProviders(ctx, &pb.ListProvidersRequest{})
 	assertCode(t, err, codes.PermissionDenied)
 }
 
-func TestGetIncomingCall(t *testing.T) {
+func TestGetCall(t *testing.T) {
 	var gotID int64
 	svc := &mockService{getCall: func(id int64) (*gooyai.IncomingCall, error) {
 		gotID = id
@@ -198,25 +232,25 @@ func TestGetIncomingCall(t *testing.T) {
 		return &c, nil
 	}}
 
-	call, err := NewHandler(svc, false).GetIncomingCall(clinicCtx, &pb.GetIncomingCallRequest{Id: "101"})
+	call, err := NewHandler(svc, false).GetCall(clinicCtx, &pb.GetCallRequest{Id: "101"})
 	require.NoError(t, err)
 	assert.Equal(t, int64(101), gotID)
 	assert.Equal(t, "101", call.Id, "returned bare, not wrapped")
 }
 
-func TestGetIncomingCall_InvalidID(t *testing.T) {
+func TestGetCall_InvalidID(t *testing.T) {
 	for _, id := range []string{"", "abc", "0", "-5"} {
-		_, err := NewHandler(&mockService{}, false).GetIncomingCall(clinicCtx, &pb.GetIncomingCallRequest{Id: id})
+		_, err := NewHandler(&mockService{}, false).GetCall(clinicCtx, &pb.GetCallRequest{Id: id})
 		assertCode(t, err, codes.InvalidArgument)
 	}
 }
 
-func TestGetIncomingCall_NotFound(t *testing.T) {
+func TestGetCall_NotFound(t *testing.T) {
 	svc := &mockService{getCall: func(int64) (*gooyai.IncomingCall, error) {
 		return nil, &gooyai.APIError{StatusCode: 404}
 	}}
 
-	_, err := NewHandler(svc, false).GetIncomingCall(clinicCtx, &pb.GetIncomingCallRequest{Id: "9"})
+	_, err := NewHandler(svc, false).GetCall(clinicCtx, &pb.GetCallRequest{Id: "9"})
 	assertCode(t, err, codes.NotFound)
 }
 

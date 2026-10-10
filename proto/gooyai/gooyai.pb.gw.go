@@ -35,11 +35,11 @@ var (
 	_ = metadata.Join
 )
 
-var filter_GooyaiService_ListIncomingCalls_0 = &utilities.DoubleArray{Encoding: map[string]int{}, Base: []int(nil), Check: []int(nil)}
+var filter_GooyaiService_ListCalls_0 = &utilities.DoubleArray{Encoding: map[string]int{}, Base: []int(nil), Check: []int(nil)}
 
-func request_GooyaiService_ListIncomingCalls_0(ctx context.Context, marshaler runtime.Marshaler, client GooyaiServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func request_GooyaiService_ListCalls_0(ctx context.Context, marshaler runtime.Marshaler, client GooyaiServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var (
-		protoReq ListIncomingCallsRequest
+		protoReq ListCallsRequest
 		metadata runtime.ServerMetadata
 	)
 	if req.Body != nil {
@@ -48,33 +48,33 @@ func request_GooyaiService_ListIncomingCalls_0(ctx context.Context, marshaler ru
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_GooyaiService_ListIncomingCalls_0); err != nil {
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_GooyaiService_ListCalls_0); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	msg, err := client.ListIncomingCalls(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.ListCalls(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 }
 
-func local_request_GooyaiService_ListIncomingCalls_0(ctx context.Context, marshaler runtime.Marshaler, server GooyaiServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func local_request_GooyaiService_ListCalls_0(ctx context.Context, marshaler runtime.Marshaler, server GooyaiServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var (
-		protoReq ListIncomingCallsRequest
+		protoReq ListCallsRequest
 		metadata runtime.ServerMetadata
 	)
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_GooyaiService_ListIncomingCalls_0); err != nil {
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_GooyaiService_ListCalls_0); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	msg, err := server.ListIncomingCalls(ctx, &protoReq)
+	msg, err := server.ListCalls(ctx, &protoReq)
 	return msg, metadata, err
 }
 
-var filter_GooyaiService_GetIncomingCall_0 = &utilities.DoubleArray{Encoding: map[string]int{"id": 0}, Base: []int{1, 1, 0}, Check: []int{0, 1, 2}}
+var filter_GooyaiService_GetCall_0 = &utilities.DoubleArray{Encoding: map[string]int{"id": 0}, Base: []int{1, 1, 0}, Check: []int{0, 1, 2}}
 
-func request_GooyaiService_GetIncomingCall_0(ctx context.Context, marshaler runtime.Marshaler, client GooyaiServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func request_GooyaiService_GetCall_0(ctx context.Context, marshaler runtime.Marshaler, client GooyaiServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var (
-		protoReq GetIncomingCallRequest
+		protoReq GetCallRequest
 		metadata runtime.ServerMetadata
 		err      error
 	)
@@ -92,16 +92,16 @@ func request_GooyaiService_GetIncomingCall_0(ctx context.Context, marshaler runt
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_GooyaiService_GetIncomingCall_0); err != nil {
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_GooyaiService_GetCall_0); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	msg, err := client.GetIncomingCall(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.GetCall(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 }
 
-func local_request_GooyaiService_GetIncomingCall_0(ctx context.Context, marshaler runtime.Marshaler, server GooyaiServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func local_request_GooyaiService_GetCall_0(ctx context.Context, marshaler runtime.Marshaler, server GooyaiServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var (
-		protoReq GetIncomingCallRequest
+		protoReq GetCallRequest
 		metadata runtime.ServerMetadata
 		err      error
 	)
@@ -116,10 +116,10 @@ func local_request_GooyaiService_GetIncomingCall_0(ctx context.Context, marshale
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_GooyaiService_GetIncomingCall_0); err != nil {
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_GooyaiService_GetCall_0); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	msg, err := server.GetIncomingCall(ctx, &protoReq)
+	msg, err := server.GetCall(ctx, &protoReq)
 	return msg, metadata, err
 }
 
@@ -164,45 +164,45 @@ func local_request_GooyaiService_ListProviders_0(ctx context.Context, marshaler 
 // Note that using this registration option will cause many gRPC library features to stop working. Consider using RegisterGooyaiServiceHandlerFromEndpoint instead.
 // GRPC interceptors will not work for this type of registration. To use interceptors, you must use the "runtime.WithMiddlewares" option in the "runtime.NewServeMux" call.
 func RegisterGooyaiServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux, server GooyaiServiceServer) error {
-	mux.Handle(http.MethodGet, pattern_GooyaiService_ListIncomingCalls_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle(http.MethodGet, pattern_GooyaiService_ListCalls_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/gooyai.GooyaiService/ListIncomingCalls", runtime.WithHTTPPathPattern("/meets/incoming-calls"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/gooyai.GooyaiService/ListCalls", runtime.WithHTTPPathPattern("/meets/calls"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_GooyaiService_ListIncomingCalls_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_GooyaiService_ListCalls_0(annotatedContext, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
 		if err != nil {
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		forward_GooyaiService_ListIncomingCalls_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_GooyaiService_ListCalls_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 	})
-	mux.Handle(http.MethodGet, pattern_GooyaiService_GetIncomingCall_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle(http.MethodGet, pattern_GooyaiService_GetCall_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/gooyai.GooyaiService/GetIncomingCall", runtime.WithHTTPPathPattern("/meets/incoming-calls/{id}"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/gooyai.GooyaiService/GetCall", runtime.WithHTTPPathPattern("/meets/calls/{id}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_GooyaiService_GetIncomingCall_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_GooyaiService_GetCall_0(annotatedContext, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
 		if err != nil {
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		forward_GooyaiService_GetIncomingCall_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_GooyaiService_GetCall_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 	})
 	mux.Handle(http.MethodGet, pattern_GooyaiService_ListProviders_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
@@ -264,39 +264,39 @@ func RegisterGooyaiServiceHandler(ctx context.Context, mux *runtime.ServeMux, co
 // doesn't go through the normal gRPC flow (creating a gRPC client etc.) then it will be up to the passed in
 // "GooyaiServiceClient" to call the correct interceptors. This client ignores the HTTP middlewares.
 func RegisterGooyaiServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux, client GooyaiServiceClient) error {
-	mux.Handle(http.MethodGet, pattern_GooyaiService_ListIncomingCalls_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle(http.MethodGet, pattern_GooyaiService_ListCalls_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/gooyai.GooyaiService/ListIncomingCalls", runtime.WithHTTPPathPattern("/meets/incoming-calls"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/gooyai.GooyaiService/ListCalls", runtime.WithHTTPPathPattern("/meets/calls"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_GooyaiService_ListIncomingCalls_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_GooyaiService_ListCalls_0(annotatedContext, inboundMarshaler, client, req, pathParams)
 		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
 		if err != nil {
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		forward_GooyaiService_ListIncomingCalls_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_GooyaiService_ListCalls_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 	})
-	mux.Handle(http.MethodGet, pattern_GooyaiService_GetIncomingCall_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle(http.MethodGet, pattern_GooyaiService_GetCall_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/gooyai.GooyaiService/GetIncomingCall", runtime.WithHTTPPathPattern("/meets/incoming-calls/{id}"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/gooyai.GooyaiService/GetCall", runtime.WithHTTPPathPattern("/meets/calls/{id}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_GooyaiService_GetIncomingCall_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_GooyaiService_GetCall_0(annotatedContext, inboundMarshaler, client, req, pathParams)
 		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
 		if err != nil {
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		forward_GooyaiService_GetIncomingCall_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_GooyaiService_GetCall_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 	})
 	mux.Handle(http.MethodGet, pattern_GooyaiService_ListProviders_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
@@ -319,13 +319,13 @@ func RegisterGooyaiServiceHandlerClient(ctx context.Context, mux *runtime.ServeM
 }
 
 var (
-	pattern_GooyaiService_ListIncomingCalls_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"meets", "incoming-calls"}, ""))
-	pattern_GooyaiService_GetIncomingCall_0   = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"meets", "incoming-calls", "id"}, ""))
-	pattern_GooyaiService_ListProviders_0     = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"meets", "gooyai", "providers"}, ""))
+	pattern_GooyaiService_ListCalls_0     = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"meets", "calls"}, ""))
+	pattern_GooyaiService_GetCall_0       = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"meets", "calls", "id"}, ""))
+	pattern_GooyaiService_ListProviders_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"meets", "gooyai", "providers"}, ""))
 )
 
 var (
-	forward_GooyaiService_ListIncomingCalls_0 = runtime.ForwardResponseMessage
-	forward_GooyaiService_GetIncomingCall_0   = runtime.ForwardResponseMessage
-	forward_GooyaiService_ListProviders_0     = runtime.ForwardResponseMessage
+	forward_GooyaiService_ListCalls_0     = runtime.ForwardResponseMessage
+	forward_GooyaiService_GetCall_0       = runtime.ForwardResponseMessage
+	forward_GooyaiService_ListProviders_0 = runtime.ForwardResponseMessage
 )

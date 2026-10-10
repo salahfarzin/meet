@@ -49,9 +49,10 @@ message TranscriptMessage {
   string content = 2;
 }
 
-// IncomingCall is one call answered by the clinic's Gooyai AI agent.
-message IncomingCall {
+// Call is one phone call handled by the clinic's Gooyai AI agent.
+message Call {
   // id: Gooyai's call id. A string because the dashboard treats ids as opaque.
+  // Unique within a direction, not across directions.
   string id = 1;
   string from_number = 2;
   string to_number = 3;
@@ -70,6 +71,9 @@ message IncomingCall {
   google.protobuf.Struct analytics = 11;
   // assistant_name: name of the Gooyai agent that answered.
   string assistant_name = 12;
+  // direction: "incoming" (a caller rang the clinic) or "outgoing" (the agent
+  // rang out). Only incoming calls exist so far.
+  string direction = 13;
 }
 
 // Provider is a schedulable person in Gooyai. Managed in Gooyai's panel only.
@@ -84,7 +88,7 @@ message Provider {
 }
 
 // Request & Response
-message ListIncomingCallsRequest {
+message ListCallsRequest {
   // page: 1-based, default 1.
   int32 page = 1;
   // page_size: 1-100, default 20.
@@ -98,9 +102,12 @@ message ListIncomingCallsRequest {
   optional bool should_recall = 6;
   // organizer_id: superadmins only, to read another clinic's calls. Ignored for everyone else.
   string organizer_id = 7;
+  // direction: "incoming" (default when empty) or "outgoing". Outgoing calls
+  // aren't available yet and return UNIMPLEMENTED.
+  string direction = 8;
 }
-message ListIncomingCallsResponse {
-  repeated IncomingCall calls = 1;
+message ListCallsResponse {
+  repeated Call calls = 1;
   int32 total = 2;
   int32 page = 3;
   int32 page_size = 4;
@@ -108,10 +115,13 @@ message ListIncomingCallsResponse {
 }
 
 // Request & Response
-message GetIncomingCallRequest {
+message GetCallRequest {
   string id = 1;
   // organizer_id: superadmins only. Ignored for everyone else.
   string organizer_id = 2;
+  // direction: "incoming" (default when empty) or "outgoing"; ids are only
+  // unique within a direction.
+  string direction = 3;
 }
 
 // Request & Response
@@ -124,17 +134,18 @@ message ListProvidersResponse {
 }
 
 // Service definition. Registered after MeetService so the literal
-// /meets/incoming-calls and /meets/gooyai routes win over /meets/{uuid}.
+// /meets/calls and /meets/gooyai routes win over /meets/{uuid}.
 service GooyaiService {
-  rpc ListIncomingCalls (ListIncomingCallsRequest) returns (ListIncomingCallsResponse) {
+  // ListCalls lists incoming calls unless direction says otherwise.
+  rpc ListCalls (ListCallsRequest) returns (ListCallsResponse) {
     option (google.api.http) = {
-      get: "/meets/incoming-calls"
+      get: "/meets/calls"
     };
   }
-  // GetIncomingCall returns the call itself, not wrapped in a response message.
-  rpc GetIncomingCall (GetIncomingCallRequest) returns (IncomingCall) {
+  // GetCall returns the call itself, not wrapped in a response message.
+  rpc GetCall (GetCallRequest) returns (Call) {
     option (google.api.http) = {
-      get: "/meets/incoming-calls/{id}"
+      get: "/meets/calls/{id}"
     };
   }
   rpc ListProviders (ListProvidersRequest) returns (ListProvidersResponse) {
