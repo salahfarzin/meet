@@ -11,7 +11,7 @@ import (
 
 // ErrEncryptionNotConfigured means GOOYAI_ENCRYPTION_KEY is unset, so keys
 // can be neither stored nor read.
-var ErrEncryptionNotConfigured = errors.New("gooyai key encryption is not configured")
+var ErrEncryptionNotConfigured = errors.New("phone assistant key encryption is not configured")
 
 // Sealer encrypts API keys at rest with AES-256-GCM.
 type Sealer struct {

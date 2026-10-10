@@ -32,7 +32,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
 // Service definition. Registered after MeetService so the literal
-// /meets/calls and /meets/gooyai routes win over /meets/{uuid}.
+// /meets/calls and /meets/phone-assistant routes win over /meets/{uuid}.
 type GooyaiServiceClient interface {
 	// ListCalls lists incoming calls unless direction says otherwise.
 	ListCalls(ctx context.Context, in *ListCallsRequest, opts ...grpc.CallOption) (*ListCallsResponse, error)
@@ -120,7 +120,7 @@ func (c *gooyaiServiceClient) DeleteConnection(ctx context.Context, in *DeleteCo
 // for forward compatibility.
 //
 // Service definition. Registered after MeetService so the literal
-// /meets/calls and /meets/gooyai routes win over /meets/{uuid}.
+// /meets/calls and /meets/phone-assistant routes win over /meets/{uuid}.
 type GooyaiServiceServer interface {
 	// ListCalls lists incoming calls unless direction says otherwise.
 	ListCalls(context.Context, *ListCallsRequest) (*ListCallsResponse, error)

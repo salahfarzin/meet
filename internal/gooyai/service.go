@@ -16,9 +16,9 @@ import (
 
 var (
 	// ErrNotConnected means the clinic has no Gooyai connection.
-	ErrNotConnected = errors.New("clinic is not connected to Gooyai")
+	ErrNotConnected = errors.New("clinic is not connected to the phone assistant")
 	// ErrKeyRejected means Gooyai refused the key while connecting.
-	ErrKeyRejected = errors.New("gooyai rejected this API key")
+	ErrKeyRejected = errors.New("the phone assistant provider rejected this API key")
 	// ErrInvalidConnection covers a blank key or an unknown environment.
 	ErrInvalidConnection = errors.New(`api_key is required and environment must be "sandbox" or "prod"`)
 )

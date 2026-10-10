@@ -1003,14 +1003,14 @@ const file_gooyai_gooyai_proto_rawDesc = "" +
 	"\x14ListProvidersRequest\x12!\n" +
 	"\forganizer_id\x18\x01 \x01(\tR\vorganizerId\"G\n" +
 	"\x15ListProvidersResponse\x12.\n" +
-	"\tproviders\x18\x01 \x03(\v2\x10.gooyai.ProviderR\tproviders2\xea\x04\n" +
+	"\tproviders\x18\x01 \x03(\v2\x10.gooyai.ProviderR\tproviders2\x8f\x05\n" +
 	"\rGooyaiService\x12V\n" +
 	"\tListCalls\x12\x18.gooyai.ListCallsRequest\x1a\x19.gooyai.ListCallsResponse\"\x14\x82\xd3\xe4\x93\x02\x0e\x12\f/meets/calls\x12J\n" +
-	"\aGetCall\x12\x16.gooyai.GetCallRequest\x1a\f.gooyai.Call\"\x19\x82\xd3\xe4\x93\x02\x13\x12\x11/meets/calls/{id}\x12m\n" +
-	"\rListProviders\x12\x1c.gooyai.ListProvidersRequest\x1a\x1d.gooyai.ListProvidersResponse\"\x1f\x82\xd3\xe4\x93\x02\x19\x12\x17/meets/gooyai/providers\x12c\n" +
-	"\rGetConnection\x12\x1c.gooyai.GetConnectionRequest\x1a\x12.gooyai.Connection\" \x82\xd3\xe4\x93\x02\x1a\x12\x18/meets/gooyai/connection\x12h\n" +
-	"\x0eSaveConnection\x12\x1d.gooyai.SaveConnectionRequest\x1a\x12.gooyai.Connection\"#\x82\xd3\xe4\x93\x02\x1d:\x01*\x1a\x18/meets/gooyai/connection\x12w\n" +
-	"\x10DeleteConnection\x12\x1f.gooyai.DeleteConnectionRequest\x1a .gooyai.DeleteConnectionResponse\" \x82\xd3\xe4\x93\x02\x1a*\x18/meets/gooyai/connectionB\x8c\x03\x92A\xd7\x02\x12\x9a\x01\n" +
+	"\aGetCall\x12\x16.gooyai.GetCallRequest\x1a\f.gooyai.Call\"\x19\x82\xd3\xe4\x93\x02\x13\x12\x11/meets/calls/{id}\x12v\n" +
+	"\rListProviders\x12\x1c.gooyai.ListProvidersRequest\x1a\x1d.gooyai.ListProvidersResponse\"(\x82\xd3\xe4\x93\x02\"\x12 /meets/phone-assistant/providers\x12l\n" +
+	"\rGetConnection\x12\x1c.gooyai.GetConnectionRequest\x1a\x12.gooyai.Connection\")\x82\xd3\xe4\x93\x02#\x12!/meets/phone-assistant/connection\x12q\n" +
+	"\x0eSaveConnection\x12\x1d.gooyai.SaveConnectionRequest\x1a\x12.gooyai.Connection\",\x82\xd3\xe4\x93\x02&:\x01*\x1a!/meets/phone-assistant/connection\x12\x80\x01\n" +
+	"\x10DeleteConnection\x12\x1f.gooyai.DeleteConnectionRequest\x1a .gooyai.DeleteConnectionResponse\")\x82\xd3\xe4\x93\x02#*!/meets/phone-assistant/connectionB\x8c\x03\x92A\xd7\x02\x12\x9a\x01\n" +
 	"\n" +
 	"Gooyai API\x12WCalls and providers from Gooyai, the AI phone receptionist, for clinics connected to it\".\n" +
 	"\x11Meets API Support\x1a\x19support@meets.example.com2\x031.0*\x02\x01\x022\x10application/json:\x10application/jsonRS\n" +

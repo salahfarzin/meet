@@ -62,10 +62,12 @@ Trappists store only the uuids, in psychometrist `users.center_details.appointme
 | `GetCall` | `GET /meets/calls/{id}?direction` | returns the call **bare**, not wrapped |
 
 `direction` is `incoming` (the default when empty) or `outgoing`; each call carries it. Gooyai's Partner API only has incoming calls, so `outgoing` is accepted as a known value but returns `UNIMPLEMENTED` (HTTP 501) until it does; anything else is `INVALID_ARGUMENT`. Call ids are only unique within a direction. `pkg/gooyai` keeps Gooyai's own `incoming-calls` naming.
-| `ListProviders` | `GET /meets/gooyai/providers` | all pages walked server-side |
-| `GetConnection` | `GET /meets/gooyai/connection` | `{connected, environment, key_last4, updated_at}` — **never the key** |
-| `SaveConnection` | `PUT /meets/gooyai/connection` (body `{api_key, environment}`) | probes Gooyai first: a rejected key is `INVALID_ARGUMENT` and nothing is stored; replaces any existing key |
-| `DeleteConnection` | `DELETE /meets/gooyai/connection` | |
+| `ListProviders` | `GET /meets/phone-assistant/providers` | all pages walked server-side |
+| `GetConnection` | `GET /meets/phone-assistant/connection` | `{connected, environment, key_last4, updated_at}` — **never the key** |
+| `SaveConnection` | `PUT /meets/phone-assistant/connection` (body `{api_key, environment}`) | probes Gooyai first: a rejected key is `INVALID_ARGUMENT` and nothing is stored; replaces any existing key |
+| `DeleteConnection` | `DELETE /meets/phone-assistant/connection` | |
+
+The HTTP routes say `phone-assistant`, not the vendor, because the dashboard is white-label: no vendor name appears in its UI, code or the paths it calls. The vendor name stays inside meet (`pkg/gooyai`, `internal/gooyai`, the proto package).
 
 - The tenant is the caller's own uuid; only `Programmer` may pass `organizer_id` (same rule as `retrieveOrganizerUuid`). Never take a tenant or key from the request otherwise.
 - Clinic not connected → `FAILED_PRECONDITION` (HTTP 400, `code: 9`). Gooyai rejecting the key is also `FAILED_PRECONDITION`, **never** `UNAUTHENTICATED`: the dashboard treats a 401 as its own session expiring and logs the user out.

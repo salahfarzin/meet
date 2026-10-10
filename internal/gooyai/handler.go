@@ -226,17 +226,17 @@ func toStatus(ctx context.Context, err error, op string) error {
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, gooyai.ErrUnauthorized):
 		logger.FromContext(ctx).Warn("gooyai rejected the clinic's API key", zap.String("op", op))
-		return status.Error(codes.FailedPrecondition, "Gooyai rejected this clinic's API key")
+		return status.Error(codes.FailedPrecondition, "the phone assistant provider rejected this clinic's API key")
 	case errors.Is(err, gooyai.ErrNotFound):
-		return status.Error(codes.NotFound, "not found in Gooyai")
+		return status.Error(codes.NotFound, "not found")
 	case errors.Is(err, gooyai.ErrBadRequest):
 		logger.FromContext(ctx).Warn("gooyai rejected the request", zap.String("op", op), zap.Error(err))
-		return status.Error(codes.InvalidArgument, "Gooyai rejected the request")
+		return status.Error(codes.InvalidArgument, "the phone assistant provider rejected the request")
 	case errors.Is(err, gooyai.ErrRateLimited):
-		return status.Error(codes.ResourceExhausted, "Gooyai rate limit reached, try again shortly")
+		return status.Error(codes.ResourceExhausted, "the phone assistant provider is rate limiting, try again shortly")
 	case gooyai.IsUnavailable(err):
 		logger.FromContext(ctx).Error("gooyai request failed", zap.String("op", op), zap.Error(err))
-		return status.Error(codes.Unavailable, "Gooyai is unavailable")
+		return status.Error(codes.Unavailable, "the phone assistant provider is unavailable")
 	}
 	// Ours, not Gooyai's: the database, a key that won't decrypt, a decode error.
 	logger.FromContext(ctx).Error("gooyai operation failed", zap.String("op", op), zap.Error(err))

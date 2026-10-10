@@ -125,7 +125,7 @@ paths:
           type: string
       tags:
         - GooyaiService
-  /meets/gooyai/connection:
+  /meets/phone-assistant/connection:
     get:
       summary: GetConnection reports whether the clinic is connected; never the key.
       operationId: GooyaiService_GetConnection
@@ -214,7 +214,7 @@ paths:
             $ref: '#/definitions/gooyaiSaveConnectionRequest'
       tags:
         - GooyaiService
-  /meets/gooyai/providers:
+  /meets/phone-assistant/providers:
     get:
       operationId: GooyaiService_ListProviders
       responses:

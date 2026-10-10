@@ -13,7 +13,7 @@ import (
 
 // SetupRESTRoutes registers MeetService first: the gateway mux matches the
 // most recently registered pattern first, so the literal /meets/specialties,
-// /meets/availability-templates, /meets/incoming-calls and /meets/gooyai routes
+// /meets/availability-templates, /meets/calls and /meets/phone-assistant routes
 // win over MeetService's /meets/{uuid}.
 func SetupRESTRoutes(ctx context.Context, mux *runtime.ServeMux, grpcAddr string, opts []grpc.DialOption) error {
 	if err := pbMeets.RegisterMeetServiceHandlerFromEndpoint(ctx, mux, grpcAddr, opts); err != nil {

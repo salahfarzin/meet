@@ -172,7 +172,7 @@ message ListProvidersResponse {
 }
 
 // Service definition. Registered after MeetService so the literal
-// /meets/calls and /meets/gooyai routes win over /meets/{uuid}.
+// /meets/calls and /meets/phone-assistant routes win over /meets/{uuid}.
 service GooyaiService {
   // ListCalls lists incoming calls unless direction says otherwise.
   rpc ListCalls (ListCallsRequest) returns (ListCallsResponse) {
@@ -188,26 +188,26 @@ service GooyaiService {
   }
   rpc ListProviders (ListProvidersRequest) returns (ListProvidersResponse) {
     option (google.api.http) = {
-      get: "/meets/gooyai/providers"
+      get: "/meets/phone-assistant/providers"
     };
   }
   // GetConnection reports whether the clinic is connected; never the key.
   rpc GetConnection (GetConnectionRequest) returns (Connection) {
     option (google.api.http) = {
-      get: "/meets/gooyai/connection"
+      get: "/meets/phone-assistant/connection"
     };
   }
   // SaveConnection checks the key against Gooyai, then stores it encrypted,
   // replacing any existing connection.
   rpc SaveConnection (SaveConnectionRequest) returns (Connection) {
     option (google.api.http) = {
-      put: "/meets/gooyai/connection"
+      put: "/meets/phone-assistant/connection"
       body: "*"
     };
   }
   rpc DeleteConnection (DeleteConnectionRequest) returns (DeleteConnectionResponse) {
     option (google.api.http) = {
-      delete: "/meets/gooyai/connection"
+      delete: "/meets/phone-assistant/connection"
     };
   }
 }

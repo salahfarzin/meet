@@ -307,7 +307,7 @@ func RegisterGooyaiServiceHandlerServer(ctx context.Context, mux *runtime.ServeM
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/gooyai.GooyaiService/ListProviders", runtime.WithHTTPPathPattern("/meets/gooyai/providers"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/gooyai.GooyaiService/ListProviders", runtime.WithHTTPPathPattern("/meets/phone-assistant/providers"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -327,7 +327,7 @@ func RegisterGooyaiServiceHandlerServer(ctx context.Context, mux *runtime.ServeM
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/gooyai.GooyaiService/GetConnection", runtime.WithHTTPPathPattern("/meets/gooyai/connection"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/gooyai.GooyaiService/GetConnection", runtime.WithHTTPPathPattern("/meets/phone-assistant/connection"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -347,7 +347,7 @@ func RegisterGooyaiServiceHandlerServer(ctx context.Context, mux *runtime.ServeM
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/gooyai.GooyaiService/SaveConnection", runtime.WithHTTPPathPattern("/meets/gooyai/connection"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/gooyai.GooyaiService/SaveConnection", runtime.WithHTTPPathPattern("/meets/phone-assistant/connection"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -367,7 +367,7 @@ func RegisterGooyaiServiceHandlerServer(ctx context.Context, mux *runtime.ServeM
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/gooyai.GooyaiService/DeleteConnection", runtime.WithHTTPPathPattern("/meets/gooyai/connection"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/gooyai.GooyaiService/DeleteConnection", runtime.WithHTTPPathPattern("/meets/phone-assistant/connection"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -459,7 +459,7 @@ func RegisterGooyaiServiceHandlerClient(ctx context.Context, mux *runtime.ServeM
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/gooyai.GooyaiService/ListProviders", runtime.WithHTTPPathPattern("/meets/gooyai/providers"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/gooyai.GooyaiService/ListProviders", runtime.WithHTTPPathPattern("/meets/phone-assistant/providers"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -476,7 +476,7 @@ func RegisterGooyaiServiceHandlerClient(ctx context.Context, mux *runtime.ServeM
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/gooyai.GooyaiService/GetConnection", runtime.WithHTTPPathPattern("/meets/gooyai/connection"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/gooyai.GooyaiService/GetConnection", runtime.WithHTTPPathPattern("/meets/phone-assistant/connection"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -493,7 +493,7 @@ func RegisterGooyaiServiceHandlerClient(ctx context.Context, mux *runtime.ServeM
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/gooyai.GooyaiService/SaveConnection", runtime.WithHTTPPathPattern("/meets/gooyai/connection"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/gooyai.GooyaiService/SaveConnection", runtime.WithHTTPPathPattern("/meets/phone-assistant/connection"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -510,7 +510,7 @@ func RegisterGooyaiServiceHandlerClient(ctx context.Context, mux *runtime.ServeM
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/gooyai.GooyaiService/DeleteConnection", runtime.WithHTTPPathPattern("/meets/gooyai/connection"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/gooyai.GooyaiService/DeleteConnection", runtime.WithHTTPPathPattern("/meets/phone-assistant/connection"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -529,10 +529,10 @@ func RegisterGooyaiServiceHandlerClient(ctx context.Context, mux *runtime.ServeM
 var (
 	pattern_GooyaiService_ListCalls_0        = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"meets", "calls"}, ""))
 	pattern_GooyaiService_GetCall_0          = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"meets", "calls", "id"}, ""))
-	pattern_GooyaiService_ListProviders_0    = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"meets", "gooyai", "providers"}, ""))
-	pattern_GooyaiService_GetConnection_0    = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"meets", "gooyai", "connection"}, ""))
-	pattern_GooyaiService_SaveConnection_0   = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"meets", "gooyai", "connection"}, ""))
-	pattern_GooyaiService_DeleteConnection_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"meets", "gooyai", "connection"}, ""))
+	pattern_GooyaiService_ListProviders_0    = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"meets", "phone-assistant", "providers"}, ""))
+	pattern_GooyaiService_GetConnection_0    = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"meets", "phone-assistant", "connection"}, ""))
+	pattern_GooyaiService_SaveConnection_0   = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"meets", "phone-assistant", "connection"}, ""))
+	pattern_GooyaiService_DeleteConnection_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"meets", "phone-assistant", "connection"}, ""))
 )
 
 var (
