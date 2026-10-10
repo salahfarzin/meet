@@ -571,6 +571,273 @@ func (x *GetCallRequest) GetDirection() string {
 	return ""
 }
 
+// Connection is a clinic's link to Gooyai. The API key itself is write-only:
+// it's stored encrypted and never returned.
+type Connection struct {
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	Connected bool                   `protobuf:"varint,1,opt,name=connected,proto3" json:"connected,omitempty"`
+	// environment: "sandbox" or "prod". Empty when not connected.
+	Environment string `protobuf:"bytes,2,opt,name=environment,proto3" json:"environment,omitempty"`
+	// key_last4: last 4 characters of the stored key, to tell keys apart. Empty
+	// when not connected or the key is too short to hint at safely.
+	KeyLast4 string `protobuf:"bytes,3,opt,name=key_last4,json=keyLast4,proto3" json:"key_last4,omitempty"`
+	// updated_at: when the key was last saved, RFC3339. Empty when not connected.
+	UpdatedAt     string `protobuf:"bytes,4,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Connection) Reset() {
+	*x = Connection{}
+	mi := &file_gooyai_gooyai_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Connection) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Connection) ProtoMessage() {}
+
+func (x *Connection) ProtoReflect() protoreflect.Message {
+	mi := &file_gooyai_gooyai_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Connection.ProtoReflect.Descriptor instead.
+func (*Connection) Descriptor() ([]byte, []int) {
+	return file_gooyai_gooyai_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *Connection) GetConnected() bool {
+	if x != nil {
+		return x.Connected
+	}
+	return false
+}
+
+func (x *Connection) GetEnvironment() string {
+	if x != nil {
+		return x.Environment
+	}
+	return ""
+}
+
+func (x *Connection) GetKeyLast4() string {
+	if x != nil {
+		return x.KeyLast4
+	}
+	return ""
+}
+
+func (x *Connection) GetUpdatedAt() string {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return ""
+}
+
+// Request & Response
+type GetConnectionRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// organizer_id: superadmins only. Ignored for everyone else.
+	OrganizerId   string `protobuf:"bytes,1,opt,name=organizer_id,json=organizerId,proto3" json:"organizer_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetConnectionRequest) Reset() {
+	*x = GetConnectionRequest{}
+	mi := &file_gooyai_gooyai_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetConnectionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetConnectionRequest) ProtoMessage() {}
+
+func (x *GetConnectionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gooyai_gooyai_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetConnectionRequest.ProtoReflect.Descriptor instead.
+func (*GetConnectionRequest) Descriptor() ([]byte, []int) {
+	return file_gooyai_gooyai_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *GetConnectionRequest) GetOrganizerId() string {
+	if x != nil {
+		return x.OrganizerId
+	}
+	return ""
+}
+
+// Request & Response
+type SaveConnectionRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// api_key: the clinic's Gooyai Partner API key. Checked against Gooyai
+	// before it's saved.
+	ApiKey string `protobuf:"bytes,1,opt,name=api_key,json=apiKey,proto3" json:"api_key,omitempty"`
+	// environment: "sandbox" (default) or "prod".
+	Environment string `protobuf:"bytes,2,opt,name=environment,proto3" json:"environment,omitempty"`
+	// organizer_id: superadmins only. Ignored for everyone else.
+	OrganizerId   string `protobuf:"bytes,3,opt,name=organizer_id,json=organizerId,proto3" json:"organizer_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SaveConnectionRequest) Reset() {
+	*x = SaveConnectionRequest{}
+	mi := &file_gooyai_gooyai_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SaveConnectionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SaveConnectionRequest) ProtoMessage() {}
+
+func (x *SaveConnectionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gooyai_gooyai_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SaveConnectionRequest.ProtoReflect.Descriptor instead.
+func (*SaveConnectionRequest) Descriptor() ([]byte, []int) {
+	return file_gooyai_gooyai_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *SaveConnectionRequest) GetApiKey() string {
+	if x != nil {
+		return x.ApiKey
+	}
+	return ""
+}
+
+func (x *SaveConnectionRequest) GetEnvironment() string {
+	if x != nil {
+		return x.Environment
+	}
+	return ""
+}
+
+func (x *SaveConnectionRequest) GetOrganizerId() string {
+	if x != nil {
+		return x.OrganizerId
+	}
+	return ""
+}
+
+// Request & Response
+type DeleteConnectionRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// organizer_id: superadmins only. Ignored for everyone else.
+	OrganizerId   string `protobuf:"bytes,1,opt,name=organizer_id,json=organizerId,proto3" json:"organizer_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteConnectionRequest) Reset() {
+	*x = DeleteConnectionRequest{}
+	mi := &file_gooyai_gooyai_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteConnectionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteConnectionRequest) ProtoMessage() {}
+
+func (x *DeleteConnectionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gooyai_gooyai_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteConnectionRequest.ProtoReflect.Descriptor instead.
+func (*DeleteConnectionRequest) Descriptor() ([]byte, []int) {
+	return file_gooyai_gooyai_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *DeleteConnectionRequest) GetOrganizerId() string {
+	if x != nil {
+		return x.OrganizerId
+	}
+	return ""
+}
+
+type DeleteConnectionResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteConnectionResponse) Reset() {
+	*x = DeleteConnectionResponse{}
+	mi := &file_gooyai_gooyai_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteConnectionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteConnectionResponse) ProtoMessage() {}
+
+func (x *DeleteConnectionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_gooyai_gooyai_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteConnectionResponse.ProtoReflect.Descriptor instead.
+func (*DeleteConnectionResponse) Descriptor() ([]byte, []int) {
+	return file_gooyai_gooyai_proto_rawDescGZIP(), []int{10}
+}
+
 // Request & Response
 type ListProvidersRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -582,7 +849,7 @@ type ListProvidersRequest struct {
 
 func (x *ListProvidersRequest) Reset() {
 	*x = ListProvidersRequest{}
-	mi := &file_gooyai_gooyai_proto_msgTypes[6]
+	mi := &file_gooyai_gooyai_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -594,7 +861,7 @@ func (x *ListProvidersRequest) String() string {
 func (*ListProvidersRequest) ProtoMessage() {}
 
 func (x *ListProvidersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gooyai_gooyai_proto_msgTypes[6]
+	mi := &file_gooyai_gooyai_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -607,7 +874,7 @@ func (x *ListProvidersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListProvidersRequest.ProtoReflect.Descriptor instead.
 func (*ListProvidersRequest) Descriptor() ([]byte, []int) {
-	return file_gooyai_gooyai_proto_rawDescGZIP(), []int{6}
+	return file_gooyai_gooyai_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *ListProvidersRequest) GetOrganizerId() string {
@@ -626,7 +893,7 @@ type ListProvidersResponse struct {
 
 func (x *ListProvidersResponse) Reset() {
 	*x = ListProvidersResponse{}
-	mi := &file_gooyai_gooyai_proto_msgTypes[7]
+	mi := &file_gooyai_gooyai_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -638,7 +905,7 @@ func (x *ListProvidersResponse) String() string {
 func (*ListProvidersResponse) ProtoMessage() {}
 
 func (x *ListProvidersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gooyai_gooyai_proto_msgTypes[7]
+	mi := &file_gooyai_gooyai_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -651,7 +918,7 @@ func (x *ListProvidersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListProvidersResponse.ProtoReflect.Descriptor instead.
 func (*ListProvidersResponse) Descriptor() ([]byte, []int) {
-	return file_gooyai_gooyai_proto_rawDescGZIP(), []int{7}
+	return file_gooyai_gooyai_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *ListProvidersResponse) GetProviders() []*Provider {
@@ -716,15 +983,34 @@ const file_gooyai_gooyai_proto_rawDesc = "" +
 	"\x0eGetCallRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12!\n" +
 	"\forganizer_id\x18\x02 \x01(\tR\vorganizerId\x12\x1c\n" +
-	"\tdirection\x18\x03 \x01(\tR\tdirection\"9\n" +
+	"\tdirection\x18\x03 \x01(\tR\tdirection\"\x88\x01\n" +
+	"\n" +
+	"Connection\x12\x1c\n" +
+	"\tconnected\x18\x01 \x01(\bR\tconnected\x12 \n" +
+	"\venvironment\x18\x02 \x01(\tR\venvironment\x12\x1b\n" +
+	"\tkey_last4\x18\x03 \x01(\tR\bkeyLast4\x12\x1d\n" +
+	"\n" +
+	"updated_at\x18\x04 \x01(\tR\tupdatedAt\"9\n" +
+	"\x14GetConnectionRequest\x12!\n" +
+	"\forganizer_id\x18\x01 \x01(\tR\vorganizerId\"u\n" +
+	"\x15SaveConnectionRequest\x12\x17\n" +
+	"\aapi_key\x18\x01 \x01(\tR\x06apiKey\x12 \n" +
+	"\venvironment\x18\x02 \x01(\tR\venvironment\x12!\n" +
+	"\forganizer_id\x18\x03 \x01(\tR\vorganizerId\"<\n" +
+	"\x17DeleteConnectionRequest\x12!\n" +
+	"\forganizer_id\x18\x01 \x01(\tR\vorganizerId\"\x1a\n" +
+	"\x18DeleteConnectionResponse\"9\n" +
 	"\x14ListProvidersRequest\x12!\n" +
 	"\forganizer_id\x18\x01 \x01(\tR\vorganizerId\"G\n" +
 	"\x15ListProvidersResponse\x12.\n" +
-	"\tproviders\x18\x01 \x03(\v2\x10.gooyai.ProviderR\tproviders2\xa2\x02\n" +
+	"\tproviders\x18\x01 \x03(\v2\x10.gooyai.ProviderR\tproviders2\xea\x04\n" +
 	"\rGooyaiService\x12V\n" +
 	"\tListCalls\x12\x18.gooyai.ListCallsRequest\x1a\x19.gooyai.ListCallsResponse\"\x14\x82\xd3\xe4\x93\x02\x0e\x12\f/meets/calls\x12J\n" +
 	"\aGetCall\x12\x16.gooyai.GetCallRequest\x1a\f.gooyai.Call\"\x19\x82\xd3\xe4\x93\x02\x13\x12\x11/meets/calls/{id}\x12m\n" +
-	"\rListProviders\x12\x1c.gooyai.ListProvidersRequest\x1a\x1d.gooyai.ListProvidersResponse\"\x1f\x82\xd3\xe4\x93\x02\x19\x12\x17/meets/gooyai/providersB\x8c\x03\x92A\xd7\x02\x12\x9a\x01\n" +
+	"\rListProviders\x12\x1c.gooyai.ListProvidersRequest\x1a\x1d.gooyai.ListProvidersResponse\"\x1f\x82\xd3\xe4\x93\x02\x19\x12\x17/meets/gooyai/providers\x12c\n" +
+	"\rGetConnection\x12\x1c.gooyai.GetConnectionRequest\x1a\x12.gooyai.Connection\" \x82\xd3\xe4\x93\x02\x1a\x12\x18/meets/gooyai/connection\x12h\n" +
+	"\x0eSaveConnection\x12\x1d.gooyai.SaveConnectionRequest\x1a\x12.gooyai.Connection\"#\x82\xd3\xe4\x93\x02\x1d:\x01*\x1a\x18/meets/gooyai/connection\x12w\n" +
+	"\x10DeleteConnection\x12\x1f.gooyai.DeleteConnectionRequest\x1a .gooyai.DeleteConnectionResponse\" \x82\xd3\xe4\x93\x02\x1a*\x18/meets/gooyai/connectionB\x8c\x03\x92A\xd7\x02\x12\x9a\x01\n" +
 	"\n" +
 	"Gooyai API\x12WCalls and providers from Gooyai, the AI phone receptionist, for clinics connected to it\".\n" +
 	"\x11Meets API Support\x1a\x19support@meets.example.com2\x031.0*\x02\x01\x022\x10application/json:\x10application/jsonRS\n" +
@@ -747,34 +1033,45 @@ func file_gooyai_gooyai_proto_rawDescGZIP() []byte {
 	return file_gooyai_gooyai_proto_rawDescData
 }
 
-var file_gooyai_gooyai_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_gooyai_gooyai_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_gooyai_gooyai_proto_goTypes = []any{
-	(*TranscriptMessage)(nil),     // 0: gooyai.TranscriptMessage
-	(*Call)(nil),                  // 1: gooyai.Call
-	(*Provider)(nil),              // 2: gooyai.Provider
-	(*ListCallsRequest)(nil),      // 3: gooyai.ListCallsRequest
-	(*ListCallsResponse)(nil),     // 4: gooyai.ListCallsResponse
-	(*GetCallRequest)(nil),        // 5: gooyai.GetCallRequest
-	(*ListProvidersRequest)(nil),  // 6: gooyai.ListProvidersRequest
-	(*ListProvidersResponse)(nil), // 7: gooyai.ListProvidersResponse
-	(*structpb.Struct)(nil),       // 8: google.protobuf.Struct
+	(*TranscriptMessage)(nil),        // 0: gooyai.TranscriptMessage
+	(*Call)(nil),                     // 1: gooyai.Call
+	(*Provider)(nil),                 // 2: gooyai.Provider
+	(*ListCallsRequest)(nil),         // 3: gooyai.ListCallsRequest
+	(*ListCallsResponse)(nil),        // 4: gooyai.ListCallsResponse
+	(*GetCallRequest)(nil),           // 5: gooyai.GetCallRequest
+	(*Connection)(nil),               // 6: gooyai.Connection
+	(*GetConnectionRequest)(nil),     // 7: gooyai.GetConnectionRequest
+	(*SaveConnectionRequest)(nil),    // 8: gooyai.SaveConnectionRequest
+	(*DeleteConnectionRequest)(nil),  // 9: gooyai.DeleteConnectionRequest
+	(*DeleteConnectionResponse)(nil), // 10: gooyai.DeleteConnectionResponse
+	(*ListProvidersRequest)(nil),     // 11: gooyai.ListProvidersRequest
+	(*ListProvidersResponse)(nil),    // 12: gooyai.ListProvidersResponse
+	(*structpb.Struct)(nil),          // 13: google.protobuf.Struct
 }
 var file_gooyai_gooyai_proto_depIdxs = []int32{
-	0, // 0: gooyai.Call.transcript:type_name -> gooyai.TranscriptMessage
-	8, // 1: gooyai.Call.analytics:type_name -> google.protobuf.Struct
-	1, // 2: gooyai.ListCallsResponse.calls:type_name -> gooyai.Call
-	2, // 3: gooyai.ListProvidersResponse.providers:type_name -> gooyai.Provider
-	3, // 4: gooyai.GooyaiService.ListCalls:input_type -> gooyai.ListCallsRequest
-	5, // 5: gooyai.GooyaiService.GetCall:input_type -> gooyai.GetCallRequest
-	6, // 6: gooyai.GooyaiService.ListProviders:input_type -> gooyai.ListProvidersRequest
-	4, // 7: gooyai.GooyaiService.ListCalls:output_type -> gooyai.ListCallsResponse
-	1, // 8: gooyai.GooyaiService.GetCall:output_type -> gooyai.Call
-	7, // 9: gooyai.GooyaiService.ListProviders:output_type -> gooyai.ListProvidersResponse
-	7, // [7:10] is the sub-list for method output_type
-	4, // [4:7] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	0,  // 0: gooyai.Call.transcript:type_name -> gooyai.TranscriptMessage
+	13, // 1: gooyai.Call.analytics:type_name -> google.protobuf.Struct
+	1,  // 2: gooyai.ListCallsResponse.calls:type_name -> gooyai.Call
+	2,  // 3: gooyai.ListProvidersResponse.providers:type_name -> gooyai.Provider
+	3,  // 4: gooyai.GooyaiService.ListCalls:input_type -> gooyai.ListCallsRequest
+	5,  // 5: gooyai.GooyaiService.GetCall:input_type -> gooyai.GetCallRequest
+	11, // 6: gooyai.GooyaiService.ListProviders:input_type -> gooyai.ListProvidersRequest
+	7,  // 7: gooyai.GooyaiService.GetConnection:input_type -> gooyai.GetConnectionRequest
+	8,  // 8: gooyai.GooyaiService.SaveConnection:input_type -> gooyai.SaveConnectionRequest
+	9,  // 9: gooyai.GooyaiService.DeleteConnection:input_type -> gooyai.DeleteConnectionRequest
+	4,  // 10: gooyai.GooyaiService.ListCalls:output_type -> gooyai.ListCallsResponse
+	1,  // 11: gooyai.GooyaiService.GetCall:output_type -> gooyai.Call
+	12, // 12: gooyai.GooyaiService.ListProviders:output_type -> gooyai.ListProvidersResponse
+	6,  // 13: gooyai.GooyaiService.GetConnection:output_type -> gooyai.Connection
+	6,  // 14: gooyai.GooyaiService.SaveConnection:output_type -> gooyai.Connection
+	10, // 15: gooyai.GooyaiService.DeleteConnection:output_type -> gooyai.DeleteConnectionResponse
+	10, // [10:16] is the sub-list for method output_type
+	4,  // [4:10] is the sub-list for method input_type
+	4,  // [4:4] is the sub-list for extension type_name
+	4,  // [4:4] is the sub-list for extension extendee
+	0,  // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_gooyai_gooyai_proto_init() }
@@ -789,7 +1086,7 @@ func file_gooyai_gooyai_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_gooyai_gooyai_proto_rawDesc), len(file_gooyai_gooyai_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   8,
+			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

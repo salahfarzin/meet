@@ -124,6 +124,44 @@ message GetCallRequest {
   string direction = 3;
 }
 
+// Connection is a clinic's link to Gooyai. The API key itself is write-only:
+// it's stored encrypted and never returned.
+message Connection {
+  bool connected = 1;
+  // environment: "sandbox" or "prod". Empty when not connected.
+  string environment = 2;
+  // key_last4: last 4 characters of the stored key, to tell keys apart. Empty
+  // when not connected or the key is too short to hint at safely.
+  string key_last4 = 3;
+  // updated_at: when the key was last saved, RFC3339. Empty when not connected.
+  string updated_at = 4;
+}
+
+// Request & Response
+message GetConnectionRequest {
+  // organizer_id: superadmins only. Ignored for everyone else.
+  string organizer_id = 1;
+}
+
+// Request & Response
+message SaveConnectionRequest {
+  // api_key: the clinic's Gooyai Partner API key. Checked against Gooyai
+  // before it's saved.
+  string api_key = 1;
+  // environment: "sandbox" (default) or "prod".
+  string environment = 2;
+  // organizer_id: superadmins only. Ignored for everyone else.
+  string organizer_id = 3;
+}
+
+// Request & Response
+message DeleteConnectionRequest {
+  // organizer_id: superadmins only. Ignored for everyone else.
+  string organizer_id = 1;
+}
+message DeleteConnectionResponse {
+}
+
 // Request & Response
 message ListProvidersRequest {
   // organizer_id: superadmins only. Ignored for everyone else.
@@ -151,6 +189,25 @@ service GooyaiService {
   rpc ListProviders (ListProvidersRequest) returns (ListProvidersResponse) {
     option (google.api.http) = {
       get: "/meets/gooyai/providers"
+    };
+  }
+  // GetConnection reports whether the clinic is connected; never the key.
+  rpc GetConnection (GetConnectionRequest) returns (Connection) {
+    option (google.api.http) = {
+      get: "/meets/gooyai/connection"
+    };
+  }
+  // SaveConnection checks the key against Gooyai, then stores it encrypted,
+  // replacing any existing connection.
+  rpc SaveConnection (SaveConnectionRequest) returns (Connection) {
+    option (google.api.http) = {
+      put: "/meets/gooyai/connection"
+      body: "*"
+    };
+  }
+  rpc DeleteConnection (DeleteConnectionRequest) returns (DeleteConnectionResponse) {
+    option (google.api.http) = {
+      delete: "/meets/gooyai/connection"
     };
   }
 }

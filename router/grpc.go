@@ -15,7 +15,15 @@ import (
 	"google.golang.org/grpc"
 )
 
-func SetupGRPCRoutes(server *grpc.Server, db *sql.DB, authDisabled bool, gooyaiCfg configs.Gooyai) {
+// SetupGRPCRoutes fails only on a malformed GOOYAI_ENCRYPTION_KEY: a set but
+// broken key is a deploy mistake worth refusing to start over, unlike an
+// unset one, which just leaves the Gooyai integration disabled.
+func SetupGRPCRoutes(server *grpc.Server, db *sql.DB, authDisabled bool, gooyaiCfg configs.Gooyai) error {
+	sealer, err := gooyai.NewSealer(gooyaiCfg.EncryptionKey)
+	if err != nil {
+		return err
+	}
+
 	meetsRepo := meets.NewRepository(db)
 	templateService := availabilitytemplates.NewService(availabilitytemplates.NewRepository(db), meetsRepo)
 
@@ -26,6 +34,7 @@ func SetupGRPCRoutes(server *grpc.Server, db *sql.DB, authDisabled bool, gooyaiC
 	specialtyService := specialties.NewService(specialties.NewRepository(db))
 	pbSpecialties.RegisterSpecialtyServiceServer(server, specialties.NewHandler(specialtyService, authDisabled))
 
-	gooyaiService := gooyai.NewService(gooyaiCfg.TenantKeys, gooyai.NewClientFactory(gooyaiCfg.BaseURL, gooyaiCfg.Env))
+	gooyaiService := gooyai.NewService(gooyai.NewRepository(db), sealer, gooyai.NewClientFactory(gooyaiCfg.BaseURL))
 	pbGooyai.RegisterGooyaiServiceServer(server, gooyai.NewHandler(gooyaiService, authDisabled))
+	return nil
 }

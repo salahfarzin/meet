@@ -27,6 +27,8 @@ const (
 
 	directionIncoming = "incoming"
 	directionOutgoing = "outgoing"
+
+	errInternalServer = "Internal server error"
 )
 
 type handler struct {
@@ -110,6 +112,41 @@ func (h *handler) ListProviders(ctx context.Context, req *pb.ListProvidersReques
 	return &pb.ListProvidersResponse{Providers: out}, nil
 }
 
+func (h *handler) GetConnection(ctx context.Context, req *pb.GetConnectionRequest) (*pb.Connection, error) {
+	tenant, err := h.tenant(ctx, req.GetOrganizerId())
+	if err != nil {
+		return nil, err
+	}
+	conn, err := h.service.GetConnection(ctx, tenant)
+	if err != nil {
+		return nil, toStatus(ctx, err, "get connection")
+	}
+	return connectionToProto(conn), nil
+}
+
+func (h *handler) SaveConnection(ctx context.Context, req *pb.SaveConnectionRequest) (*pb.Connection, error) {
+	tenant, err := h.tenant(ctx, req.GetOrganizerId())
+	if err != nil {
+		return nil, err
+	}
+	conn, err := h.service.Connect(ctx, tenant, req.GetApiKey(), req.GetEnvironment())
+	if err != nil {
+		return nil, toStatus(ctx, err, "save connection")
+	}
+	return connectionToProto(conn), nil
+}
+
+func (h *handler) DeleteConnection(ctx context.Context, req *pb.DeleteConnectionRequest) (*pb.DeleteConnectionResponse, error) {
+	tenant, err := h.tenant(ctx, req.GetOrganizerId())
+	if err != nil {
+		return nil, err
+	}
+	if err := h.service.Disconnect(ctx, tenant); err != nil {
+		return nil, toStatus(ctx, err, "delete connection")
+	}
+	return &pb.DeleteConnectionResponse{}, nil
+}
+
 // tenant resolves whose Gooyai key to use, mirroring meets'
 // retrieveOrganizerUuid: the caller's own uuid, unless a superadmin asks for
 // another clinic. The tenant never comes from the request otherwise.
@@ -182,6 +219,11 @@ func toStatus(ctx context.Context, err error, op string) error {
 	switch {
 	case errors.Is(err, ErrNotConnected):
 		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, ErrEncryptionNotConfigured):
+		logger.FromContext(ctx).Error("GOOYAI_ENCRYPTION_KEY is not set", zap.String("op", op))
+		return status.Error(codes.FailedPrecondition, "the phone assistant integration is not set up on the server")
+	case errors.Is(err, ErrKeyRejected), errors.Is(err, ErrInvalidConnection):
+		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, gooyai.ErrUnauthorized):
 		logger.FromContext(ctx).Warn("gooyai rejected the clinic's API key", zap.String("op", op))
 		return status.Error(codes.FailedPrecondition, "Gooyai rejected this clinic's API key")
@@ -192,9 +234,13 @@ func toStatus(ctx context.Context, err error, op string) error {
 		return status.Error(codes.InvalidArgument, "Gooyai rejected the request")
 	case errors.Is(err, gooyai.ErrRateLimited):
 		return status.Error(codes.ResourceExhausted, "Gooyai rate limit reached, try again shortly")
+	case gooyai.IsUnavailable(err):
+		logger.FromContext(ctx).Error("gooyai request failed", zap.String("op", op), zap.Error(err))
+		return status.Error(codes.Unavailable, "Gooyai is unavailable")
 	}
-	logger.FromContext(ctx).Error("gooyai request failed", zap.String("op", op), zap.Error(err))
-	return status.Error(codes.Unavailable, "Gooyai is unavailable")
+	// Ours, not Gooyai's: the database, a key that won't decrypt, a decode error.
+	logger.FromContext(ctx).Error("gooyai operation failed", zap.String("op", op), zap.Error(err))
+	return status.Error(codes.Internal, errInternalServer)
 }
 
 // checkDirection accepts "" and "incoming". "outgoing" is a known direction
@@ -236,6 +282,20 @@ func callToProto(c *gooyai.IncomingCall) *pb.Call {
 		out.AssistantName = c.Model.Name
 	}
 	return out
+}
+
+// connectionToProto never carries the key: only whether one is stored, its
+// environment and last 4 characters.
+func connectionToProto(c *Connection) *pb.Connection {
+	if c == nil {
+		return &pb.Connection{}
+	}
+	return &pb.Connection{
+		Connected:   true,
+		Environment: c.Environment,
+		KeyLast4:    c.KeyLast4,
+		UpdatedAt:   c.UpdatedAt.UTC().Format(time.RFC3339),
+	}
 }
 
 func providerToProto(p *gooyai.ServiceProvider) *pb.Provider {

@@ -54,7 +54,7 @@ Trappists store only the uuids, in psychometrist `users.center_details.appointme
 
 ## Gooyai integration (`GooyaiService`, `internal/gooyai` + `pkg/gooyai`)
 
-[Gooyai](https://docs.gooyai.ir/docs/intro) is an AI phone receptionist with its own providers, slots and bookings. `pkg/gooyai` is a plain Partner API client (imports nothing from meet, reusable by other services); `internal/gooyai` picks the clinic's key and maps results to our proto. No tables: per-clinic keys come from `GOOYAI_TENANT_KEYS="<organizer-uuid>=<api-key>,..."` (+ `GOOYAI_BASE_URL`, `GOOYAI_ENV=sandbox|prod`).
+[Gooyai](https://docs.gooyai.ir/docs/intro) is an AI phone receptionist with its own providers, slots and bookings. `pkg/gooyai` is a plain Partner API client (imports nothing from meet, reusable by other services); `internal/gooyai` picks the clinic's key and maps results to our proto. Each clinic connects itself from the dashboard (Settings → Booking Settings): its key is checked against Gooyai, then stored AES-256-GCM-encrypted in `gooyai_connections` (`migrations/000005_*`, one row per organizer: ciphertext, `key_last4`, `environment` sandbox|prod) under `GOOYAI_ENCRYPTION_KEY` (base64 of 32 bytes; unset = integration disabled, malformed = refuse to start). That table holds credentials only — sync state stays in `meets.settings` and in Gooyai.
 
 | RPC | REST | notes |
 |-----|------|-------|
@@ -63,6 +63,9 @@ Trappists store only the uuids, in psychometrist `users.center_details.appointme
 
 `direction` is `incoming` (the default when empty) or `outgoing`; each call carries it. Gooyai's Partner API only has incoming calls, so `outgoing` is accepted as a known value but returns `UNIMPLEMENTED` (HTTP 501) until it does; anything else is `INVALID_ARGUMENT`. Call ids are only unique within a direction. `pkg/gooyai` keeps Gooyai's own `incoming-calls` naming.
 | `ListProviders` | `GET /meets/gooyai/providers` | all pages walked server-side |
+| `GetConnection` | `GET /meets/gooyai/connection` | `{connected, environment, key_last4, updated_at}` — **never the key** |
+| `SaveConnection` | `PUT /meets/gooyai/connection` (body `{api_key, environment}`) | probes Gooyai first: a rejected key is `INVALID_ARGUMENT` and nothing is stored; replaces any existing key |
+| `DeleteConnection` | `DELETE /meets/gooyai/connection` | |
 
 - The tenant is the caller's own uuid; only `Programmer` may pass `organizer_id` (same rule as `retrieveOrganizerUuid`). Never take a tenant or key from the request otherwise.
 - Clinic not connected → `FAILED_PRECONDITION` (HTTP 400, `code: 9`). Gooyai rejecting the key is also `FAILED_PRECONDITION`, **never** `UNAUTHENTICATED`: the dashboard treats a 401 as its own session expiring and logs the user out.

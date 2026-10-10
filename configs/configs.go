@@ -2,7 +2,6 @@ package configs
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/joho/godotenv"
 	"github.com/salahfarzin/utils"
@@ -35,12 +34,11 @@ type CORS struct {
 // Gooyai configures the Gooyai (AI phone receptionist) integration.
 type Gooyai struct {
 	BaseURL string `env:"GOOYAI_BASE_URL,default=https://api.gooyai.ir"`
-	// Env is "sandbox" or "prod"; anything else is treated as sandbox.
-	Env string `env:"GOOYAI_ENV,default=sandbox"`
-	// TenantKeys maps a clinic's organizer uuid to its Gooyai API key, from
-	// GOOYAI_TENANT_KEYS="<organizer-uuid>=<api-key>,...". A clinic without an
-	// entry isn't connected. The keys are secrets: never log this map.
-	TenantKeys map[string]string
+	// EncryptionKey (base64 of 32 bytes) seals clinics' Gooyai API keys at
+	// rest. Each clinic saves its own key (and sandbox/prod choice) from the
+	// dashboard; unset keeps the service up with the integration disabled.
+	// A secret: never log it.
+	EncryptionKey string `env:"GOOYAI_ENCRYPTION_KEY"`
 }
 
 type Configs struct {
@@ -100,24 +98,8 @@ func Init() *Configs {
 			AllowedOrigins: utils.ParseCORSOrigins(),
 		},
 		Gooyai: Gooyai{
-			BaseURL:    utils.GetEnv("GOOYAI_BASE_URL", "https://api.gooyai.ir"),
-			Env:        utils.GetEnv("GOOYAI_ENV", "sandbox"),
-			TenantKeys: parseTenantKeys(utils.GetEnv("GOOYAI_TENANT_KEYS", "")),
+			BaseURL:       utils.GetEnv("GOOYAI_BASE_URL", "https://api.gooyai.ir"),
+			EncryptionKey: utils.GetEnv("GOOYAI_ENCRYPTION_KEY", ""),
 		},
 	}
-}
-
-// parseTenantKeys parses "<organizer-uuid>=<api-key>,..." into a map. Blank
-// or malformed entries (no "=", empty uuid or key) are skipped rather than
-// failing boot, so one bad entry can't take every clinic offline.
-func parseTenantKeys(raw string) map[string]string {
-	keys := make(map[string]string)
-	for entry := range strings.SplitSeq(raw, ",") {
-		uuid, key, ok := strings.Cut(strings.TrimSpace(entry), "=")
-		uuid, key = strings.TrimSpace(uuid), strings.TrimSpace(key)
-		if ok && uuid != "" && key != "" {
-			keys[uuid] = key
-		}
-	}
-	return keys
 }

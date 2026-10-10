@@ -14,7 +14,7 @@ var configEnvVars = []string{
 	"APP_NAME", "APP_ENV", "APP_VERSION", "APP_URL", "APP_PORT", "APP_GRPC_PORT",
 	"REST_PREFIX", "AUTH_SERVICE", "LOG_LEVEL", "LOG_PATH", "DB_DRIVER", "DB_USER", "DB_PASSWORD",
 	"DB_HOST", "DB_PORT", "DB_NAME",
-	"GOOYAI_BASE_URL", "GOOYAI_ENV", "GOOYAI_TENANT_KEYS",
+	"GOOYAI_BASE_URL", "GOOYAI_ENCRYPTION_KEY",
 }
 
 // withClearedConfigEnv clears configEnvVars for the duration of the test and restores
@@ -124,39 +124,18 @@ func TestInit_GooyaiDefaults(t *testing.T) {
 	config := Init()
 
 	assert.Equal(t, "https://api.gooyai.ir", config.Gooyai.BaseURL)
-	assert.Equal(t, "sandbox", config.Gooyai.Env)
-	assert.Empty(t, config.Gooyai.TenantKeys)
+	assert.Empty(t, config.Gooyai.EncryptionKey)
 }
 
 func TestInit_GooyaiFromEnv(t *testing.T) {
 	withClearedConfigEnv(t)
 	t.Setenv("GOOYAI_BASE_URL", "https://gooyai.test")
-	t.Setenv("GOOYAI_ENV", "prod")
-	t.Setenv("GOOYAI_TENANT_KEYS", "clinic-a=key-a,clinic-b=key-b")
+	t.Setenv("GOOYAI_ENCRYPTION_KEY", "c2VjcmV0")
 
 	config := Init()
 
 	assert.Equal(t, "https://gooyai.test", config.Gooyai.BaseURL)
-	assert.Equal(t, "prod", config.Gooyai.Env)
-	assert.Equal(t, map[string]string{"clinic-a": "key-a", "clinic-b": "key-b"}, config.Gooyai.TenantKeys)
-}
-
-func TestParseTenantKeys(t *testing.T) {
-	tests := []struct {
-		name string
-		raw  string
-		want map[string]string
-	}{
-		{"empty", "", map[string]string{}},
-		{"trims whitespace", " clinic-a = key-a , clinic-b=key-b ", map[string]string{"clinic-a": "key-a", "clinic-b": "key-b"}},
-		{"key may contain =", "clinic-a=abc==", map[string]string{"clinic-a": "abc=="}},
-		{"skips malformed entries", "no-separator,=key-only,uuid-only=,,clinic-a=key-a", map[string]string{"clinic-a": "key-a"}},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, parseTenantKeys(tt.raw))
-		})
-	}
+	assert.Equal(t, "c2VjcmV0", config.Gooyai.EncryptionKey)
 }
 
 func TestGetEnv(t *testing.T) {

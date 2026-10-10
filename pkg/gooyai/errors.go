@@ -92,6 +92,12 @@ type transportError struct {
 func (e *transportError) Error() string { return "gooyai: request failed: " + e.err.Error() }
 func (e *transportError) Unwrap() error { return e.err }
 
+// IsUnavailable reports whether err means Gooyai couldn't be reached or failed
+// on its side (network error or 5xx), as opposed to rejecting the request.
+func IsUnavailable(err error) bool {
+	return retryable(err)
+}
+
 // retryable reports whether a GET that failed with err is worth repeating.
 func retryable(err error) bool {
 	if err == nil {

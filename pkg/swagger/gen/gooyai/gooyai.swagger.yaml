@@ -125,6 +125,95 @@ paths:
           type: string
       tags:
         - GooyaiService
+  /meets/gooyai/connection:
+    get:
+      summary: GetConnection reports whether the clinic is connected; never the key.
+      operationId: GooyaiService_GetConnection
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/gooyaiConnection'
+        "400":
+          description: Clinic not connected to Gooyai (FAILED_PRECONDITION), or an invalid filter
+          schema: {}
+        "404":
+          description: Resource not found
+          schema: {}
+        "500":
+          description: Internal server error
+          schema: {}
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/rpcStatus'
+      parameters:
+        - name: organizer_id
+          description: 'organizer_id: superadmins only. Ignored for everyone else.'
+          in: query
+          required: false
+          type: string
+      tags:
+        - GooyaiService
+    delete:
+      operationId: GooyaiService_DeleteConnection
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/gooyaiDeleteConnectionResponse'
+        "400":
+          description: Clinic not connected to Gooyai (FAILED_PRECONDITION), or an invalid filter
+          schema: {}
+        "404":
+          description: Resource not found
+          schema: {}
+        "500":
+          description: Internal server error
+          schema: {}
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/rpcStatus'
+      parameters:
+        - name: organizer_id
+          description: 'organizer_id: superadmins only. Ignored for everyone else.'
+          in: query
+          required: false
+          type: string
+      tags:
+        - GooyaiService
+    put:
+      summary: |-
+        SaveConnection checks the key against Gooyai, then stores it encrypted,
+        replacing any existing connection.
+      operationId: GooyaiService_SaveConnection
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/gooyaiConnection'
+        "400":
+          description: Clinic not connected to Gooyai (FAILED_PRECONDITION), or an invalid filter
+          schema: {}
+        "404":
+          description: Resource not found
+          schema: {}
+        "500":
+          description: Internal server error
+          schema: {}
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/rpcStatus'
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/gooyaiSaveConnectionRequest'
+      tags:
+        - GooyaiService
   /meets/gooyai/providers:
     get:
       operationId: GooyaiService_ListProviders
@@ -201,6 +290,27 @@ definitions:
           direction: "incoming" (a caller rang the clinic) or "outgoing" (the agent
           rang out). Only incoming calls exist so far.
     description: Call is one phone call handled by the clinic's Gooyai AI agent.
+  gooyaiConnection:
+    type: object
+    properties:
+      connected:
+        type: boolean
+      environment:
+        type: string
+        description: 'environment: "sandbox" or "prod". Empty when not connected.'
+      key_last4:
+        type: string
+        description: |-
+          key_last4: last 4 characters of the stored key, to tell keys apart. Empty
+          when not connected or the key is too short to hint at safely.
+      updated_at:
+        type: string
+        description: 'updated_at: when the key was last saved, RFC3339. Empty when not connected.'
+    description: |-
+      Connection is a clinic's link to Gooyai. The API key itself is write-only:
+      it's stored encrypted and never returned.
+  gooyaiDeleteConnectionResponse:
+    type: object
   gooyaiListCallsResponse:
     type: object
     properties:
@@ -247,6 +357,21 @@ definitions:
       is_active:
         type: boolean
     description: Provider is a schedulable person in Gooyai. Managed in Gooyai's panel only.
+  gooyaiSaveConnectionRequest:
+    type: object
+    properties:
+      api_key:
+        type: string
+        description: |-
+          api_key: the clinic's Gooyai Partner API key. Checked against Gooyai
+          before it's saved.
+      environment:
+        type: string
+        description: 'environment: "sandbox" (default) or "prod".'
+      organizer_id:
+        type: string
+        description: 'organizer_id: superadmins only. Ignored for everyone else.'
+    title: Request & Response
   gooyaiTranscriptMessage:
     type: object
     properties:

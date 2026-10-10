@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/salahfarzin/meet/internal/meets"
 	"github.com/salahfarzin/meet/pkg/gooyai"
@@ -23,6 +24,9 @@ type mockService struct {
 	listCalls     func() (*gooyai.CallPage, error)
 	getCall       func(id int64) (*gooyai.IncomingCall, error)
 	listProviders func() ([]gooyai.ServiceProvider, error)
+	getConn       func() (*Connection, error)
+	connect       func(apiKey, env string) (*Connection, error)
+	disconnect    func() error
 }
 
 func (m *mockService) ListIncomingCalls(_ context.Context, tenant string, f *gooyai.ListCallsFilter) (*gooyai.CallPage, error) {
@@ -36,6 +40,18 @@ func (m *mockService) GetIncomingCall(_ context.Context, tenant string, id int64
 func (m *mockService) ListProviders(_ context.Context, tenant string) ([]gooyai.ServiceProvider, error) {
 	m.tenant = tenant
 	return m.listProviders()
+}
+func (m *mockService) GetConnection(_ context.Context, tenant string) (*Connection, error) {
+	m.tenant = tenant
+	return m.getConn()
+}
+func (m *mockService) Connect(_ context.Context, tenant, apiKey, env string) (*Connection, error) {
+	m.tenant = tenant
+	return m.connect(apiKey, env)
+}
+func (m *mockService) Disconnect(_ context.Context, tenant string) error {
+	m.tenant = tenant
+	return m.disconnect()
 }
 
 func ctxAs(uuid, roles string) context.Context {
@@ -222,6 +238,79 @@ func TestMissingIdentityIsDenied(t *testing.T) {
 	assertCode(t, err, codes.PermissionDenied)
 	_, err = h.ListProviders(ctx, &pb.ListProvidersRequest{})
 	assertCode(t, err, codes.PermissionDenied)
+	_, err = h.GetConnection(ctx, &pb.GetConnectionRequest{})
+	assertCode(t, err, codes.PermissionDenied)
+	_, err = h.SaveConnection(ctx, &pb.SaveConnectionRequest{ApiKey: "k"})
+	assertCode(t, err, codes.PermissionDenied)
+	_, err = h.DeleteConnection(ctx, &pb.DeleteConnectionRequest{})
+	assertCode(t, err, codes.PermissionDenied)
+}
+
+func TestGetConnection(t *testing.T) {
+	updated := time.Date(2026, 10, 10, 12, 0, 0, 0, time.FixedZone("Tehran", 3*3600+1800))
+
+	t.Run("connected: status and hint, never the key", func(t *testing.T) {
+		svc := &mockService{getConn: func() (*Connection, error) {
+			return &Connection{OrganizerUUID: "clinic-a", APIKeySealed: []byte("sealed"), KeyLast4: "ab12", Environment: "prod", UpdatedAt: updated}, nil
+		}}
+
+		conn, err := NewHandler(svc, false).GetConnection(clinicCtx, &pb.GetConnectionRequest{})
+		require.NoError(t, err)
+		assert.Equal(t, "clinic-a", svc.tenant)
+		assert.Equal(t, &pb.Connection{Connected: true, Environment: "prod", KeyLast4: "ab12", UpdatedAt: "2026-10-10T08:30:00Z"}, conn)
+	})
+
+	t.Run("not connected", func(t *testing.T) {
+		svc := &mockService{getConn: func() (*Connection, error) { return nil, nil }}
+
+		conn, err := NewHandler(svc, false).GetConnection(clinicCtx, &pb.GetConnectionRequest{})
+		require.NoError(t, err)
+		assert.False(t, conn.Connected)
+		assert.Empty(t, conn.KeyLast4)
+	})
+
+	t.Run("storage error", func(t *testing.T) {
+		svc := &mockService{getConn: func() (*Connection, error) { return nil, errors.New("db down") }}
+
+		_, err := NewHandler(svc, false).GetConnection(clinicCtx, &pb.GetConnectionRequest{})
+		assertCode(t, err, codes.Internal)
+	})
+}
+
+func TestSaveConnection(t *testing.T) {
+	t.Run("passes key and environment, returns the new status", func(t *testing.T) {
+		var gotKey, gotEnv string
+		svc := &mockService{connect: func(apiKey, env string) (*Connection, error) {
+			gotKey, gotEnv = apiKey, env
+			return &Connection{KeyLast4: "ab12", Environment: env}, nil
+		}}
+
+		conn, err := NewHandler(svc, false).SaveConnection(clinicCtx, &pb.SaveConnectionRequest{ApiKey: "secret-key-ab12", Environment: "sandbox"})
+		require.NoError(t, err)
+		assert.Equal(t, "secret-key-ab12", gotKey)
+		assert.Equal(t, "sandbox", gotEnv)
+		assert.True(t, conn.Connected)
+		assert.Equal(t, "ab12", conn.KeyLast4)
+	})
+
+	t.Run("a rejected key is the caller's to fix", func(t *testing.T) {
+		svc := &mockService{connect: func(string, string) (*Connection, error) { return nil, ErrKeyRejected }}
+
+		_, err := NewHandler(svc, false).SaveConnection(clinicCtx, &pb.SaveConnectionRequest{ApiKey: "bad"})
+		assertCode(t, err, codes.InvalidArgument)
+	})
+}
+
+func TestDeleteConnection(t *testing.T) {
+	svc := &mockService{disconnect: func() error { return nil }}
+
+	_, err := NewHandler(svc, false).DeleteConnection(clinicCtx, &pb.DeleteConnectionRequest{})
+	require.NoError(t, err)
+	assert.Equal(t, "clinic-a", svc.tenant)
+
+	svc.disconnect = func() error { return errors.New("db down") }
+	_, err = NewHandler(svc, false).DeleteConnection(clinicCtx, &pb.DeleteConnectionRequest{})
+	assertCode(t, err, codes.Internal)
 }
 
 func TestGetCall(t *testing.T) {
@@ -292,7 +381,11 @@ func TestToStatus(t *testing.T) {
 		{&gooyai.APIError{StatusCode: 400, Message: "اعتبارسنجی"}, codes.InvalidArgument},
 		{&gooyai.APIError{StatusCode: 429}, codes.ResourceExhausted},
 		{&gooyai.APIError{StatusCode: 503}, codes.Unavailable},
-		{errors.New("network down"), codes.Unavailable},
+		{ErrEncryptionNotConfigured, codes.FailedPrecondition},
+		{ErrKeyRejected, codes.InvalidArgument},
+		{ErrInvalidConnection, codes.InvalidArgument},
+		// Not Gooyai's fault (e.g. the database): never blamed on Gooyai.
+		{errors.New("db: connection refused"), codes.Internal},
 	}
 	for _, tt := range tests {
 		t.Run(tt.err.Error(), func(t *testing.T) {

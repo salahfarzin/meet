@@ -556,6 +556,13 @@ func TestSleep_ZeroDelayReportsCanceledContext(t *testing.T) {
 	assert.NoError(t, sleep(context.Background(), 0))
 }
 
+func TestIsUnavailable(t *testing.T) {
+	assert.True(t, IsUnavailable(&APIError{StatusCode: 502}))
+	assert.True(t, IsUnavailable(&transportError{err: errors.New("refused")}))
+	assert.False(t, IsUnavailable(&APIError{StatusCode: 401}), "a rejection, not an outage")
+	assert.False(t, IsUnavailable(errors.New("db down")), "not Gooyai's")
+}
+
 func TestRetryable(t *testing.T) {
 	assert.False(t, retryable(nil))
 	assert.False(t, retryable(errors.New("decode failure")))

@@ -19,9 +19,12 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	GooyaiService_ListCalls_FullMethodName     = "/gooyai.GooyaiService/ListCalls"
-	GooyaiService_GetCall_FullMethodName       = "/gooyai.GooyaiService/GetCall"
-	GooyaiService_ListProviders_FullMethodName = "/gooyai.GooyaiService/ListProviders"
+	GooyaiService_ListCalls_FullMethodName        = "/gooyai.GooyaiService/ListCalls"
+	GooyaiService_GetCall_FullMethodName          = "/gooyai.GooyaiService/GetCall"
+	GooyaiService_ListProviders_FullMethodName    = "/gooyai.GooyaiService/ListProviders"
+	GooyaiService_GetConnection_FullMethodName    = "/gooyai.GooyaiService/GetConnection"
+	GooyaiService_SaveConnection_FullMethodName   = "/gooyai.GooyaiService/SaveConnection"
+	GooyaiService_DeleteConnection_FullMethodName = "/gooyai.GooyaiService/DeleteConnection"
 )
 
 // GooyaiServiceClient is the client API for GooyaiService service.
@@ -36,6 +39,12 @@ type GooyaiServiceClient interface {
 	// GetCall returns the call itself, not wrapped in a response message.
 	GetCall(ctx context.Context, in *GetCallRequest, opts ...grpc.CallOption) (*Call, error)
 	ListProviders(ctx context.Context, in *ListProvidersRequest, opts ...grpc.CallOption) (*ListProvidersResponse, error)
+	// GetConnection reports whether the clinic is connected; never the key.
+	GetConnection(ctx context.Context, in *GetConnectionRequest, opts ...grpc.CallOption) (*Connection, error)
+	// SaveConnection checks the key against Gooyai, then stores it encrypted,
+	// replacing any existing connection.
+	SaveConnection(ctx context.Context, in *SaveConnectionRequest, opts ...grpc.CallOption) (*Connection, error)
+	DeleteConnection(ctx context.Context, in *DeleteConnectionRequest, opts ...grpc.CallOption) (*DeleteConnectionResponse, error)
 }
 
 type gooyaiServiceClient struct {
@@ -76,6 +85,36 @@ func (c *gooyaiServiceClient) ListProviders(ctx context.Context, in *ListProvide
 	return out, nil
 }
 
+func (c *gooyaiServiceClient) GetConnection(ctx context.Context, in *GetConnectionRequest, opts ...grpc.CallOption) (*Connection, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Connection)
+	err := c.cc.Invoke(ctx, GooyaiService_GetConnection_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *gooyaiServiceClient) SaveConnection(ctx context.Context, in *SaveConnectionRequest, opts ...grpc.CallOption) (*Connection, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Connection)
+	err := c.cc.Invoke(ctx, GooyaiService_SaveConnection_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *gooyaiServiceClient) DeleteConnection(ctx context.Context, in *DeleteConnectionRequest, opts ...grpc.CallOption) (*DeleteConnectionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteConnectionResponse)
+	err := c.cc.Invoke(ctx, GooyaiService_DeleteConnection_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // GooyaiServiceServer is the server API for GooyaiService service.
 // All implementations must embed UnimplementedGooyaiServiceServer
 // for forward compatibility.
@@ -88,6 +127,12 @@ type GooyaiServiceServer interface {
 	// GetCall returns the call itself, not wrapped in a response message.
 	GetCall(context.Context, *GetCallRequest) (*Call, error)
 	ListProviders(context.Context, *ListProvidersRequest) (*ListProvidersResponse, error)
+	// GetConnection reports whether the clinic is connected; never the key.
+	GetConnection(context.Context, *GetConnectionRequest) (*Connection, error)
+	// SaveConnection checks the key against Gooyai, then stores it encrypted,
+	// replacing any existing connection.
+	SaveConnection(context.Context, *SaveConnectionRequest) (*Connection, error)
+	DeleteConnection(context.Context, *DeleteConnectionRequest) (*DeleteConnectionResponse, error)
 	mustEmbedUnimplementedGooyaiServiceServer()
 }
 
@@ -106,6 +151,15 @@ func (UnimplementedGooyaiServiceServer) GetCall(context.Context, *GetCallRequest
 }
 func (UnimplementedGooyaiServiceServer) ListProviders(context.Context, *ListProvidersRequest) (*ListProvidersResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListProviders not implemented")
+}
+func (UnimplementedGooyaiServiceServer) GetConnection(context.Context, *GetConnectionRequest) (*Connection, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetConnection not implemented")
+}
+func (UnimplementedGooyaiServiceServer) SaveConnection(context.Context, *SaveConnectionRequest) (*Connection, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SaveConnection not implemented")
+}
+func (UnimplementedGooyaiServiceServer) DeleteConnection(context.Context, *DeleteConnectionRequest) (*DeleteConnectionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteConnection not implemented")
 }
 func (UnimplementedGooyaiServiceServer) mustEmbedUnimplementedGooyaiServiceServer() {}
 func (UnimplementedGooyaiServiceServer) testEmbeddedByValue()                       {}
@@ -182,6 +236,60 @@ func _GooyaiService_ListProviders_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _GooyaiService_GetConnection_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetConnectionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GooyaiServiceServer).GetConnection(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: GooyaiService_GetConnection_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GooyaiServiceServer).GetConnection(ctx, req.(*GetConnectionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _GooyaiService_SaveConnection_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SaveConnectionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GooyaiServiceServer).SaveConnection(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: GooyaiService_SaveConnection_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GooyaiServiceServer).SaveConnection(ctx, req.(*SaveConnectionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _GooyaiService_DeleteConnection_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteConnectionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GooyaiServiceServer).DeleteConnection(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: GooyaiService_DeleteConnection_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GooyaiServiceServer).DeleteConnection(ctx, req.(*DeleteConnectionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // GooyaiService_ServiceDesc is the grpc.ServiceDesc for GooyaiService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -200,6 +308,18 @@ var GooyaiService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListProviders",
 			Handler:    _GooyaiService_ListProviders_Handler,
+		},
+		{
+			MethodName: "GetConnection",
+			Handler:    _GooyaiService_GetConnection_Handler,
+		},
+		{
+			MethodName: "SaveConnection",
+			Handler:    _GooyaiService_SaveConnection_Handler,
+		},
+		{
+			MethodName: "DeleteConnection",
+			Handler:    _GooyaiService_DeleteConnection_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

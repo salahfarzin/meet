@@ -23,13 +23,22 @@ func TestSetupGRPCRoutes(t *testing.T) {
 
 	// This should not panic.
 	assert.NotPanics(t, func() {
-		SetupGRPCRoutes(server, db, false, configs.Gooyai{})
+		assert.NoError(t, SetupGRPCRoutes(server, db, false, configs.Gooyai{}))
 	})
 
 	// The server should have services registered
 	services := server.GetServiceInfo()
 	assert.Contains(t, services, "meets.MeetService")
 	assert.Contains(t, services, "gooyai.GooyaiService")
+}
+
+func TestSetupGRPCRoutes_RejectsMalformedEncryptionKey(t *testing.T) {
+	db, _, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer db.Close()
+
+	err = SetupGRPCRoutes(grpc.NewServer(), db, false, configs.Gooyai{EncryptionKey: "not-a-32-byte-key"})
+	assert.ErrorContains(t, err, "GOOYAI_ENCRYPTION_KEY")
 }
 
 func TestSetupRESTRoutes(t *testing.T) {
