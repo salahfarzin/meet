@@ -43,8 +43,12 @@ func NewSealer(base64Key string) (*Sealer, error) {
 	return &Sealer{aead: aead}, nil
 }
 
-// Seal returns nonce || ciphertext.
-func (s *Sealer) Seal(plaintext string) ([]byte, error) {
+// Seal returns nonce || ciphertext, authenticated with aad (additional data):
+// what the value is and whose it is, e.g. phoneAssistantAAD("api_key", tenant).
+// Open only succeeds with the same aad, so a ciphertext copied into another
+// field or another clinic's settings fails to open instead of being read as
+// that other thing.
+func (s *Sealer) Seal(plaintext, aad string) ([]byte, error) {
 	if s == nil {
 		return nil, ErrEncryptionNotConfigured
 	}
@@ -52,12 +56,13 @@ func (s *Sealer) Seal(plaintext string) ([]byte, error) {
 	if _, err := rand.Read(nonce); err != nil {
 		return nil, err
 	}
-	return s.aead.Seal(nonce, nonce, []byte(plaintext), nil), nil
+	return s.aead.Seal(nonce, nonce, []byte(plaintext), []byte(aad)), nil
 }
 
-// Open reverses Seal. It fails if the data was tampered with or sealed under
-// another key (e.g. after rotating GOOYAI_ENCRYPTION_KEY).
-func (s *Sealer) Open(sealed []byte) (string, error) {
+// Open reverses Seal. It fails if the data was tampered with, sealed under
+// another key (e.g. after rotating GOOYAI_ENCRYPTION_KEY) or sealed with
+// another aad (moved to another field or tenant).
+func (s *Sealer) Open(sealed []byte, aad string) (string, error) {
 	if s == nil {
 		return "", ErrEncryptionNotConfigured
 	}
@@ -65,7 +70,7 @@ func (s *Sealer) Open(sealed []byte) (string, error) {
 	if len(sealed) < n {
 		return "", errors.New("sealed gooyai key is too short")
 	}
-	plain, err := s.aead.Open(nil, sealed[:n], sealed[n:], nil)
+	plain, err := s.aead.Open(nil, sealed[:n], sealed[n:], []byte(aad))
 	if err != nil {
 		return "", fmt.Errorf("open sealed gooyai key: %w", err)
 	}

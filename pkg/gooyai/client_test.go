@@ -275,6 +275,23 @@ func TestUpdateSlot(t *testing.T) {
 	assert.JSONEq(t, `{"status":"not_available"}`, rec.body, "nil fields are left out")
 }
 
+func TestUpdateSlot_Attributes(t *testing.T) {
+	t.Run("an empty replacement clears them", func(t *testing.T) {
+		c, rec := newTestClient(t, http.StatusOK, success(slotJSON))
+		_, err := c.UpdateSlot(context.Background(), 1, 10, &UpdateSlotRequest{Attributes: &[]AttributeSelection{}})
+		require.NoError(t, err)
+		assert.JSONEq(t, `{"attributes":[]}`, rec.body)
+	})
+
+	t.Run("a replacement is sent as given", func(t *testing.T) {
+		c, rec := newTestClient(t, http.StatusOK, success(slotJSON))
+		attrs := []AttributeSelection{{AttributeID: 6, AttributeValueIDs: []int64{42}}}
+		_, err := c.UpdateSlot(context.Background(), 1, 10, &UpdateSlotRequest{Attributes: &attrs})
+		require.NoError(t, err)
+		assert.JSONEq(t, `{"attributes":[{"attribute_id":6,"attribute_value_ids":[42]}]}`, rec.body)
+	})
+}
+
 func TestDeleteSlot(t *testing.T) {
 	c, rec := newTestClient(t, http.StatusOK, success(`null`))
 

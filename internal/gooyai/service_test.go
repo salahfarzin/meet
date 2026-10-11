@@ -78,7 +78,7 @@ type used struct{ key, env, proxy string }
 func newTestService(t *testing.T, fc *fakeClient) (Service, *fakeRepo, *used) {
 	t.Helper()
 	sealer := testSealer(t)
-	sealed, err := sealer.Seal("key-a")
+	sealed, err := sealer.Seal("key-a", phoneAssistantAAD(fieldAPIKey, "clinic-a"))
 	require.NoError(t, err)
 	repo := &fakeRepo{rows: map[string]*Connection{
 		"clinic-a": {OrganizerUUID: "clinic-a", APIKeySealed: sealed, KeyLast4: "", Environment: "prod"},
@@ -214,7 +214,7 @@ func TestService_Connect_ChecksThenStoresEncrypted(t *testing.T) {
 	assert.Equal(t, "sandbox", conn.Environment)
 	stored := repo.rows["clinic-b"]
 	assert.NotContains(t, string(stored.APIKeySealed), "sk-live", "the key is never stored in the clear")
-	plain, err := testSealer(t).Open(stored.APIKeySealed)
+	plain, err := testSealer(t).Open(stored.APIKeySealed, phoneAssistantAAD(fieldAPIKey, "clinic-b"))
 	require.NoError(t, err)
 	assert.Equal(t, "sk-live-123456789abcd", plain)
 }
@@ -288,6 +288,15 @@ func TestService_Connect_Rejections(t *testing.T) {
 		repo.dropWrites = true
 		_, err := svc.Connect(ctx, "clinic-b", &ConnectInput{APIKey: "key", Environment: "prod"})
 		assert.ErrorIs(t, err, errNotStored)
+	})
+
+	t.Run("replacement accepted but the old connection kept", func(t *testing.T) {
+		svc, repo, _ := newTestService(t, okProbe(&probed)) // clinic-a: key-a, prod
+		old := repo.rows["clinic-a"]
+		repo.dropWrites = true
+		_, err := svc.Connect(ctx, "clinic-a", &ConnectInput{APIKey: "new-key-0000-wxyz", Environment: "sandbox"})
+		assert.ErrorIs(t, err, errNotStored, "the old connection still being there is not success")
+		assert.Same(t, old, repo.rows["clinic-a"])
 	})
 }
 
@@ -379,7 +388,7 @@ func TestService_Connect_Proxy(t *testing.T) {
 		assert.Equal(t, "socks5://u:****@proxy:1080", conn.ProxyRedacted)
 		sealed := repo.rows["clinic-b"].ProxySealed
 		assert.NotContains(t, string(sealed), "pw", "the proxy is never stored in the clear")
-		plain, err := testSealer(t).Open(sealed)
+		plain, err := testSealer(t).Open(sealed, phoneAssistantAAD(fieldProxyURL, "clinic-b"))
 		require.NoError(t, err)
 		assert.Equal(t, "socks5://u:pw@proxy:1080", plain)
 
@@ -456,4 +465,39 @@ func TestRedactProxy(t *testing.T) {
 	assert.Equal(t, "socks5://user@proxy:1080", redactProxy("socks5://user@proxy:1080"))
 	assert.Equal(t, "socks5://user:****@proxy:1080", redactProxy("socks5://user:s3cret@proxy:1080"))
 	assert.Equal(t, maskedPassword, redactProxy("http://[::1"))
+}
+
+func TestService_SwappedCiphertextIsRefused(t *testing.T) {
+	ctx := context.Background()
+	var probed gooyai.ListProvidersFilter
+	svc, repo, _ := newTestService(t, okProbe(&probed))
+	_, err := svc.Connect(ctx, "clinic-b", &ConnectInput{APIKey: "sk-live-123456789abcd"})
+	require.NoError(t, err)
+
+	// What a clinic could do by editing its own settings: copy the sealed key
+	// into the proxy field.
+	repo.rows["clinic-b"].ProxySealed = repo.rows["clinic-b"].APIKeySealed
+
+	conn, err := svc.GetConnection(ctx, "clinic-b")
+	require.Error(t, err)
+	assert.Nil(t, conn)
+	assert.NotContains(t, err.Error(), "sk-live")
+
+	// And copying another clinic's sealed key doesn't make it usable here.
+	repo.rows["clinic-b"].ProxySealed = nil
+	repo.rows["clinic-b"].APIKeySealed = repo.rows["clinic-a"].APIKeySealed
+	_, err = svc.ListProviders(ctx, "clinic-b")
+	assert.Error(t, err)
+}
+
+func TestService_InvalidStoredProxyIsNotReturned(t *testing.T) {
+	ctx := context.Background()
+	svc, repo, _ := newTestService(t, &fakeClient{})
+	sealed, err := testSealer(t).Seal("not a proxy", phoneAssistantAAD(fieldProxyURL, "clinic-a"))
+	require.NoError(t, err)
+	repo.rows["clinic-a"].ProxySealed = sealed
+
+	_, err = svc.GetConnection(ctx, "clinic-a")
+	assert.ErrorIs(t, err, errStoredProxyInvalid)
+	assert.NotErrorIs(t, err, ErrInvalidProxy, "not reported as the caller's bad input")
 }

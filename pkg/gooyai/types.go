@@ -202,14 +202,16 @@ type CreateSlotRequest struct {
 }
 
 // UpdateSlotRequest is the body of PATCH .../availability-slots/:slotId.
-// Nil fields are left unchanged; a non-nil Attributes replaces the slot's.
+// Nil fields are left unchanged. A non-nil Attributes replaces the slot's —
+// it's a pointer so that &[]AttributeSelection{} sends "attributes":[] and
+// clears them, which a plain slice with omitempty would silently drop.
 type UpdateSlotRequest struct {
-	Status      *string              `json:"status,omitempty"`
-	SlotDate    *string              `json:"slot_date,omitempty"`
-	StartTime   *string              `json:"start_time,omitempty"`
-	EndTime     *string              `json:"end_time,omitempty"`
-	Description *string              `json:"description,omitempty"`
-	Attributes  []AttributeSelection `json:"attributes,omitempty"`
+	Status      *string               `json:"status,omitempty"`
+	SlotDate    *string               `json:"slot_date,omitempty"`
+	StartTime   *string               `json:"start_time,omitempty"`
+	EndTime     *string               `json:"end_time,omitempty"`
+	Description *string               `json:"description,omitempty"`
+	Attributes  *[]AttributeSelection `json:"attributes,omitempty"`
 }
 
 // Booking statuses.

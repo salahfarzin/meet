@@ -6,6 +6,7 @@
 package gooyai
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -28,6 +29,9 @@ var (
 	// errNotStored means the users service accepted the save but didn't keep
 	// phone_assistant (e.g. it isn't in its allowed settings keys).
 	errNotStored = errors.New("the users service did not store the phone_assistant setting")
+	// errStoredProxyInvalid means the stored proxy decrypted to something that
+	// isn't a proxy URL. Ours to investigate (Internal), not the caller's input.
+	errStoredProxyInvalid = errors.New("stored phone_assistant proxy is not a valid proxy URL")
 )
 
 const (
@@ -144,17 +148,46 @@ func (s *service) client(ctx context.Context, tenant string) (Client, error) {
 	return s.newClient(key, conn.Environment, proxy), nil
 }
 
+// Fields a sealed value can belong to, bound into its ciphertext (see
+// phoneAssistantAAD).
+const (
+	fieldAPIKey   = "api_key"
+	fieldProxyURL = "proxy_url"
+)
+
+// phoneAssistantAAD names what a sealed value is and whose it is. The users
+// service lets a clinic edit its own settings, so without this binding
+// key_ciphertext copied into proxy_ciphertext would open as the "proxy" and
+// GetConnection would hand the API key back to the browser.
+func phoneAssistantAAD(field, tenant string) string {
+	return "phone_assistant/" + field + "/" + tenant
+}
+
 // open decrypts a stored connection's key and proxy ("" when it has none).
+// A proxy that opens but isn't a valid proxy URL is refused, never returned.
 func (s *service) open(conn *Connection) (key, proxy string, err error) {
-	if key, err = s.sealer.Open(conn.APIKeySealed); err != nil {
+	if key, err = s.sealer.Open(conn.APIKeySealed, phoneAssistantAAD(fieldAPIKey, conn.OrganizerUUID)); err != nil {
 		return "", "", err
 	}
-	if len(conn.ProxySealed) > 0 {
-		if proxy, err = s.sealer.Open(conn.ProxySealed); err != nil {
-			return "", "", err
-		}
+	if proxy, err = s.openProxy(conn); err != nil {
+		return "", "", err
 	}
 	return key, proxy, nil
+}
+
+// openProxy decrypts and validates the stored proxy ("" when there is none).
+func (s *service) openProxy(conn *Connection) (string, error) {
+	if len(conn.ProxySealed) == 0 {
+		return "", nil
+	}
+	proxy, err := s.sealer.Open(conn.ProxySealed, phoneAssistantAAD(fieldProxyURL, conn.OrganizerUUID))
+	if err != nil {
+		return "", err
+	}
+	if _, err := parseProxy(proxy); err != nil {
+		return "", errStoredProxyInvalid
+	}
+	return proxy, nil
 }
 
 // withRedactedProxy fills conn.ProxyRedacted, what the dashboard may see of
@@ -163,7 +196,7 @@ func (s *service) withRedactedProxy(conn *Connection) (*Connection, error) {
 	if conn == nil || len(conn.ProxySealed) == 0 {
 		return conn, nil
 	}
-	proxy, err := s.sealer.Open(conn.ProxySealed)
+	proxy, err := s.openProxy(conn)
 	if err != nil {
 		return nil, err
 	}
@@ -286,36 +319,49 @@ func (s *service) fillFromStored(ctx context.Context, tenant, apiKey, proxy stri
 
 // store seals the key and proxy and saves them as the tenant's connection.
 func (s *service) store(ctx context.Context, tenant, apiKey, env, proxy string) (*Connection, error) {
-	sealed, err := s.sealer.Seal(apiKey)
+	sealed, err := s.sealer.Seal(apiKey, phoneAssistantAAD(fieldAPIKey, tenant))
 	if err != nil {
 		return nil, err
 	}
 	var sealedProxy []byte
 	if proxy != "" {
-		if sealedProxy, err = s.sealer.Seal(proxy); err != nil {
+		if sealedProxy, err = s.sealer.Seal(proxy, phoneAssistantAAD(fieldProxyURL, tenant)); err != nil {
 			return nil, err
 		}
 	}
-	if err := s.repo.Upsert(ctx, &Connection{
+	written := &Connection{
 		OrganizerUUID: tenant,
 		APIKeySealed:  sealed,
 		KeyLast4:      last4(apiKey),
 		Environment:   env,
 		ProxySealed:   sealedProxy,
 		UpdatedAt:     time.Now().UTC(),
-	}); err != nil {
+	}
+	if err := s.repo.Upsert(ctx, written); err != nil {
 		return nil, err
 	}
 	// Read it back: the users service silently drops settings keys it doesn't
-	// allow, so a save that didn't land must fail here, not look connected.
+	// allow, so a save that didn't land must fail here, not look connected —
+	// including when an older connection is still there.
 	conn, err := s.repo.Get(ctx, tenant)
 	if err != nil {
 		return nil, err
 	}
-	if conn == nil {
+	if !sameConnection(conn, written) {
 		return nil, errNotStored
 	}
 	return s.withRedactedProxy(conn)
+}
+
+// sameConnection reports whether stored is the write just made. Each Seal uses
+// a fresh random nonce, so matching ciphertext proves it's this write and not
+// an older connection left in place.
+func sameConnection(stored, written *Connection) bool {
+	return stored != nil &&
+		bytes.Equal(stored.APIKeySealed, written.APIKeySealed) &&
+		bytes.Equal(stored.ProxySealed, written.ProxySealed) &&
+		stored.Environment == written.Environment &&
+		stored.KeyLast4 == written.KeyLast4
 }
 
 func (s *service) Disconnect(ctx context.Context, tenant string) error {
