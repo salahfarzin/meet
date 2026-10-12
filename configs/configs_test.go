@@ -14,6 +14,7 @@ var configEnvVars = []string{
 	"APP_NAME", "APP_ENV", "APP_VERSION", "APP_URL", "APP_PORT", "APP_GRPC_PORT",
 	"REST_PREFIX", "AUTH_SERVICE", "LOG_LEVEL", "LOG_PATH", "DB_DRIVER", "DB_USER", "DB_PASSWORD",
 	"DB_HOST", "DB_PORT", "DB_NAME",
+	"GOOYAI_BASE_URL", "GOOYAI_ENCRYPTION_KEY", "USERS_SERVICE", "GOOYAI_PROXY",
 }
 
 // withClearedConfigEnv clears configEnvVars for the duration of the test and restores
@@ -115,6 +116,32 @@ func TestInitWithCustomEnvVars(t *testing.T) {
 	assert.Equal(t, 25, config.DB.MaxOpenConns)
 	assert.Equal(t, 25, config.DB.MaxIdleConns)
 	assert.Equal(t, 5, config.DB.ConnMaxLifetime)
+}
+
+func TestInit_GooyaiDefaults(t *testing.T) {
+	withClearedConfigEnv(t)
+
+	config := Init()
+
+	assert.Equal(t, "https://api.gooyai.ir", config.Gooyai.BaseURL)
+	assert.Empty(t, config.Gooyai.EncryptionKey)
+	assert.Empty(t, config.Gooyai.UsersService)
+	assert.Empty(t, config.Gooyai.Proxy)
+}
+
+func TestInit_GooyaiFromEnv(t *testing.T) {
+	withClearedConfigEnv(t)
+	t.Setenv("GOOYAI_BASE_URL", "https://gooyai.test")
+	t.Setenv("GOOYAI_ENCRYPTION_KEY", "c2VjcmV0")
+	t.Setenv("USERS_SERVICE", "https://users.test/v1")
+	t.Setenv("GOOYAI_PROXY", "socks5://proxy.test:1080")
+
+	config := Init()
+
+	assert.Equal(t, "https://gooyai.test", config.Gooyai.BaseURL)
+	assert.Equal(t, "c2VjcmV0", config.Gooyai.EncryptionKey)
+	assert.Equal(t, "https://users.test/v1", config.Gooyai.UsersService)
+	assert.Equal(t, "socks5://proxy.test:1080", config.Gooyai.Proxy)
 }
 
 func TestGetEnv(t *testing.T) {

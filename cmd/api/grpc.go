@@ -59,7 +59,10 @@ func (s *GRPCServer) Start() error {
 		return err
 	}
 
-	router.SetupGRPCRoutes(s.grpcServer, s.app.DB, s.app.Configs.AuthDisabled)
+	if err := router.SetupGRPCRoutes(s.grpcServer, s.app.DB, s.app.Configs.AuthDisabled, s.app.Configs.Gooyai); err != nil {
+		_ = listener.Close()
+		return err
+	}
 
 	reflection.Register(s.grpcServer) // Register reflection service on gRPC server
 	log.Printf("gRPC server listening on %s", address)

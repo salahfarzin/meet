@@ -51,3 +51,28 @@ Admin-managed list trappists pick from for their public profile (dashboard Setti
 | `Delete` | `DELETE /meets/specialties/{uuid}` | Admin / Programmer; hard delete |
 
 Trappists store only the uuids, in psychometrist `users.center_details.appointments.profile.{specialties,approaches}`; rawej resolves them against `GetAll` (active only), so hidden or deleted entries drop off patient-facing profiles. Registered after `MeetService` so the literal route beats `/meets/{uuid}`.
+
+## Gooyai integration (`GooyaiService`, `internal/gooyai` + `pkg/gooyai`)
+
+[Gooyai](https://docs.gooyai.ir/docs/intro) is an AI phone receptionist with its own providers, slots and bookings. `pkg/gooyai` is a plain Partner API client (imports nothing from meet, reusable by other services); `internal/gooyai` picks the clinic's key and maps results to our proto. Each clinic connects itself from the dashboard (Settings → Phone assistant): its key is checked against Gooyai, sealed with AES-256-GCM under `GOOYAI_ENCRYPTION_KEY` (base64 of 32 bytes; unset = integration disabled, malformed = refuse to start), and stored **in the clinic's user settings**, not in meet's database: `settings.phone_assistant = {key_ciphertext, key_last4, environment, updated_at}` on the users service (`USERS_SERVICE`, psychometrist's `users_info.center_details`; auth's `users.settings` once it takes over users). `usersRepository` reads and writes it through `GET`/`PUT /users/{uuid}` **with the caller's own bearer token**, so the users service's rules decide who may touch whose settings; under `AUTH_DISABLED` the placeholder tenant is resolved through `GET /me`. Those settings reach the browser, which is why only ciphertext goes there — the plaintext key exists only inside meet. psychometrist must list `phone_assistant` in its allowed settings keys, or it silently drops the write (`Connect` reads it back and fails instead). Sync state stays in `meets.settings` and in Gooyai.
+
+Consequence for Phase 2: a Gooyai webhook carries no user token, so reading the key there needs a service credential on the users service.
+
+| RPC | REST | notes |
+|-----|------|-------|
+| `ListCalls` | `GET /meets/calls?direction&page&page_size&from&to&phone&should_recall` | `{calls,total,page,page_size,total_pages}`; `page_size` ≤ 100; `from`/`to` Gregorian `YYYY-MM-DD` |
+| `GetCall` | `GET /meets/calls/{id}?direction` | returns the call **bare**, not wrapped |
+
+`direction` is `incoming` (the default when empty) or `outgoing`; each call carries it. Gooyai's Partner API only has incoming calls, so `outgoing` is accepted as a known value but returns `UNIMPLEMENTED` (HTTP 501) until it does; anything else is `INVALID_ARGUMENT`. Call ids are only unique within a direction. `pkg/gooyai` keeps Gooyai's own `incoming-calls` naming.
+| `ListProviders` | `GET /meets/phone-assistant/providers` | all pages walked server-side |
+| `GetConnection` | `GET /meets/phone-assistant/connection` | `{connected, environment, key_last4, updated_at}` — **never the key** |
+| `SaveConnection` | `PUT /meets/phone-assistant/connection` (body `{api_key, environment}`) | probes Gooyai first: a rejected key is `INVALID_ARGUMENT` and nothing is stored; replaces any existing key |
+| `DeleteConnection` | `DELETE /meets/phone-assistant/connection` | |
+
+The HTTP routes say `phone-assistant`, not the vendor, because the dashboard is white-label: no vendor name appears in its UI, code or the paths it calls. The vendor name stays inside meet (`pkg/gooyai`, `internal/gooyai`, the proto package).
+
+- The tenant is the caller's own uuid; only `Programmer` may pass `organizer_id` (same rule as `retrieveOrganizerUuid`). Never take a tenant or key from the request otherwise.
+- Clinic not connected → `FAILED_PRECONDITION` (HTTP 400, `code: 9`). Gooyai rejecting the key is also `FAILED_PRECONDITION`, **never** `UNAUTHENTICATED`: the dashboard treats a 401 as its own session expiring and logs the user out.
+- Gooyai's error messages are Persian and never forwarded; map by status (`errors.Is(err, gooyai.ErrNotFound)` etc.).
+- `pkg/gooyai` retries GETs on 5xx/transport errors only — never writes, since Gooyai has no idempotency keys and a retried POST could double-book.
+- Registered after `MeetService` so the literal routes beat `/meets/{uuid}`.

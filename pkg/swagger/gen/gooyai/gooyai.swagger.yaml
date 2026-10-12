@@ -1,0 +1,429 @@
+swagger: "2.0"
+info:
+  title: Gooyai API
+  description: Calls and providers from Gooyai, the AI phone receptionist, for clinics connected to it
+  version: "1.0"
+  contact:
+    name: Meets API Support
+    email: support@meets.example.com
+tags:
+  - name: GooyaiService
+schemes:
+  - http
+  - https
+consumes:
+  - application/json
+produces:
+  - application/json
+paths:
+  /meets/calls:
+    get:
+      summary: ListCalls lists incoming calls unless direction says otherwise.
+      operationId: GooyaiService_ListCalls
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/gooyaiListCallsResponse'
+        "400":
+          description: Clinic not connected to Gooyai (FAILED_PRECONDITION), or an invalid filter
+          schema: {}
+        "404":
+          description: Resource not found
+          schema: {}
+        "500":
+          description: Internal server error
+          schema: {}
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/rpcStatus'
+      parameters:
+        - name: page
+          description: 'page: 1-based, default 1.'
+          in: query
+          required: false
+          type: integer
+          format: int32
+        - name: page_size
+          description: 'page_size: 1-100, default 20.'
+          in: query
+          required: false
+          type: integer
+          format: int32
+        - name: from
+          description: 'from / to: inclusive date range, YYYY-MM-DD (Gregorian).'
+          in: query
+          required: false
+          type: string
+        - name: to
+          in: query
+          required: false
+          type: string
+        - name: phone
+          description: 'phone: partial match on the caller''s number.'
+          in: query
+          required: false
+          type: string
+        - name: should_recall
+          description: 'should_recall: only calls flagged (true) or not flagged (false) for a call back; unset = all.'
+          in: query
+          required: false
+          type: boolean
+        - name: organizer_id
+          description: 'organizer_id: superadmins only, to read another clinic''s calls. Ignored for everyone else.'
+          in: query
+          required: false
+          type: string
+        - name: direction
+          description: |-
+            direction: "incoming" (default when empty) or "outgoing". Outgoing calls
+            aren't available yet and return UNIMPLEMENTED.
+          in: query
+          required: false
+          type: string
+      tags:
+        - GooyaiService
+  /meets/calls/{id}:
+    get:
+      summary: GetCall returns the call itself, not wrapped in a response message.
+      operationId: GooyaiService_GetCall
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/gooyaiCall'
+        "400":
+          description: Clinic not connected to Gooyai (FAILED_PRECONDITION), or an invalid filter
+          schema: {}
+        "404":
+          description: Resource not found
+          schema: {}
+        "500":
+          description: Internal server error
+          schema: {}
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/rpcStatus'
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+        - name: organizer_id
+          description: 'organizer_id: superadmins only. Ignored for everyone else.'
+          in: query
+          required: false
+          type: string
+        - name: direction
+          description: |-
+            direction: "incoming" (default when empty) or "outgoing"; ids are only
+            unique within a direction.
+          in: query
+          required: false
+          type: string
+      tags:
+        - GooyaiService
+  /meets/phone-assistant/connection:
+    get:
+      summary: GetConnection reports whether the clinic is connected; never the key.
+      operationId: GooyaiService_GetConnection
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/gooyaiConnection'
+        "400":
+          description: Clinic not connected to Gooyai (FAILED_PRECONDITION), or an invalid filter
+          schema: {}
+        "404":
+          description: Resource not found
+          schema: {}
+        "500":
+          description: Internal server error
+          schema: {}
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/rpcStatus'
+      parameters:
+        - name: organizer_id
+          description: 'organizer_id: superadmins only. Ignored for everyone else.'
+          in: query
+          required: false
+          type: string
+      tags:
+        - GooyaiService
+    delete:
+      operationId: GooyaiService_DeleteConnection
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/gooyaiDeleteConnectionResponse'
+        "400":
+          description: Clinic not connected to Gooyai (FAILED_PRECONDITION), or an invalid filter
+          schema: {}
+        "404":
+          description: Resource not found
+          schema: {}
+        "500":
+          description: Internal server error
+          schema: {}
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/rpcStatus'
+      parameters:
+        - name: organizer_id
+          description: 'organizer_id: superadmins only. Ignored for everyone else.'
+          in: query
+          required: false
+          type: string
+      tags:
+        - GooyaiService
+    put:
+      summary: |-
+        SaveConnection checks the key against Gooyai, then stores it encrypted,
+        replacing any existing connection.
+      operationId: GooyaiService_SaveConnection
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/gooyaiConnection'
+        "400":
+          description: Clinic not connected to Gooyai (FAILED_PRECONDITION), or an invalid filter
+          schema: {}
+        "404":
+          description: Resource not found
+          schema: {}
+        "500":
+          description: Internal server error
+          schema: {}
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/rpcStatus'
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/gooyaiSaveConnectionRequest'
+      tags:
+        - GooyaiService
+  /meets/phone-assistant/providers:
+    get:
+      operationId: GooyaiService_ListProviders
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/gooyaiListProvidersResponse'
+        "400":
+          description: Clinic not connected to Gooyai (FAILED_PRECONDITION), or an invalid filter
+          schema: {}
+        "404":
+          description: Resource not found
+          schema: {}
+        "500":
+          description: Internal server error
+          schema: {}
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/rpcStatus'
+      parameters:
+        - name: organizer_id
+          description: 'organizer_id: superadmins only. Ignored for everyone else.'
+          in: query
+          required: false
+          type: string
+      tags:
+        - GooyaiService
+definitions:
+  gooyaiCall:
+    type: object
+    properties:
+      id:
+        type: string
+        description: |-
+          id: Gooyai's call id. A string because the dashboard treats ids as opaque.
+          Unique within a direction, not across directions.
+      from_number:
+        type: string
+      to_number:
+        type: string
+      start_at:
+        type: string
+        description: 'start_at / end_at: RFC3339, UTC.'
+      end_at:
+        type: string
+      duration_seconds:
+        type: integer
+        format: int32
+      recording_url:
+        type: string
+      call_forward:
+        type: boolean
+        description: 'call_forward: the agent forwarded the call to a person.'
+      should_recall_user:
+        type: boolean
+        description: 'should_recall_user: the agent flagged that staff should call the caller back.'
+      transcript:
+        type: array
+        items:
+          type: object
+          $ref: '#/definitions/gooyaiTranscriptMessage'
+        description: 'transcript: empty when Gooyai returned no transcript or one in an unknown shape.'
+      analytics:
+        type: object
+        description: 'analytics: Gooyai''s free-form call analytics, e.g. {"sentiment": "neutral", "resolved": true}.'
+      assistant_name:
+        type: string
+        description: 'assistant_name: name of the Gooyai agent that answered.'
+      direction:
+        type: string
+        description: |-
+          direction: "incoming" (a caller rang the clinic) or "outgoing" (the agent
+          rang out). Only incoming calls exist so far.
+    description: Call is one phone call handled by the clinic's Gooyai AI agent.
+  gooyaiConnection:
+    type: object
+    properties:
+      connected:
+        type: boolean
+      environment:
+        type: string
+        description: 'environment: "sandbox" or "prod". Empty when not connected.'
+      key_last4:
+        type: string
+        description: |-
+          key_last4: last 4 characters of the stored key, to tell keys apart. Empty
+          when not connected or the key is too short to hint at safely.
+      updated_at:
+        type: string
+        description: 'updated_at: when the key was last saved, RFC3339. Empty when not connected.'
+      proxy_url:
+        type: string
+        description: |-
+          proxy_url: the proxy calls to the provider go through, with any password
+          replaced by "****". Empty = the server's default (GOOYAI_PROXY, else the
+          environment's proxy settings).
+    description: |-
+      Connection is a clinic's link to Gooyai. The API key itself is write-only:
+      it's stored encrypted and never returned.
+  gooyaiDeleteConnectionResponse:
+    type: object
+  gooyaiListCallsResponse:
+    type: object
+    properties:
+      calls:
+        type: array
+        items:
+          type: object
+          $ref: '#/definitions/gooyaiCall'
+      total:
+        type: integer
+        format: int32
+      page:
+        type: integer
+        format: int32
+      page_size:
+        type: integer
+        format: int32
+      total_pages:
+        type: integer
+        format: int32
+  gooyaiListProvidersResponse:
+    type: object
+    properties:
+      providers:
+        type: array
+        items:
+          type: object
+          $ref: '#/definitions/gooyaiProvider'
+  gooyaiProvider:
+    type: object
+    properties:
+      id:
+        type: string
+      first_name:
+        type: string
+      last_name:
+        type: string
+      specialty:
+        type: string
+      phone:
+        type: string
+      profile_image_url:
+        type: string
+      is_active:
+        type: boolean
+    description: Provider is a schedulable person in Gooyai. Managed in Gooyai's panel only.
+  gooyaiSaveConnectionRequest:
+    type: object
+    properties:
+      api_key:
+        type: string
+        description: |-
+          api_key: the clinic's Gooyai Partner API key. Checked against Gooyai
+          before it's saved. May be empty when already connected, to keep the
+          stored key (e.g. to change only the proxy or environment).
+      environment:
+        type: string
+        description: 'environment: "sandbox" (default) or "prod".'
+      organizer_id:
+        type: string
+        description: 'organizer_id: superadmins only. Ignored for everyone else.'
+      proxy_url:
+        type: string
+        description: |-
+          proxy_url: optional http://, https://, socks5:// or socks5h:// proxy for
+          calls to the provider, e.g. socks5://user:pass@host:1080. Empty = the
+          server's default. A "****" password (as returned by GetConnection) keeps
+          the stored one.
+    title: Request & Response
+  gooyaiTranscriptMessage:
+    type: object
+    properties:
+      role:
+        type: string
+        description: 'role: who spoke, e.g. "assistant" (the AI agent) or "user" (the caller).'
+      content:
+        type: string
+    description: TranscriptMessage is one turn of the call's conversation.
+  protobufAny:
+    type: object
+    properties:
+      '@type':
+        type: string
+    additionalProperties: {}
+  protobufNullValue:
+    type: integer
+    format: int32
+    enum:
+      - 0
+    default: 0
+    description: |-
+      `NullValue` is a singleton enumeration to represent the null value for the
+      `Value` type union.
+
+      The JSON representation for `NullValue` is JSON `null`.
+
+       - 0: Null value.
+  rpcStatus:
+    type: object
+    properties:
+      code:
+        type: integer
+        format: int32
+      message:
+        type: string
+      details:
+        type: array
+        items:
+          type: object
+          $ref: '#/definitions/protobufAny'

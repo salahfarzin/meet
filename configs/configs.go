@@ -31,6 +31,24 @@ type CORS struct {
 	AllowedOrigins []string
 }
 
+// Gooyai configures the Gooyai (AI phone receptionist) integration.
+type Gooyai struct {
+	BaseURL string `env:"GOOYAI_BASE_URL,default=https://api.gooyai.ir"`
+	// EncryptionKey (base64 of 32 bytes) seals clinics' Gooyai API keys at
+	// rest. Each clinic saves its own key (and sandbox/prod choice) from the
+	// dashboard; unset keeps the service up with the integration disabled.
+	// A secret: never log it.
+	EncryptionKey string `env:"GOOYAI_ENCRYPTION_KEY"`
+	// UsersService is the users API base (e.g. https://api.psychometrist.local/v1)
+	// whose user settings hold each clinic's sealed key, under
+	// settings.phone_assistant. Unset leaves the integration disabled.
+	UsersService string `env:"USERS_SERVICE"`
+	// Proxy is the default proxy for calls to Gooyai (e.g.
+	// socks5://user:pass@host:1080), for clinics that set none of their own.
+	// Unset = the environment's HTTPS_PROXY etc. Malformed = refuse to start.
+	Proxy string `env:"GOOYAI_PROXY"`
+}
+
 type Configs struct {
 	AppName    string `env:"APP_NAME,required"`
 	AppEnv     string `env:"APP_ENV,required"`
@@ -46,9 +64,10 @@ type Configs struct {
 	// fully-privileged local caller. Only for local, non-public deployments.
 	AuthDisabled bool `env:"AUTH_DISABLED,default=false"`
 
-	Log  Log
-	DB   DBDriver
-	CORS CORS
+	Log    Log
+	DB     DBDriver
+	CORS   CORS
+	Gooyai Gooyai
 }
 
 func Init() *Configs {
@@ -85,6 +104,12 @@ func Init() *Configs {
 		},
 		CORS: CORS{
 			AllowedOrigins: utils.ParseCORSOrigins(),
+		},
+		Gooyai: Gooyai{
+			BaseURL:       utils.GetEnv("GOOYAI_BASE_URL", "https://api.gooyai.ir"),
+			EncryptionKey: utils.GetEnv("GOOYAI_ENCRYPTION_KEY", ""),
+			UsersService:  utils.GetEnv("USERS_SERVICE", ""),
+			Proxy:         utils.GetEnv("GOOYAI_PROXY", ""),
 		},
 	}
 }
