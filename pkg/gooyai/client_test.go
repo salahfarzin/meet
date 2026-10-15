@@ -129,9 +129,32 @@ func TestListIncomingCalls(t *testing.T) {
 	call := page.Calls[0]
 	assert.Equal(t, int64(101), call.ID)
 	assert.Equal(t, 120, call.DurationSeconds)
-	assert.True(t, call.ShouldRecallUser)
+	assert.True(t, bool(call.ShouldRecallUser))
 	assert.Equal(t, "neutral", call.Analytics["sentiment"])
 	assert.Equal(t, &AIModel{ID: 1, Name: "Support Bot", Type: "support"}, call.Model)
+}
+
+// The live API sends the call flags as 0/1 rather than the documented booleans.
+func TestListIncomingCalls_NumericFlags(t *testing.T) {
+	c, _ := newTestClient(t, http.StatusOK, success(`{"calls":[{"id":1,"call_forward":0,"should_recall_user":1}],"pagination":{}}`))
+
+	page, err := c.ListIncomingCalls(context.Background(), nil)
+	require.NoError(t, err)
+	require.Len(t, page.Calls, 1)
+	assert.False(t, bool(page.Calls[0].CallForward))
+	assert.True(t, bool(page.Calls[0].ShouldRecallUser))
+}
+
+func TestBool_UnmarshalJSON(t *testing.T) {
+	for in, want := range map[string]bool{"true": true, "false": false, "null": false, "0": false, "1": true, "2": true} {
+		var b Bool
+		require.NoError(t, json.Unmarshal([]byte(in), &b), in)
+		assert.Equal(t, want, bool(b), in)
+	}
+	for _, in := range []string{`"1"`, `{}`, `[]`} {
+		var b Bool
+		assert.Error(t, json.Unmarshal([]byte(in), &b), in)
+	}
 }
 
 func TestListIncomingCalls_OmitsZeroFilters(t *testing.T) {

@@ -269,8 +269,8 @@ func callToProto(c *gooyai.IncomingCall) *pb.Call {
 		EndAt:            c.EndAt,
 		DurationSeconds:  int32(c.DurationSeconds), //nolint:gosec // a call's length in seconds
 		RecordingUrl:     c.RecordingURL,
-		CallForward:      c.CallForward,
-		ShouldRecallUser: c.ShouldRecallUser,
+		CallForward:      bool(c.CallForward),
+		ShouldRecallUser: bool(c.ShouldRecallUser),
 	}
 	if msgs, ok := c.ChatMessages(); ok {
 		for _, m := range msgs {

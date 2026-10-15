@@ -1,6 +1,9 @@
 package gooyai
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 // Pagination is data.pagination on list endpoints. Filters affect Total and
 // TotalPages.
@@ -21,6 +24,32 @@ type PageQuery struct {
 // MaxLimit is the largest page size Gooyai accepts; more is a 400.
 const MaxLimit = 100
 
+// jsonNull is the raw JSON null literal.
+const jsonNull = "null"
+
+// Bool decodes a JSON boolean that Gooyai may send as true/false or as a
+// 0/1 number: the call flags are documented as booleans but come back as
+// MySQL tinyints.
+type Bool bool
+
+// UnmarshalJSON accepts true, false, null and any JSON number (non-zero is
+// true).
+func (b *Bool) UnmarshalJSON(data []byte) error {
+	switch s := string(data); s {
+	case "true":
+		*b = true
+	case "false", jsonNull:
+		*b = false
+	default:
+		var n float64
+		if err := json.Unmarshal(data, &n); err != nil {
+			return fmt.Errorf("gooyai: cannot decode %s as a boolean", s)
+		}
+		*b = n != 0
+	}
+	return nil
+}
+
 // IncomingCall is one call the AI agent answered.
 type IncomingCall struct {
 	ID               int64  `json:"id"`
@@ -30,8 +59,8 @@ type IncomingCall struct {
 	EndAt            string `json:"end_at"`
 	DurationSeconds  int    `json:"duration_seconds"`
 	RecordingURL     string `json:"recording_url"`
-	CallForward      bool   `json:"call_forward"`
-	ShouldRecallUser bool   `json:"should_recall_user"`
+	CallForward      Bool   `json:"call_forward"`
+	ShouldRecallUser Bool   `json:"should_recall_user"`
 	// Analytics is flexible JSON (e.g. {"sentiment":"neutral","resolved":true});
 	// its keys vary, so it's kept as a generic map.
 	Analytics map[string]any `json:"analytics"`
@@ -52,7 +81,7 @@ type ChatMessage struct {
 // ok is false when Chats is absent or in some other shape, so callers can
 // fall back instead of failing the whole call.
 func (c *IncomingCall) ChatMessages() (msgs []ChatMessage, ok bool) {
-	if len(c.Chats) == 0 || string(c.Chats) == "null" {
+	if len(c.Chats) == 0 || string(c.Chats) == jsonNull {
 		return nil, false
 	}
 	if err := json.Unmarshal(c.Chats, &msgs); err != nil {

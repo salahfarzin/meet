@@ -160,7 +160,7 @@ func (c *Client) once(ctx context.Context, method, path string, query url.Values
 	if err := json.NewDecoder(resp.Body).Decode(&env); err != nil {
 		return fmt.Errorf("gooyai: decode %s %s response: %w", method, path, err)
 	}
-	if len(env.Data) == 0 || string(env.Data) == "null" {
+	if len(env.Data) == 0 || string(env.Data) == jsonNull {
 		return nil
 	}
 	if err := json.Unmarshal(env.Data, out); err != nil {
