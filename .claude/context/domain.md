@@ -46,9 +46,9 @@ Admin-managed list trappists pick from for their public profile (dashboard Setti
 | RPC | REST | who |
 |-----|------|-----|
 | `GetAll` | `GET /meets/specialties?kind=&include_inactive=` | any authenticated caller; `include_inactive` honored for admins only |
-| `Create` | `POST /meets/specialties` (body=specialty) | Admin / Programmer; always created active |
-| `Update` | `PUT /meets/specialties/{uuid}` | Admin / Programmer |
-| `Delete` | `DELETE /meets/specialties/{uuid}` | Admin / Programmer; hard delete |
+| `Create` | `POST /meets/specialties` (body=specialty) | admin / super-admin; always created active |
+| `Update` | `PUT /meets/specialties/{uuid}` | admin / super-admin |
+| `Delete` | `DELETE /meets/specialties/{uuid}` | admin / super-admin; hard delete |
 
 Trappists store only the uuids, in psychometrist `users.center_details.appointments.profile.{specialties,approaches}`; rawej resolves them against `GetAll` (active only), so hidden or deleted entries drop off patient-facing profiles. Registered after `MeetService` so the literal route beats `/meets/{uuid}`.
 
@@ -71,7 +71,7 @@ Consequence for Phase 2: a Gooyai webhook carries no user token, so reading the 
 
 The HTTP routes say `phone-assistant`, not the vendor, because the dashboard is white-label: no vendor name appears in its UI, code or the paths it calls. The vendor name stays inside meet (`pkg/gooyai`, `internal/gooyai`, the proto package).
 
-- The tenant is the caller's own uuid; only `Programmer` may pass `organizer_id` (same rule as `retrieveOrganizerUuid`). Never take a tenant or key from the request otherwise.
+- The tenant is the caller's own uuid; only `super-admin` may pass `organizer_id` (same rule as `retrieveOrganizerUuid`). Never take a tenant or key from the request otherwise.
 - Clinic not connected → `FAILED_PRECONDITION` (HTTP 400, `code: 9`). Gooyai rejecting the key is also `FAILED_PRECONDITION`, **never** `UNAUTHENTICATED`: the dashboard treats a 401 as its own session expiring and logs the user out.
 - Gooyai's error messages are Persian and never forwarded; map by status (`errors.Is(err, gooyai.ErrNotFound)` etc.).
 - `pkg/gooyai` retries GETs on 5xx/transport errors only — never writes, since Gooyai has no idempotency keys and a retried POST could double-book.

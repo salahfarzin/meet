@@ -86,7 +86,7 @@ The tests use mock authentication headers for simplicity:
 ```go
 X-User: test-user
 X-User-Uuid: test-user-uuid-123
-X-User-Roles: Programmer
+X-User-Roles: super-admin
 ```
 
 For production E2E tests, you would:

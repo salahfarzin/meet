@@ -247,7 +247,7 @@ func TestRetrieveOrganizerUuidAuthDisabledHonorsRequested(t *testing.T) {
 
 func TestRetrieveOrganizerUuidSuperAdminOverride(t *testing.T) {
 	h := NewHandler(&mockService{}, false)
-	ctx := ctxWithUser("admin-uuid", "Programmer")
+	ctx := ctxWithUser("admin-uuid", "super-admin")
 	got := h.retrieveOrganizerUuid(ctx, "requested-uuid")
 	assert.Equal(t, "requested-uuid", got)
 }

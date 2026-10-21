@@ -28,7 +28,7 @@ Layering is strict and interface-driven (`Handler` → `Service` → `Repository
 This service does **not** issue or validate tokens itself. `rest.go`'s `AuthMiddleware` takes the incoming `Bearer` token and calls `AUTH_SERVICE + "/me"`; on 200 it injects the `User` (uuid, roles) into context. The gateway forwards `x-user`, `x-user-uuid`, `x-user-roles` headers as gRPC metadata.
 
 - `APP_ENV=test` swaps in `TestAuthMiddleware` (auth disabled) for E2E.
-- `retrieveOrganizerUuid` (handler.go): organizer defaults to the authenticated user's uuid; only the `Programmer` role may set an arbitrary `organizer_uuid` (admin/impersonation).
+- `retrieveOrganizerUuid` (handler.go): organizer defaults to the authenticated user's uuid; only the `super-admin` role may set an arbitrary `organizer_uuid` (admin/impersonation).
 
 ## Health & docs
 

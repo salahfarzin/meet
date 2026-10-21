@@ -403,7 +403,7 @@ func TestCreateMeetConflict(t *testing.T) {
 
 func TestGetAllMeets(t *testing.T) {
 	md := metadata.New(map[string]string{
-		"x-user-roles": "Programmer",
+		"x-user-roles": "super-admin",
 		"x-user-uuid":  "user1",
 	})
 	ctx := metadata.NewIncomingContext(context.Background(), md)
@@ -417,7 +417,7 @@ func TestGetAllMeets(t *testing.T) {
 
 func TestGetAllMeetsCursorFieldsPassThrough(t *testing.T) {
 	md := metadata.New(map[string]string{
-		"x-user-roles": "Programmer",
+		"x-user-roles": "super-admin",
 		"x-user-uuid":  "user1",
 	})
 	ctx := metadata.NewIncomingContext(context.Background(), md)
@@ -449,7 +449,7 @@ func TestGetAllMeetsCursorFieldsPassThrough(t *testing.T) {
 
 func TestGetAllMeetsOffsetModeLeavesCursorFieldsEmpty(t *testing.T) {
 	md := metadata.New(map[string]string{
-		"x-user-roles": "Programmer",
+		"x-user-roles": "super-admin",
 		"x-user-uuid":  "user1",
 	})
 	ctx := metadata.NewIncomingContext(context.Background(), md)
@@ -483,7 +483,7 @@ func TestGetAllMeetsError(t *testing.T) {
 
 func TestGetAllMeetsWithDateRange(t *testing.T) {
 	md := metadata.New(map[string]string{
-		"x-user-roles": "Programmer",
+		"x-user-roles": "super-admin",
 		"x-user-uuid":  "user1",
 	})
 	ctx := metadata.NewIncomingContext(context.Background(), md)
@@ -501,7 +501,7 @@ func TestGetAllMeetsWithDateRange(t *testing.T) {
 
 func TestGetAllMeetsWithFromDateOnly(t *testing.T) {
 	md := metadata.New(map[string]string{
-		"x-user-roles": "Programmer",
+		"x-user-roles": "super-admin",
 		"x-user-uuid":  "user1",
 	})
 	ctx := metadata.NewIncomingContext(context.Background(), md)
@@ -518,7 +518,7 @@ func TestGetAllMeetsWithFromDateOnly(t *testing.T) {
 
 func TestGetAllMeetsWithToDateOnly(t *testing.T) {
 	md := metadata.New(map[string]string{
-		"x-user-roles": "Programmer",
+		"x-user-roles": "super-admin",
 		"x-user-uuid":  "user1",
 	})
 	ctx := metadata.NewIncomingContext(context.Background(), md)
@@ -535,7 +535,7 @@ func TestGetAllMeetsWithToDateOnly(t *testing.T) {
 
 func TestGetAllMeetsWithInvalidFromDate(t *testing.T) {
 	md := metadata.New(map[string]string{
-		"x-user-roles": "Programmer",
+		"x-user-roles": "super-admin",
 		"x-user-uuid":  "user1",
 	})
 	ctx := metadata.NewIncomingContext(context.Background(), md)
@@ -553,7 +553,7 @@ func TestGetAllMeetsWithInvalidFromDate(t *testing.T) {
 
 func TestGetAllMeetsWithInvalidToDate(t *testing.T) {
 	md := metadata.New(map[string]string{
-		"x-user-roles": "Programmer",
+		"x-user-roles": "super-admin",
 		"x-user-uuid":  "user1",
 	})
 	ctx := metadata.NewIncomingContext(context.Background(), md)
@@ -571,7 +571,7 @@ func TestGetAllMeetsWithInvalidToDate(t *testing.T) {
 
 func TestGetAllMeetsWithPartiallyInvalidDates(t *testing.T) {
 	md := metadata.New(map[string]string{
-		"x-user-roles": "Programmer",
+		"x-user-roles": "super-admin",
 		"x-user-uuid":  "user1",
 	})
 	ctx := metadata.NewIncomingContext(context.Background(), md)
@@ -608,7 +608,7 @@ func TestHandlerGetAllMapsSettingsCreatedAtAndParticipantUuid(t *testing.T) {
 	h := NewHandler(svc)
 
 	md := metadata.New(map[string]string{
-		"x-user-roles": "Programmer",
+		"x-user-roles": "super-admin",
 		"x-user-uuid":  "clinic-1",
 	})
 	ctx := metadata.NewIncomingContext(context.Background(), md)
@@ -837,7 +837,7 @@ func TestGetAvailabilityInvalidRequest(t *testing.T) {
 
 func TestGetAvailabilityError(t *testing.T) {
 	md := metadata.New(map[string]string{
-		"x-user-roles": "Programmer",
+		"x-user-roles": "super-admin",
 		"x-user-uuid":  "user1",
 	})
 	ctx := metadata.NewIncomingContext(context.Background(), md)
@@ -945,14 +945,14 @@ func TestGetOneMeetBookedAt(t *testing.T) {
 	assert.NotNil(t, resp.Meet.BookedAt)
 }
 
-func TestGetAllMeetsNonProgrammer(t *testing.T) {
+func TestGetAllMeetsNonSuperAdmin(t *testing.T) {
 	md := metadata.New(map[string]string{
 		"x-user-roles": "User",
 		"x-user-uuid":  "user1",
 	})
 	ctx := metadata.NewIncomingContext(context.Background(), md)
 	h := NewHandler(NewMockService())
-	// As a non-programmer, requesting any organizer ID should be overridden by own UUID
+	// As a non-super-admin, requesting any organizer ID should be overridden by own UUID
 	resp, err := h.GetAll(ctx, &pb.GetAllRequest{OrganizerId: "other-org"})
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
@@ -961,9 +961,9 @@ func TestGetAllMeetsNonProgrammer(t *testing.T) {
 // TestGetAllReturnsPaginatedEnriched verifies that GetAll maps request filters into
 // ListSchedulingInput and returns enriched meets with Total/Page/PageSize populated.
 func TestGetAllReturnsPaginatedEnriched(t *testing.T) {
-	// Programmer (RoleSuperAdmin) context - unrestricted, no clinic scoping.
+	// Super admin (RoleSuperAdmin) context - unrestricted, no clinic scoping.
 	md := metadata.New(map[string]string{
-		"x-user-roles": "Programmer",
+		"x-user-roles": "super-admin",
 		"x-user-uuid":  "admin-user",
 	})
 	ctx := metadata.NewIncomingContext(context.Background(), md)
@@ -988,7 +988,7 @@ func TestGetAllReturnsPaginatedEnriched(t *testing.T) {
 // consults an identity service; every non-superadmin caller is scoped this way).
 func TestGetAllNonSuperAdminScopedToOwnUUID(t *testing.T) {
 	md := metadata.New(map[string]string{
-		"x-user-roles": "Admin",
+		"x-user-roles": "admin",
 		"x-user-uuid":  "admin-user",
 	})
 	ctx := metadata.NewIncomingContext(context.Background(), md)
@@ -1007,12 +1007,12 @@ func TestGetAllNonSuperAdminScopedToOwnUUID(t *testing.T) {
 	assert.Equal(t, []string{"admin-user"}, gotAllowedClinics)
 }
 
-// TestGetAllProgrammerIsUnrestricted verifies that a RoleSuperAdmin ("Programmer")
+// TestGetAllSuperAdminIsUnrestricted verifies that a RoleSuperAdmin ("super-admin")
 // caller bypasses clinic scoping entirely - Unrestricted is set and AllowedClinics
 // is empty.
-func TestGetAllProgrammerIsUnrestricted(t *testing.T) {
+func TestGetAllSuperAdminIsUnrestricted(t *testing.T) {
 	md := metadata.New(map[string]string{
-		"x-user-roles": "Programmer",
+		"x-user-roles": "super-admin",
 		"x-user-uuid":  "admin-user",
 	})
 	ctx := metadata.NewIncomingContext(context.Background(), md)
@@ -1056,7 +1056,7 @@ func TestGetAllNonAdminClinicScope(t *testing.T) {
 // TestGetAllAdminDefaultsPage verifies page defaults (1/50) are applied.
 func TestGetAllAdminDefaultsPage(t *testing.T) {
 	md := metadata.New(map[string]string{
-		"x-user-roles": "Admin",
+		"x-user-roles": "admin",
 		"x-user-uuid":  "admin1",
 	})
 	ctx := metadata.NewIncomingContext(context.Background(), md)
@@ -1097,12 +1097,12 @@ func TestSettingsFromStruct(t *testing.T) {
 	assert.Contains(t, *got, "dark")
 }
 
-// TestRetrieveOrganizerUuidProgrammerOverride verifies that a Programmer-role
+// TestRetrieveOrganizerUuidSuperAdminOverride verifies that a super-admin
 // caller's requested organizer_uuid is honored (admin/impersonation), instead
 // of being overridden by the caller's own uuid.
-func TestRetrieveOrganizerUuidProgrammerOverride(t *testing.T) {
+func TestRetrieveOrganizerUuidSuperAdminOverride(t *testing.T) {
 	md := metadata.New(map[string]string{
-		"x-user-roles": "Programmer",
+		"x-user-roles": "super-admin",
 		"x-user-uuid":  "admin-uuid-1",
 	})
 	ctx := metadata.NewIncomingContext(context.Background(), md)

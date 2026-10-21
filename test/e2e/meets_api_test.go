@@ -698,7 +698,7 @@ func TestMeetsAPIRoles(t *testing.T) {
 
 	// 1. As a normal user, try to create a meet for someone else
 	normalHeaders := GetAuthHeaders()
-	normalHeaders["X-User-Roles"] = "User" // Remove Programmer role
+	normalHeaders["X-User-Roles"] = "User" // Remove the super-admin role
 
 	resp := config.DoRequest(t, APIRequest{
 		Method: http.MethodPost,
@@ -716,7 +716,7 @@ func TestMeetsAPIRoles(t *testing.T) {
 	var result CreateMeetResponse
 	resp.DecodeJSON(t, &result)
 
-	// Since the user is not a Programmer, the organizer_uuid should be overridden by their own UUID
+	// Since the user is not a super admin, the organizer_uuid should be overridden by their own UUID
 	if result.Meet.OrganizerUUID == otherUserUUID {
 		t.Errorf("Expected organizer_uuid to be overridden, but it was still %s", otherUserUUID)
 	}
@@ -724,18 +724,18 @@ func TestMeetsAPIRoles(t *testing.T) {
 		t.Errorf("Expected organizer_uuid to be user's own UUID %s, got %s", normalHeaders["X-User-Uuid"], result.Meet.OrganizerUUID)
 	}
 
-	// 2. As a Programmer, try to create a meet for someone else
+	// 2. As a super admin, try to create a meet for someone else
 	startTime2 := now.Add(12 * 24 * time.Hour).Format(time.RFC3339)
 	endTime2 := now.Add(12*24*time.Hour + time.Hour).Format(time.RFC3339)
 
 	progHeaders := GetAuthHeaders()
-	progHeaders["X-User-Roles"] = "Programmer"
+	progHeaders["X-User-Roles"] = "super-admin"
 
 	resp2 := config.DoRequest(t, APIRequest{
 		Method: http.MethodPost,
 		Path:   "/meets",
 		Body: map[string]interface{}{
-			"title":          "Meet for someone else as Programmer",
+			"title":          "Meet for someone else as super admin",
 			"organizer_uuid": otherUserUUID,
 			"start":          startTime2,
 			"end":            endTime2,
@@ -747,7 +747,7 @@ func TestMeetsAPIRoles(t *testing.T) {
 	var result2 CreateMeetResponse
 	resp2.DecodeJSON(t, &result2)
 
-	// Since the user is a Programmer, the organizer_uuid should be accepted
+	// Since the user is a super admin, the organizer_uuid should be accepted
 	if result2.Meet.OrganizerUUID != otherUserUUID {
 		t.Errorf("Expected organizer_uuid to be accepted as %s, got %s", otherUserUUID, result2.Meet.OrganizerUUID)
 	}
