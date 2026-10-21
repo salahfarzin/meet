@@ -65,7 +65,7 @@ type storedConnection struct {
 }
 
 // usersRepository keeps each clinic's connection in its user settings
-// (psychometrist's users_info.center_details, "settings" on /users/{uuid}),
+// on the identity (auth) service ("settings" on /users/{uuid}),
 // under phone_assistant. It calls the users service as the caller, forwarding
 // their own bearer token, so the users service's own rules decide whose
 // settings may be read or changed.
