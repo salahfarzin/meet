@@ -35,6 +35,33 @@ This service does **not** issue or validate tokens itself. `rest.go`'s `AuthMidd
 
 Meet calls one external service, **identity**, which handles both auth and users. It is configured through two variables that point at the same service:
 
+```mermaid
+flowchart LR
+    dash["dashboard<br/>(browser)"]
+    gooyai["Gooyai<br/>Partner API"]
+
+    subgraph meet["meet"]
+        rest["REST gateway<br/>AuthMiddleware"]
+        grpc["gRPC handlers<br/>meets · specialties · gooyai"]
+        users["gooyai.usersRepository<br/>seal / open key<br/>(GOOYAI_ENCRYPTION_KEY)"]
+        db[("MySQL<br/>meets, specialties,<br/>templates")]
+    end
+
+    subgraph identity["identity (auth + users)"]
+        me["/v1/auth/me"]
+        usr["/v1/users/{uuid}<br/>settings.phone_assistant<br/>(ciphertext only)"]
+    end
+
+    dash -- "Bearer JWT" --> rest
+    rest -- "AUTH_SERVICE + /me<br/>every request" --> me
+    rest --> grpc
+    grpc --> db
+    grpc -- "phone assistant only" --> users
+    users -- "USERS_SERVICE + /users/{uuid}<br/>GET / PUT, caller's token" --> usr
+    grpc -- "plaintext key,<br/>per-clinic proxy" --> gooyai
+    dash -. "GET /users/{uuid}<br/>sees ciphertext only" .-> usr
+```
+
 | var | example | used for |
 |-----|---------|----------|
 | `AUTH_SERVICE` | `https://id.example.com/v1/auth` | `GET /me` per request, to resolve the caller (required) |
@@ -45,6 +72,59 @@ Meet calls one external service, **identity**, which handles both auth and users
 - No table or migration in meet; the key lives with the clinic's other settings.
 - Identity's own rules decide who may touch whose settings, because meet calls it with the **caller's own bearer token**. Meet doesn't need its own ownership check.
 - Settings reach the browser, so meet stores only AES-256-GCM ciphertext (`GOOYAI_ENCRYPTION_KEY`); the plaintext key exists only inside meet.
+
+Saving a connection (`PUT /meets/phone-assistant/connection`):
+
+```mermaid
+sequenceDiagram
+    participant D as dashboard
+    participant M as meet
+    participant I as identity
+    participant G as Gooyai
+
+    D->>M: PUT connection {api_key, environment, proxy_url} + Bearer
+    M->>I: GET /auth/me (AUTH_SERVICE)
+    I-->>M: user uuid, roles
+    M->>G: probe with api_key
+    alt key rejected
+        G-->>M: 401/403
+        M-->>D: INVALID_ARGUMENT, nothing stored
+    else key accepted
+        G-->>M: 200
+        M->>M: seal key + proxy (AES-256-GCM)
+        M->>I: PUT /users/{uuid} settings.phone_assistant (USERS_SERVICE, caller's token)
+        M->>I: GET /users/{uuid}, read back
+        alt phone_assistant missing (identity dropped the key)
+            M-->>D: error
+        else stored
+            M-->>D: {connected, environment, key_last4}, never the key
+        end
+    end
+```
+
+Using it (`GET /meets/calls`, `/providers`):
+
+```mermaid
+sequenceDiagram
+    participant D as dashboard
+    participant M as meet
+    participant I as identity
+    participant G as Gooyai
+
+    D->>M: GET /meets/calls + Bearer
+    M->>I: GET /auth/me (AUTH_SERVICE)
+    M->>I: GET /users/{uuid} (USERS_SERVICE, caller's token)
+    alt no phone_assistant
+        M-->>D: FAILED_PRECONDITION (not connected)
+    else connected
+        M->>M: open sealed key
+        M->>G: list incoming calls with clinic's key
+        G-->>M: calls
+        M-->>D: {calls, total, page, ...}
+    end
+```
+
+A Gooyai webhook (Phase 2) would enter at `M` with no Bearer token, so meet couldn't make the `GET /users/{uuid}` call. That is the webhook cost listed below.
 
 Costs:
 
