@@ -13,11 +13,13 @@ import (
 	"time"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"github.com/salahfarzin/meet/docs/changelog"
 	"github.com/salahfarzin/meet/internal/health"
 	"github.com/salahfarzin/meet/internal/meets"
 	"github.com/salahfarzin/meet/pkg/swagger"
 	"github.com/salahfarzin/meet/router"
 	"github.com/salahfarzin/utils/middlewares"
+	"github.com/salahfarzin/utils/releasenotes"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -52,6 +54,9 @@ func (s *RESTServer) Start(ctx context.Context) error {
 	}
 
 	// Health check endpoints (bypass authentication middleware)
+	// Release notes, for content-manager's What's new editor: internal, nginx doesn't route it.
+	http.Handle(releasenotes.Path, releasenotes.Handler(changelog.Files, "meet"))
+
 	healthHandler := health.NewHealthHandler(s.App.DB, s.App.Configs.Version)
 	http.HandleFunc(prefix+"/health", healthHandler.Health)
 	http.HandleFunc(prefix+"/live", healthHandler.Live)
