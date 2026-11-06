@@ -17,3 +17,7 @@ docs/
 *.test
 *.out
 coverage.*
+
+# Release notes: embedded and served at /release-notes.
+!docs/changelog
+!docs/changelog/*.md

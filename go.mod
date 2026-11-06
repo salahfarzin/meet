@@ -1,6 +1,6 @@
 module github.com/salahfarzin/meet
 
-go 1.27.1
+go 1.27.3
 
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
@@ -9,7 +9,7 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.28.0
 	github.com/joho/godotenv v1.5.1
 	github.com/salahfarzin/logger v0.1.2
-	github.com/salahfarzin/utils v1.1.0
+	github.com/salahfarzin/utils v1.5.1-0.20261106085226-c162342e5d16
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/zap v1.27.1
 	google.golang.org/genproto/googleapis/api v0.0.0-20260223185530-2f722ef697dc
